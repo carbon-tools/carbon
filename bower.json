@@ -1,0 +1,14 @@
+{
+  "name": "editor",
+  "version": "0.0.0",
+  "author": "Manshar",
+  "main": "dist/editor.standalone.min.js",
+  "license": "Simplified BSD",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test"
+  ],
+  "dependencies": {}
+}

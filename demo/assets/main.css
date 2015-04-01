@@ -1,0 +1,20 @@
+/* Styles for editor demo
+ *
+ * Author: Manshar
+ */
+
+/* === resets === */
+body {
+  margin: 0;
+  font-size: 20px;
+}
+
+#container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 1em;
+}
+
+#editor {
+  outline: none;
+}
