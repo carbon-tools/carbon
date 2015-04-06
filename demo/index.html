@@ -4,17 +4,35 @@
     <title>Editor demo</title>
     <link rel="stylesheet" href="./assets/normalize.css" />
     <link rel="stylesheet" href="./assets/main.css" />
+    <link href="libs/json-tree/css/jsontree.css" rel="stylesheet">
+    <script src="libs/json-tree/jsontree.js"></script>
   </head>
   <body>
 
     <div id="container">
       <div id="editor">
       </div>
+      <!--
+        Print side by side the internal model to illustrate how Manshar Editor
+        store and updates the model.
+
+        TODO(mkhatib):
+        Possibly also allow editing the model and reflecting that as DOM
+        changes in the editor.
+       -->
+      <pre id="model-viewer">
+      </pre>
     </div>
 
     <script src="./../dist/editor.standalone.js"></script>
     <script>
       var editor = new manshar.Editor(document.getElementById('editor'));
+      var model = document.getElementById('model-viewer');
+      editor.addEventListener('change', function(event) {
+        // console.log(event);
+        model.innerHTML = JSONTree.create(editor.getJSONModel());
+      });
+      model.innerHTML = JSONTree.create(editor.getJSONModel());
     </script>
   </body>
 </html>

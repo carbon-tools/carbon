@@ -109,7 +109,7 @@ module.exports = function(grunt) {
     watch: {
       dist: {
         files: ['<%= srcDir %>/**/*.js', '<%= testDir %>/**/*.spec.js'],
-        tasks: ['browserify:tests', 'karma:unit:run', 'jshint']
+        tasks: ['browserify', 'uglify', 'concat', 'karma:continous', 'jshint']
       }
     },
 
@@ -148,7 +148,8 @@ module.exports = function(grunt) {
     'uglify',
     'concat',
     'karma:unit',
-    'jshint'
+    'jshint',
+    'watch'
   ]);
 
 };

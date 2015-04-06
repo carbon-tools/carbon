@@ -2,51 +2,128 @@
 
 var Article = require('./article');
 var Paragraph = require('./paragraph');
+var Section = require('./section');
+var Utils = require('./utils');
 
 /**
  * Editor main.
+ * @param {HTMLElement} element Editor element to decorate.
  */
 var Editor = function(element) {
+
+  /**
+   * Element to decorate the editor on.
+   * @type {HTMLElement}
+   */
   this.element = element;
 
-  this.article = new Article();
+  /**
+   * Main article model.
+   * @type {Article}
+   */
+  this.article = null;
 
   this.init();
 };
+Editor.prototype = new Utils.CustomEventTarget();
 module.exports = Editor;
 
 
+/**
+ * Initialize the editor article model and event listeners.
+ */
 Editor.prototype.init = function() {
   // This is just to render and test the initial dom creation.
   // This will probably change dramatically as we go forward.
   // TODO(mkhatib): Drop these.
 
-  var title = new Paragraph();
-  title.text = 'Manshar Document Editor Demo';
-  title.paragraphType = Paragraph.Types.MainHeader;
-  this.article.insertParagraph(title);
+  var section = new Section({
+    paragraphs: [
+      new Paragraph({
+        placeholderText: 'Manshar Editor Demo',
+        paragraphType: Paragraph.Types.MainHeader
+      }),
+      new Paragraph({
+        placeholderText: 'This is just a demo.',
+        paragraphType: Paragraph.Types.ThirdHeader
+      }),
+      new Paragraph({
+        placeholderText: 'Play around and see the internal model of the article being displayed to the right. The Editor is still under development.'
+      })
+    ]
+  });
 
-  var paragraph = new Paragraph();
-  paragraph.text = ('This is just to kick off the development of a new,' +
-    ' better rich document editor.');
-  this.article.insertParagraph(paragraph);
+  this.article = new Article({
+    sections: [section]
+  });
+  this.article.selection.initSelectionListener(this.element);
 
-  var subHeader = new Paragraph();
-  subHeader.text = ('Under Development...');
-  subHeader.paragraphType = Paragraph.Types.SecondaryHeader;
-  this.article.insertParagraph(subHeader);
+  this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.className += ' manshar-editor';
+  this.element.setAttribute('contenteditable', true);
+  this.element.appendChild(this.article.dom);
 
-  this.element.contentEditable = true;
-  this.element.appendChild(this.dom());
+  this.article.selection.setCursor({
+    paragraph: section.paragraphs[0],
+    offset: 0
+  });
 };
 
 
-Editor.prototype.dom = function() {
-  return this.article.dom();
+/**
+ * Handels `keydown` events.
+ * @param  {Event} event Event object.
+ */
+Editor.prototype.handleKeyDownEvent = function(event) {
+  var preventDefault = false;
+  var currentParagraph = this.article.selection.getParagraphAtEnd();
+  switch (event.keyCode) {
+    // Enter.
+    case 13:
+      // TODO(mkhatib): Maybe Move handling the enter to inside the Paragraph
+      // class.
+      // TODO(mkhatib): What if text were already selected?
+      // TODO(mkhatib): What if pressing enter at beginning of paragraph or in
+      // the middle of it.
+
+      // If the next paragraph is a placeholder, just move the cursor to it
+      // and don't insert a new paragraph.
+      var nextParagraph = currentParagraph.getNextParagraph();
+      if (nextParagraph && nextParagraph.isPlaceholder()) {
+        this.article.selection.setCursor({
+          paragraph: nextParagraph,
+          offset: 0
+        });
+      } else {
+        var newParagraph = new Paragraph();
+        this.article.insertParagraph(newParagraph);
+      }
+      preventDefault = true;
+      break;
+    default:
+      break;
+  }
+
+  if (preventDefault) {
+    event.preventDefault();
+    event.stopPropagation();
+  } else if (currentParagraph) {
+    // Update current paragraph internal text model.
+    setTimeout(currentParagraph.updateTextFromDom.bind(currentParagraph), 5);
+  }
+
+  // Dispatch a `change` event
+  var dispatchEvent = this.dispatchEvent.bind(this);
+  setTimeout(function() {
+    dispatchEvent(new Event('change'));
+  }, 10);
 };
 
 
-Editor.prototype.addText = function(text) {
-  var paragraph = this.article.selection.getParagraphAtStart();
-  paragraph.text = text;
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this paragraph.
+ */
+Editor.prototype.getJSONModel = function() {
+  return this.article.getJSONModel();
 };

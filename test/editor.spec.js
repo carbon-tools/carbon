@@ -5,8 +5,6 @@ describe('Editor', function() {
 
   it('should expose Editor constructor', function() {
     expect(Editor).not.toBe(undefined);
-    var element = document.createElement('div');
-    expect(new Editor(element)).not.toBe(undefined);
   });
 
 });

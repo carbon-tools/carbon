@@ -10,11 +10,50 @@ body {
 }
 
 #container {
-  max-width: 700px;
   margin: 0 auto;
+}
+
+#model-viewer {
+  margin-left: 50%;
+  background: #eee;
   padding: 1em;
+  word-wrap: break-word;
+  white-space: pre;
+  margin-top: 0;
+  height: 100%;
+  position: fixed;
+  overflow: auto;
+  font-size: 0.7em;
+  width: 50%;
 }
 
 #editor {
+  width: 50%;
+  float: left;
+  padding: 2em;
+  box-sizing: border-box;
+}
+
+/**
+ * The following are for the editor library and should be moved
+ * under src/ directory instead of demo.
+ */
+.manshar-editor {
   outline: none;
+}
+
+.manshar-editor h1 {
+  margin: 0;
+}
+
+.manshar-editor p {
+  margin: 2em 0;
+  line-height: 1.5;
+}
+
+.manshar-editor[contenteditable=true] [placeholder]:empty:before {
+  content: attr(placeholder);
+  cursor: text;
+  display: block; /* For Firefox */
+  color: #c0c0c0;
 }
