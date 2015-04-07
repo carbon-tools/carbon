@@ -1,3 +1,5 @@
+var modRewrite = require('connect-modrewrite');
+
 module.exports = function(grunt) {
   'use strict';
 
@@ -10,6 +12,7 @@ module.exports = function(grunt) {
     buildDir: "build",
     testDir: "test",
     distDir: "dist",
+    demoDir: "demo",
 
     clean: [ "<%= buildDir %>", "<%= distDir %>" ],
 
@@ -45,7 +48,8 @@ module.exports = function(grunt) {
       },
       dist: {
         files: {
-          '<%= distDir %>/<%= pkg.name %>.standalone.js': '<%= buildDir %>/<%= pkg.name %>.standalone.js'
+          '<%= distDir %>/<%= pkg.name %>.standalone.js': '<%= buildDir %>/<%= pkg.name %>.standalone.js',
+          '<%= demoDir %>/<%= pkg.name %>.standalone.js': '<%= buildDir %>/<%= pkg.name %>.standalone.js',
         }
       }
     },
@@ -108,15 +112,68 @@ module.exports = function(grunt) {
 
     watch: {
       dist: {
-        files: ['<%= srcDir %>/**/*.js', '<%= testDir %>/**/*.spec.js'],
-        tasks: ['browserify', 'uglify', 'concat', 'karma:continous', 'jshint']
+        files: ['<%= srcDir %>/**/*.js', '<%= testDir %>/**/*.spec.js', '<%= demoDir %>/**/*.js'],
+        tasks: ['build']
+      },
+      gruntfile: {
+        files: ['Gruntfile.js']
+      },
+      livereload: {
+        options: {
+          livereload: '<%= connect.options.livereload %>'
+        },
+        files: [
+          '<%= pkg.name %>/{,*/}*.html',
+          '.tmp/styles/{,*/}*.css',
+          '<%= pkg.name %>/images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
+        ]
       }
     },
 
     connect: {
+      options: {
+        port: grunt.option('port') || 8000,
+        hostname: 'localhost',
+        livereload: 35729,
+        debug: true,
+        middleware: function (connect, options) {
+          var optBase = (typeof options.base === 'string') ? [options.base] : options.base,
+              middleware = [modRewrite(['!\\.html|\\.js|\\.svg|\\.ttf|\\.woff|\\.woff2|\\.css|\\.png|\\.jpg\\.gif|\\swf$ / [L]'])]
+                .concat(optBase.map(function (path) {
+                  if (path.indexOf('rewrite|') === -1) {
+                    return connect.static(path);
+                  } else {
+                    path = path.replace(/\\/g, '/').split('|');
+                    return connect().use(path[1], connect.static(path[2]));
+                  }
+                }));
+
+          return middleware;
+        }
+      },
+      livereload: {
+        options: {
+          open: true,
+          base: [
+            'demo/',
+            '.tmp',
+            '<%= pkg.name %>'
+          ]
+        }
+      },
+      test: {
+        options: {
+          port: 9001,
+          base: [
+            '.tmp',
+            'test',
+            '<%= pkg.name %>'
+          ]
+        }
+      },
       dist: {
         options: {
-          port: 8000
+          base: '<%= distDir %>'
         }
       },
       coverage: {
@@ -131,6 +188,15 @@ module.exports = function(grunt) {
 
   });
 
+  grunt.registerTask('serve', function (target) {
+    grunt.task.run([
+      'clean',
+      'build',
+      'connect:livereload',
+      'watch'
+    ]);
+  });
+
   grunt.registerTask('coverage', [
     'karma:unitCoverage',
     'connect:coverage'
@@ -142,13 +208,17 @@ module.exports = function(grunt) {
     'karma:continous'
   ]);
 
-  grunt.registerTask('default', [
+  grunt.registerTask('build', [
     'clean',
     'browserify:standalone',
     'uglify',
     'concat',
     'karma:unit',
-    'jshint',
+    'jshint'
+  ]);
+
+  grunt.registerTask('default', [
+    'build',
     'watch'
   ]);
 
