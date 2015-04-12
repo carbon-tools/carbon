@@ -75,24 +75,38 @@ Editor.prototype.init = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
+  var selection = this.article.selection;
   var preventDefault = false;
+
+  // If selected text and key pressed will produce a change. Remove selected.
+  // i.e. Enter, characters, space, backspace...etc
+  if (selection.isRange() && Utils.willProduceChange(event)) {
+    selection.removeSelectedText();
+    // Only stop propagation on special characters (Enter, Delete, Backspace)
+    // We already handled or will handle them in the switch statement.
+    // For all others (e.g. typing a char key) don't stop propagation and
+    // allow the contenteditable to handle it.
+    var stopPropagationCodes = [13, 8, 46];
+    preventDefault = stopPropagationCodes.indexOf(event.keyCode) !== -1;
+  }
+
   var offsetAfterOperation;
-  var currentParagraph = this.article.selection.getParagraphAtEnd();
+  var currentParagraph = selection.getParagraphAtEnd();
   var nextParagraph = currentParagraph.getNextParagraph();
   var prevParagraph = currentParagraph.getPreviousParagraph();
+
   switch (event.keyCode) {
     // Enter.
     case 13:
       // TODO(mkhatib): Maybe Move handling the enter to inside the Paragraph
       // class.
-      // TODO(mkhatib): Multi-paragraph/Multi-section selection.
 
-      // If the next paragraph is a placeholder, just move the cursor to it
-      // and don't insert a new paragraph.
-      if (!this.article.selection.isCursorAtEnding()) {
+      if (!selection.isCursorAtEnding()) {
         currentParagraph.splitAtCursor();
       } else if (nextParagraph && nextParagraph.isPlaceholder()) {
-        this.article.selection.setCursor({
+        // If the next paragraph is a placeholder, just move the cursor to it
+        // and don't insert a new paragraph.
+        selection.setCursor({
           paragraph: nextParagraph,
           offset: 0
         });
@@ -106,10 +120,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Backspace.
     case 8:
       // If the cursor at the beginning of paragraph. Merge Paragraphs.
-      if (this.article.selection.isCursorAtBeginning() && prevParagraph) {
+      if (selection.isCursorAtBeginning() && prevParagraph) {
         offsetAfterOperation = prevParagraph.text.length;
         prevParagraph.mergeWith(currentParagraph);
-        this.article.selection.setCursor({
+        selection.setCursor({
           paragraph: prevParagraph,
           offset: offsetAfterOperation
         });
@@ -120,10 +134,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Delete.
     case 46:
       // If cursor at the end of the paragraph. Merge Paragraphs.
-      if (this.article.selection.isCursorAtEnding() && nextParagraph) {
+      if (selection.isCursorAtEnding() && nextParagraph) {
         offsetAfterOperation = currentParagraph.text.length;
         currentParagraph.mergeWith(nextParagraph);
-        this.article.selection.setCursor({
+        selection.setCursor({
           paragraph: currentParagraph,
           offset: offsetAfterOperation
         });

@@ -74,6 +74,31 @@ Utils.getUID = function(optLength) {
 
 
 /**
+ * Whether an event will produce change or not.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if the key will produce a change.
+ */
+Utils.willProduceChange = function(event) {
+  var NO_CHANGE_KEYS = [
+    // Command keys.
+    16, 17, 18, 19, 20, 27,
+    // Pages keys.
+    33, 34, 35, 36,
+    // Arrow keys.
+    37, 38, 39, 40,
+    // Other keys.
+    45, 91, 92, 93,
+    // Funcion Keys F1-F12
+    112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
+    // Locks
+    144, 145
+  ];
+
+  return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
+};
+
+
+/**
  * Custom Event Target base class to allow listening and firing events.
  */
 Utils.CustomEventTarget = function() {

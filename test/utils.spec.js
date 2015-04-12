@@ -52,4 +52,9 @@ describe('Utils.CustomEventTarget', function() {
     expect(callback).not.toHaveBeenCalled();
   });
 
+  it('should check if the event produces change', function() {
+    expect(Utils.willProduceChange({keyCode: 77})).toBe(true);
+    expect(Utils.willProduceChange({keyCode: 37})).toBe(false);
+    expect(Utils.willProduceChange({keyCode: 46})).toBe(true);
+  });
 });

@@ -99,6 +99,7 @@ describe('Selection', function() {
 
     expect(selection.isCursorAtBeginning()).toBe(false);
     expect(selection.isCursorAtEnding()).toBe(false);
+    expect(selection.isRange()).toBe(false);
 
     selection.setCursor({
       paragraph: paragraph,
@@ -106,6 +107,7 @@ describe('Selection', function() {
     });
     expect(selection.isCursorAtBeginning()).toBe(false);
     expect(selection.isCursorAtEnding()).toBe(true);
+    expect(selection.isRange()).toBe(false);
 
     selection.setCursor({
       paragraph: paragraph,
@@ -113,5 +115,68 @@ describe('Selection', function() {
     });
     expect(selection.isCursorAtBeginning()).toBe(true);
     expect(selection.isCursorAtEnding()).toBe(false);
+    expect(selection.isRange()).toBe(false);
+
+    selection.end = {
+      paragraph: paragraph,
+      offset: 5
+    };
+    expect(selection.isRange()).toBe(true);
+  });
+
+  it('should remove selected text', function() {
+    var section = new Section({
+      paragraphs: [new Paragraph({
+      text: 'Can I lay by your side?'
+    }), new Paragraph({
+      text: 'Next to you..'
+    }), new Paragraph({
+      text: 'Yo ho ho hooooo...'
+    }), new Paragraph({
+      text: 'How do you do it?'
+    }), new Paragraph({
+      text: 'Got me loosing every breath.'
+    })]
+    });
+    var selection = Selection.getInstance();
+    selection.setCursor({
+      paragraph: section.paragraphs[0],
+      offset: 5
+    });
+
+    // Remove nothing.
+    selection.removeSelectedText();
+    expect(section.paragraphs[0].text).toBe('Can I lay by your side?');
+    expect(selection.start.offset).toBe(5);
+
+    // Remove slected text from same paragraph.
+    selection.end = {
+      paragraph: section.paragraphs[0],
+      offset: 10
+    };
+
+    selection.removeSelectedText();
+    expect(section.paragraphs[0].text).toBe('Can Iby your side?');
+    expect(selection.start.offset).toBe(5);
+
+    // Remove text between two paragraphs.
+    selection.end = {
+      paragraph: section.paragraphs[1],
+      offset: 3
+    };
+    selection.removeSelectedText();
+    expect(section.paragraphs[0].text).toBe('Can It to you..');
+    expect(selection.start.offset).toBe(5);
+    expect(section.paragraphs.length).toBe(4);
+
+    // Remove text between more than two paragraphs.
+    selection.end = {
+      paragraph: section.paragraphs[3],
+      offset: 10
+    };
+    selection.removeSelectedText();
+    expect(section.paragraphs[0].text).toBe('Can Ising every breath.');
+    expect(selection.start.offset).toBe(5);
+    expect(section.paragraphs.length).toBe(1);
   });
 });

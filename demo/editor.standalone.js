@@ -211,24 +211,38 @@ Editor.prototype.init = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
+  var selection = this.article.selection;
   var preventDefault = false;
+
+  // If selected text and key pressed will produce a change. Remove selected.
+  // i.e. Enter, characters, space, backspace...etc
+  if (selection.isRange() && Utils.willProduceChange(event)) {
+    selection.removeSelectedText();
+    // Only stop propagation on special characters (Enter, Delete, Backspace)
+    // We already handled or will handle them in the switch statement.
+    // For all others (e.g. typing a char key) don't stop propagation and
+    // allow the contenteditable to handle it.
+    var stopPropagationCodes = [13, 8, 46];
+    preventDefault = stopPropagationCodes.indexOf(event.keyCode) !== -1;
+  }
+
   var offsetAfterOperation;
-  var currentParagraph = this.article.selection.getParagraphAtEnd();
+  var currentParagraph = selection.getParagraphAtEnd();
   var nextParagraph = currentParagraph.getNextParagraph();
   var prevParagraph = currentParagraph.getPreviousParagraph();
+
   switch (event.keyCode) {
     // Enter.
     case 13:
       // TODO(mkhatib): Maybe Move handling the enter to inside the Paragraph
       // class.
-      // TODO(mkhatib): Multi-paragraph/Multi-section selection.
 
-      // If the next paragraph is a placeholder, just move the cursor to it
-      // and don't insert a new paragraph.
-      if (!this.article.selection.isCursorAtEnding()) {
+      if (!selection.isCursorAtEnding()) {
         currentParagraph.splitAtCursor();
       } else if (nextParagraph && nextParagraph.isPlaceholder()) {
-        this.article.selection.setCursor({
+        // If the next paragraph is a placeholder, just move the cursor to it
+        // and don't insert a new paragraph.
+        selection.setCursor({
           paragraph: nextParagraph,
           offset: 0
         });
@@ -242,10 +256,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Backspace.
     case 8:
       // If the cursor at the beginning of paragraph. Merge Paragraphs.
-      if (this.article.selection.isCursorAtBeginning() && prevParagraph) {
+      if (selection.isCursorAtBeginning() && prevParagraph) {
         offsetAfterOperation = prevParagraph.text.length;
         prevParagraph.mergeWith(currentParagraph);
-        this.article.selection.setCursor({
+        selection.setCursor({
           paragraph: prevParagraph,
           offset: offsetAfterOperation
         });
@@ -256,10 +270,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Delete.
     case 46:
       // If cursor at the end of the paragraph. Merge Paragraphs.
-      if (this.article.selection.isCursorAtEnding() && nextParagraph) {
+      if (selection.isCursorAtEnding() && nextParagraph) {
         offsetAfterOperation = currentParagraph.text.length;
         currentParagraph.mergeWith(nextParagraph);
-        this.article.selection.setCursor({
+        selection.setCursor({
           paragraph: currentParagraph,
           offset: offsetAfterOperation
         });
@@ -621,9 +635,24 @@ Section.prototype.insertParagraph = function(paragraph) {
  */
 Section.prototype.removeParagraph = function(paragraph) {
   var index = this.paragraphs.indexOf(paragraph);
-  this.paragraphs.splice(index, 1);
-  this.dom.removeChild(paragraph.dom);
-  return paragraph;
+  var removedParagraph = this.paragraphs.splice(index, 1)[0];
+  this.dom.removeChild(removedParagraph.dom);
+  return removedParagraph;
+};
+
+
+/**
+ * Removes paragraphs from a section between two paragraphs (exclusive).
+ * @param  {Paragraph} startParagraph Starting paragraph.
+ * @param  {Paragraph} endParagraph Ending paragraph.
+ */
+Section.prototype.removeParagraphsBetween = function(
+    startParagraph, endParagraph) {
+  var startIndex = this.paragraphs.indexOf(startParagraph) + 1;
+  var endIndex = this.paragraphs.indexOf(endParagraph);
+  for (var i = startIndex; i < endIndex; i++) {
+    this.removeParagraph(this.paragraphs[startIndex]);
+  }
 };
 
 
@@ -812,8 +841,12 @@ var Selection = (function() {
       }
       end.paragraph = Utils.getReference(endNode.getAttribute('name'));
 
-      var reversedSelection = (end.paragraph === start.paragraph &&
-          end.offset < start.offset);
+      var endIndex = end.paragraph.section.paragraphs.indexOf(end.paragraph);
+      var startIndex = start.paragraph.section.paragraphs.indexOf(
+          start.paragraph);
+      var reversedSelection = ((end.paragraph === start.paragraph &&
+          end.offset < start.offset) || startIndex > endIndex);
+
       this.end = reversedSelection ? start : end;
       this.start = reversedSelection ? end : start;
     };
@@ -835,6 +868,41 @@ var Selection = (function() {
     Selection.prototype.isCursorAtEnding = function() {
       return (this.start.offset === this.start.paragraph.text.length &&
               this.end.offset === this.end.paragraph.text.length);
+    };
+
+
+    /**
+     * Whether the selection is a range.
+     * @return {boolean} True if a range is selected.
+     */
+    Selection.prototype.isRange = function() {
+      return (this.start.paragraph != this.end.paragraph ||
+              this.start.offset != this.end.offset);
+    };
+
+
+    /**
+     * Removes selected text.
+     */
+    Selection.prototype.removeSelectedText = function() {
+      // Removes all paragraphs in between the start and end of selection
+      // paragraphs.
+      var section = this.getSectionAtStart();
+      section.removeParagraphsBetween(this.start.paragraph, this.end.paragraph);
+
+      // Calculate the new text after deletion of selected.
+      var newOffset = this.start.offset;
+      var newText = this.start.paragraph.text.substring(0, this.start.offset);
+      newText += this.end.paragraph.text.substring(
+          this.end.offset, this.end.paragraph.text.length);
+      if (this.start.paragraph != this.end.paragraph) {
+        this.start.paragraph.mergeWith(this.end.paragraph);
+      }
+      this.start.paragraph.setText(newText);
+      this.setCursor({
+        paragraph: this.start.paragraph,
+        offset: newOffset
+      });
     };
 
 
@@ -945,6 +1013,31 @@ Utils.getUID = function(optLength) {
   }
 
   return chars.join('');
+};
+
+
+/**
+ * Whether an event will produce change or not.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if the key will produce a change.
+ */
+Utils.willProduceChange = function(event) {
+  var NO_CHANGE_KEYS = [
+    // Command keys.
+    16, 17, 18, 19, 20, 27,
+    // Pages keys.
+    33, 34, 35, 36,
+    // Arrow keys.
+    37, 38, 39, 40,
+    // Other keys.
+    45, 91, 92, 93,
+    // Funcion Keys F1-F12
+    112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
+    // Locks
+    144, 145
+  ];
+
+  return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
 };
 
 

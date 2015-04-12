@@ -105,9 +105,24 @@ Section.prototype.insertParagraph = function(paragraph) {
  */
 Section.prototype.removeParagraph = function(paragraph) {
   var index = this.paragraphs.indexOf(paragraph);
-  this.paragraphs.splice(index, 1);
-  this.dom.removeChild(paragraph.dom);
-  return paragraph;
+  var removedParagraph = this.paragraphs.splice(index, 1)[0];
+  this.dom.removeChild(removedParagraph.dom);
+  return removedParagraph;
+};
+
+
+/**
+ * Removes paragraphs from a section between two paragraphs (exclusive).
+ * @param  {Paragraph} startParagraph Starting paragraph.
+ * @param  {Paragraph} endParagraph Ending paragraph.
+ */
+Section.prototype.removeParagraphsBetween = function(
+    startParagraph, endParagraph) {
+  var startIndex = this.paragraphs.indexOf(startParagraph) + 1;
+  var endIndex = this.paragraphs.indexOf(endParagraph);
+  for (var i = startIndex; i < endIndex; i++) {
+    this.removeParagraph(this.paragraphs[startIndex]);
+  }
 };
 
 

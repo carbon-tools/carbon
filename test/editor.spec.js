@@ -167,5 +167,106 @@ describe('Editor', function() {
       expect(event.preventDefault.calls.count()).toBe(1);
       expect(event.stopPropagation.calls.count()).toBe(1);
     });
+
+    it('should remove selected text when backspace', function() {
+      var selection = Selection.getInstance();
+      var div = document.createElement('div');
+      var event = document.createEvent('CustomEvent');
+      event.keyCode = 8;
+      spyOn(event, 'preventDefault');
+      spyOn(event, 'stopPropagation');
+      spyOn(selection, 'initSelectionListener');
+      spyOn(div, 'addEventListener');
+
+      var editor = new Editor(div);
+      var section = editor.article.sections[0];
+      var numOfParagraph = section.paragraphs.length;
+      var paragraph = section.paragraphs[numOfParagraph - 1];
+      var prevParagraph = paragraph.getPreviousParagraph();
+      prevParagraph.setText('Goodbye ');
+      paragraph.setText('Hello world');
+
+      // When cursor at beginning of paragraph.
+      selection.start = {
+        paragraph: prevParagraph,
+        offset: 4
+      };
+      selection.end = {
+        paragraph: paragraph,
+        offset: 5
+      };
+      editor.handleKeyDownEvent(event);
+      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
+      expect(selection.getParagraphAtStart().text).toBe('Good world');
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(event.stopPropagation).toHaveBeenCalled();
+    });
+
+    it('should remove selected text when typing character', function() {
+      var selection = Selection.getInstance();
+      var div = document.createElement('div');
+      var event = document.createEvent('CustomEvent');
+      event.keyCode = 77;
+      spyOn(event, 'preventDefault');
+      spyOn(event, 'stopPropagation');
+      spyOn(selection, 'initSelectionListener');
+      spyOn(div, 'addEventListener');
+
+      var editor = new Editor(div);
+      var section = editor.article.sections[0];
+      var numOfParagraph = section.paragraphs.length;
+      var paragraph = section.paragraphs[numOfParagraph - 1];
+      var prevParagraph = paragraph.getPreviousParagraph();
+      prevParagraph.setText('Goodbye ');
+      paragraph.setText('Hello world');
+
+      // When cursor at beginning of paragraph.
+      selection.start = {
+        paragraph: prevParagraph,
+        offset: 4
+      };
+      selection.end = {
+        paragraph: paragraph,
+        offset: 5
+      };
+      editor.handleKeyDownEvent(event);
+      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(event.stopPropagation).not.toHaveBeenCalled();
+    });
+
+    it('should not remove selected text when non-changing key', function() {
+      var selection = Selection.getInstance();
+      var div = document.createElement('div');
+      var event = document.createEvent('CustomEvent');
+      event.keyCode = 17;
+      spyOn(event, 'preventDefault');
+      spyOn(event, 'stopPropagation');
+      spyOn(selection, 'initSelectionListener');
+      spyOn(div, 'addEventListener');
+
+      var editor = new Editor(div);
+      var section = editor.article.sections[0];
+      var numOfParagraph = section.paragraphs.length;
+      var paragraph = section.paragraphs[numOfParagraph - 1];
+      var prevParagraph = paragraph.getPreviousParagraph();
+      prevParagraph.setText('Goodbye ');
+      paragraph.setText('Hello world');
+
+      // When cursor at beginning of paragraph.
+      selection.start = {
+        paragraph: prevParagraph,
+        offset: 4
+      };
+      selection.end = {
+        paragraph: paragraph,
+        offset: 5
+      };
+      editor.handleKeyDownEvent(event);
+      expect(section.paragraphs.length).toBe(numOfParagraph);
+      expect(selection.getParagraphAtStart().text).toBe('Goodbye ');
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(event.stopPropagation).not.toHaveBeenCalled();
+    });
   });
 });

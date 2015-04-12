@@ -166,8 +166,12 @@ var Selection = (function() {
       }
       end.paragraph = Utils.getReference(endNode.getAttribute('name'));
 
-      var reversedSelection = (end.paragraph === start.paragraph &&
-          end.offset < start.offset);
+      var endIndex = end.paragraph.section.paragraphs.indexOf(end.paragraph);
+      var startIndex = start.paragraph.section.paragraphs.indexOf(
+          start.paragraph);
+      var reversedSelection = ((end.paragraph === start.paragraph &&
+          end.offset < start.offset) || startIndex > endIndex);
+
       this.end = reversedSelection ? start : end;
       this.start = reversedSelection ? end : start;
     };
@@ -189,6 +193,41 @@ var Selection = (function() {
     Selection.prototype.isCursorAtEnding = function() {
       return (this.start.offset === this.start.paragraph.text.length &&
               this.end.offset === this.end.paragraph.text.length);
+    };
+
+
+    /**
+     * Whether the selection is a range.
+     * @return {boolean} True if a range is selected.
+     */
+    Selection.prototype.isRange = function() {
+      return (this.start.paragraph != this.end.paragraph ||
+              this.start.offset != this.end.offset);
+    };
+
+
+    /**
+     * Removes selected text.
+     */
+    Selection.prototype.removeSelectedText = function() {
+      // Removes all paragraphs in between the start and end of selection
+      // paragraphs.
+      var section = this.getSectionAtStart();
+      section.removeParagraphsBetween(this.start.paragraph, this.end.paragraph);
+
+      // Calculate the new text after deletion of selected.
+      var newOffset = this.start.offset;
+      var newText = this.start.paragraph.text.substring(0, this.start.offset);
+      newText += this.end.paragraph.text.substring(
+          this.end.offset, this.end.paragraph.text.length);
+      if (this.start.paragraph != this.end.paragraph) {
+        this.start.paragraph.mergeWith(this.end.paragraph);
+      }
+      this.start.paragraph.setText(newText);
+      this.setCursor({
+        paragraph: this.start.paragraph,
+        offset: newOffset
+      });
     };
 
 
