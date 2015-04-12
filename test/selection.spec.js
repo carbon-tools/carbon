@@ -29,6 +29,18 @@ describe('Selection', function() {
     expect(function() { new Selection(); }).toThrowError(TypeError);
   });
 
+  it('should initialize event listeners', function() {
+    var selection = Selection.getInstance();
+    var div = document.createElement('div');
+    spyOn(div, 'addEventListener');
+    selection.initSelectionListener(div);
+
+    expect(div.addEventListener).toHaveBeenCalledWith(
+        'mouseup', jasmine.any(Function));
+    expect(div.addEventListener).toHaveBeenCalledWith(
+        'keyup', jasmine.any(Function));
+  });
+
   it('should return paragraphs and sections at selection', function() {
     var section = new Section({
       paragraphs: [
@@ -70,5 +82,36 @@ describe('Selection', function() {
     expect(selection.end.paragraph).toBe(paragraph);
     expect(selection.start.offset).toBe(5);
     expect(selection.end.offset).toBe(5);
+  });
+
+  it('should check if cursor at beginning or end', function() {
+    var section = new Section();
+    var paragraph = new Paragraph({
+      text: 'Hello World'
+    });
+    section.insertParagraph(paragraph);
+
+    var selection = Selection.getInstance();
+    selection.setCursor({
+      paragraph: paragraph,
+      offset: 5
+    });
+
+    expect(selection.isCursorAtBeginning()).toBe(false);
+    expect(selection.isCursorAtEnding()).toBe(false);
+
+    selection.setCursor({
+      paragraph: paragraph,
+      offset: 11
+    });
+    expect(selection.isCursorAtBeginning()).toBe(false);
+    expect(selection.isCursorAtEnding()).toBe(true);
+
+    selection.setCursor({
+      paragraph: paragraph,
+      offset: 0
+    });
+    expect(selection.isCursorAtBeginning()).toBe(true);
+    expect(selection.isCursorAtEnding()).toBe(false);
   });
 });

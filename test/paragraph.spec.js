@@ -74,4 +74,50 @@ describe('Paragraph', function() {
       paragraphType: 'p'
     });
   });
+
+  it('should split paragraph at cursor', function() {
+    var section = new Section();
+    var p1 = new Paragraph({
+      text: 'Hello world.'
+    });
+    var p2 = new Paragraph({
+      text: 'What is going on?'
+    });
+    section.insertParagraph(p1);
+    section.insertParagraph(p2);
+
+    var selection = Selection.getInstance();
+    selection.setCursor({
+      paragraph: p1,
+      offset: 6
+    });
+
+    var p3 = p1.splitAtCursor();
+
+    expect(p1.text).toBe('Hello ');
+    expect(p3.text).toBe('world.');
+    expect(selection.start.paragraph).toBe(p3);
+    expect(selection.end.paragraph).toBe(p3);
+    expect(selection.start.offset).toBe(0);
+    expect(selection.end.offset).toBe(0);
+    expect(section.paragraphs.length).toBe(3);
+  });
+
+  it('should merge paragraphs', function() {
+    var section = new Section();
+    var p1 = new Paragraph({
+      text: 'Hello world.'
+    });
+    var p2 = new Paragraph({
+      text: 'What is going on?'
+    });
+    section.insertParagraph(p1);
+    section.insertParagraph(p2);
+
+    p1.mergeWith(p2);
+
+    expect(section.paragraphs.length).toBe(1);
+    expect(p1.text).toBe('Hello world.What is going on?');
+  });
+
 });

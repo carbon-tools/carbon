@@ -212,20 +212,22 @@ Editor.prototype.init = function() {
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
   var preventDefault = false;
+  var offsetAfterOperation;
   var currentParagraph = this.article.selection.getParagraphAtEnd();
+  var nextParagraph = currentParagraph.getNextParagraph();
+  var prevParagraph = currentParagraph.getPreviousParagraph();
   switch (event.keyCode) {
     // Enter.
     case 13:
       // TODO(mkhatib): Maybe Move handling the enter to inside the Paragraph
       // class.
-      // TODO(mkhatib): What if text were already selected?
-      // TODO(mkhatib): What if pressing enter at beginning of paragraph or in
-      // the middle of it.
+      // TODO(mkhatib): Multi-paragraph/Multi-section selection.
 
       // If the next paragraph is a placeholder, just move the cursor to it
       // and don't insert a new paragraph.
-      var nextParagraph = currentParagraph.getNextParagraph();
-      if (nextParagraph && nextParagraph.isPlaceholder()) {
+      if (!this.article.selection.isCursorAtEnding()) {
+        currentParagraph.splitAtCursor();
+      } else if (nextParagraph && nextParagraph.isPlaceholder()) {
         this.article.selection.setCursor({
           paragraph: nextParagraph,
           offset: 0
@@ -235,6 +237,34 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         this.article.insertParagraph(newParagraph);
       }
       preventDefault = true;
+      break;
+
+    // Backspace.
+    case 8:
+      // If the cursor at the beginning of paragraph. Merge Paragraphs.
+      if (this.article.selection.isCursorAtBeginning() && prevParagraph) {
+        offsetAfterOperation = prevParagraph.text.length;
+        prevParagraph.mergeWith(currentParagraph);
+        this.article.selection.setCursor({
+          paragraph: prevParagraph,
+          offset: offsetAfterOperation
+        });
+        preventDefault = true;
+      }
+      break;
+
+    // Delete.
+    case 46:
+      // If cursor at the end of the paragraph. Merge Paragraphs.
+      if (this.article.selection.isCursorAtEnding() && nextParagraph) {
+        offsetAfterOperation = currentParagraph.text.length;
+        currentParagraph.mergeWith(nextParagraph);
+        this.article.selection.setCursor({
+          paragraph: currentParagraph,
+          offset: offsetAfterOperation
+        });
+        preventDefault = true;
+      }
       break;
     default:
       break;
@@ -276,7 +306,7 @@ module.exports.Selection = require('./selection');
 },{"./article":1,"./editor":2,"./paragraph":4,"./section":5,"./selection":6}],4:[function(require,module,exports){
 'use strict';
 
-// var Selection = require('./selection');
+var Selection = require('./selection');
 var Utils = require('./utils');
 
 
@@ -356,10 +386,7 @@ var Paragraph = function(optParams) {
     this.dom.innerHTML = '&#8203;';
   }
 
-  if (this.text.length) {
-    this.dom.innerText = this.text;
-  }
-
+  this.setText(params.text);
 };
 module.exports = Paragraph;
 
@@ -382,6 +409,20 @@ Paragraph.Types = {
 
 
 /**
+ * Updates the text for the paragraph.
+ * @param {string} text Text to update to.
+ */
+Paragraph.prototype.setText = function(text) {
+  this.text = text || '';
+  if (!this.text.length && !this.placeholderText) {
+    this.dom.innerHTML = '&#8203;';
+  } else {
+    this.dom.innerText = this.text;
+  }
+};
+
+
+/**
  * Whether this is a placeholder element.
  * @return {boolean} True if has placeholder text and no input text.
  */
@@ -398,6 +439,18 @@ Paragraph.prototype.getNextParagraph = function() {
   if (this.section) {
     var i = this.section.paragraphs.indexOf(this);
     return this.section.paragraphs[i + 1];
+  }
+};
+
+
+/**
+ * Get the previous paragraph if any.
+ * @return {Paragraph} Previous sibling paragraph.
+ */
+Paragraph.prototype.getPreviousParagraph = function() {
+  if (this.section) {
+    var i = this.section.paragraphs.indexOf(this);
+    return this.section.paragraphs[i - 1];
   }
 };
 
@@ -424,7 +477,43 @@ Paragraph.prototype.getJSONModel = function() {
   return paragraph;
 };
 
-},{"./utils":7}],5:[function(require,module,exports){
+
+/**
+ * Splits the paragraph into two after the cursor.
+ * @return {Paragraph} Newly created paragraph.
+ */
+Paragraph.prototype.splitAtCursor = function() {
+  var selection = Selection.getInstance();
+  // Store the text after the cursor.
+  var afterCursorText = this.text.substring(
+      selection.end.offset, this.text.length);
+
+  // Remove the text after the cursor from the current paragraph.
+  this.setText(this.text.substring(0, selection.start.offset));
+
+  // Create and insert the new paragraph with the text after cursor.
+  var newParagraph = new Paragraph({
+    text: afterCursorText
+  });
+  this.section.insertParagraph(newParagraph);
+
+  return newParagraph;
+};
+
+
+/**
+ * Merges the paragraph with the passed paragraph.
+ * @param  {Paragraph} paragraph The paragraph to merge with.
+ * @return {Paragraph} The merged paragraph.
+ */
+Paragraph.prototype.mergeWith = function(paragraph) {
+  var paragraphText = paragraph.text;
+  paragraph.section.removeParagraph(paragraph);
+  this.setText(this.text + paragraphText);
+  return this;
+};
+
+},{"./selection":6,"./utils":7}],5:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -521,6 +610,19 @@ Section.prototype.insertParagraph = function(paragraph) {
     offset: 0
   });
 
+  return paragraph;
+};
+
+
+/**
+ * Removes a paragraph from a section.
+ * @param  {Paragraph} paragraph To remove from section.
+ * @return {Paragraph} Removed paragraph.
+ */
+Section.prototype.removeParagraph = function(paragraph) {
+  var index = this.paragraphs.indexOf(paragraph);
+  this.paragraphs.splice(index, 1);
+  this.dom.removeChild(paragraph.dom);
   return paragraph;
 };
 
@@ -661,8 +763,19 @@ var Selection = (function() {
      */
     Selection.prototype.updateWindowSelectionFromModel = function() {
       var range = document.createRange();
-      range.setStart(this.start.paragraph.dom, this.start.offset);
-      range.setEnd(this.end.paragraph.dom, this.end.offset);
+      var startNode = this.start.paragraph.dom;
+      // Select the #text node instead of the parent element.
+      if (this.start.offset > 0) {
+        startNode = startNode.firstChild;
+      }
+      range.setStart(startNode, this.start.offset);
+
+      var endNode = this.end.paragraph.dom;
+      // Select the #text node instead of the parent element.
+      if (this.end.offset > 0) {
+        endNode = endNode.firstChild;
+      }
+      range.setEnd(endNode, this.end.offset);
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -699,8 +812,29 @@ var Selection = (function() {
       }
       end.paragraph = Utils.getReference(endNode.getAttribute('name'));
 
-      this.end = end;
-      this.start = start;
+      var reversedSelection = (end.paragraph === start.paragraph &&
+          end.offset < start.offset);
+      this.end = reversedSelection ? start : end;
+      this.start = reversedSelection ? end : start;
+    };
+
+
+    /**
+     * Whether the cursor is at beginning of a paragraph.
+     * @return {boolean} True if the cursor at the beginning of paragraph.
+     */
+    Selection.prototype.isCursorAtBeginning = function() {
+      return this.start.offset === 0 && this.end.offset === 0;
+    };
+
+
+    /**
+     * Whether the cursor is at ending of a paragraph.
+     * @return {boolean} True if the cursor at the ending of paragraph.
+     */
+    Selection.prototype.isCursorAtEnding = function() {
+      return (this.start.offset === this.start.paragraph.text.length &&
+              this.end.offset === this.end.paragraph.text.length);
     };
 
 

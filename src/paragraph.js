@@ -1,6 +1,6 @@
 'use strict';
 
-// var Selection = require('./selection');
+var Selection = require('./selection');
 var Utils = require('./utils');
 
 
@@ -80,10 +80,7 @@ var Paragraph = function(optParams) {
     this.dom.innerHTML = '&#8203;';
   }
 
-  if (this.text.length) {
-    this.dom.innerText = this.text;
-  }
-
+  this.setText(params.text);
 };
 module.exports = Paragraph;
 
@@ -102,6 +99,20 @@ Paragraph.Types = {
   Media: 'figure',
   Embed: 'embed',
   Iframe: 'iframe'
+};
+
+
+/**
+ * Updates the text for the paragraph.
+ * @param {string} text Text to update to.
+ */
+Paragraph.prototype.setText = function(text) {
+  this.text = text || '';
+  if (!this.text.length && !this.placeholderText) {
+    this.dom.innerHTML = '&#8203;';
+  } else {
+    this.dom.innerText = this.text;
+  }
 };
 
 
@@ -127,6 +138,18 @@ Paragraph.prototype.getNextParagraph = function() {
 
 
 /**
+ * Get the previous paragraph if any.
+ * @return {Paragraph} Previous sibling paragraph.
+ */
+Paragraph.prototype.getPreviousParagraph = function() {
+  if (this.section) {
+    var i = this.section.paragraphs.indexOf(this);
+    return this.section.paragraphs[i - 1];
+  }
+};
+
+
+/**
  * Updates internal text from DOM element.
  */
 Paragraph.prototype.updateTextFromDom = function() {
@@ -146,4 +169,40 @@ Paragraph.prototype.getJSONModel = function() {
   };
 
   return paragraph;
+};
+
+
+/**
+ * Splits the paragraph into two after the cursor.
+ * @return {Paragraph} Newly created paragraph.
+ */
+Paragraph.prototype.splitAtCursor = function() {
+  var selection = Selection.getInstance();
+  // Store the text after the cursor.
+  var afterCursorText = this.text.substring(
+      selection.end.offset, this.text.length);
+
+  // Remove the text after the cursor from the current paragraph.
+  this.setText(this.text.substring(0, selection.start.offset));
+
+  // Create and insert the new paragraph with the text after cursor.
+  var newParagraph = new Paragraph({
+    text: afterCursorText
+  });
+  this.section.insertParagraph(newParagraph);
+
+  return newParagraph;
+};
+
+
+/**
+ * Merges the paragraph with the passed paragraph.
+ * @param  {Paragraph} paragraph The paragraph to merge with.
+ * @return {Paragraph} The merged paragraph.
+ */
+Paragraph.prototype.mergeWith = function(paragraph) {
+  var paragraphText = paragraph.text;
+  paragraph.section.removeParagraph(paragraph);
+  this.setText(this.text + paragraphText);
+  return this;
 };

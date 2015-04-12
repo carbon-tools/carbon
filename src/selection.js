@@ -117,8 +117,19 @@ var Selection = (function() {
      */
     Selection.prototype.updateWindowSelectionFromModel = function() {
       var range = document.createRange();
-      range.setStart(this.start.paragraph.dom, this.start.offset);
-      range.setEnd(this.end.paragraph.dom, this.end.offset);
+      var startNode = this.start.paragraph.dom;
+      // Select the #text node instead of the parent element.
+      if (this.start.offset > 0) {
+        startNode = startNode.firstChild;
+      }
+      range.setStart(startNode, this.start.offset);
+
+      var endNode = this.end.paragraph.dom;
+      // Select the #text node instead of the parent element.
+      if (this.end.offset > 0) {
+        endNode = endNode.firstChild;
+      }
+      range.setEnd(endNode, this.end.offset);
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -155,8 +166,29 @@ var Selection = (function() {
       }
       end.paragraph = Utils.getReference(endNode.getAttribute('name'));
 
-      this.end = end;
-      this.start = start;
+      var reversedSelection = (end.paragraph === start.paragraph &&
+          end.offset < start.offset);
+      this.end = reversedSelection ? start : end;
+      this.start = reversedSelection ? end : start;
+    };
+
+
+    /**
+     * Whether the cursor is at beginning of a paragraph.
+     * @return {boolean} True if the cursor at the beginning of paragraph.
+     */
+    Selection.prototype.isCursorAtBeginning = function() {
+      return this.start.offset === 0 && this.end.offset === 0;
+    };
+
+
+    /**
+     * Whether the cursor is at ending of a paragraph.
+     * @return {boolean} True if the cursor at the ending of paragraph.
+     */
+    Selection.prototype.isCursorAtEnding = function() {
+      return (this.start.offset === this.start.paragraph.text.length &&
+              this.end.offset === this.end.paragraph.text.length);
     };
 
 

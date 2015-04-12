@@ -127,6 +127,10 @@ module.exports = function(grunt) {
           '.tmp/styles/{,*/}*.css',
           '<%= pkg.name %>/images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
         ]
+      },
+      test: {
+        files: ['<%= srcDir %>/**/*.js', '<%= testDir %>/**/*.spec.js', '<%= demoDir %>/**/*.js'],
+        tasks: ['test']
       }
     },
 
@@ -205,7 +209,8 @@ module.exports = function(grunt) {
   grunt.registerTask('test', [
     'browserify:tests',
     'jshint',
-    'karma:continous'
+    'karma:continous',
+    'watch:test'
   ]);
 
   grunt.registerTask('build', [

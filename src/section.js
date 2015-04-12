@@ -99,6 +99,19 @@ Section.prototype.insertParagraph = function(paragraph) {
 
 
 /**
+ * Removes a paragraph from a section.
+ * @param  {Paragraph} paragraph To remove from section.
+ * @return {Paragraph} Removed paragraph.
+ */
+Section.prototype.removeParagraph = function(paragraph) {
+  var index = this.paragraphs.indexOf(paragraph);
+  this.paragraphs.splice(index, 1);
+  this.dom.removeChild(paragraph.dom);
+  return paragraph;
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this section.
  */
