@@ -268,5 +268,26 @@ describe('Editor', function() {
       expect(event.preventDefault).not.toHaveBeenCalled();
       expect(event.stopPropagation).not.toHaveBeenCalled();
     });
+
+    it('should undo/redo', function() {
+      var div = document.createElement('div');
+      var event = document.createEvent('CustomEvent');
+      event.keyCode = 90;
+      event.metaKey = true;
+
+      spyOn(event, 'preventDefault');
+      spyOn(event, 'stopPropagation');
+
+      var editor = new Editor(div);
+      spyOn(editor.article, 'undo');
+      spyOn(editor.article, 'redo');
+
+      editor.handleKeyDownEvent(event);
+      expect(editor.article.undo).toHaveBeenCalled();
+
+      event.keyCode = 89;
+      editor.handleKeyDownEvent(event);
+      expect(editor.article.redo).toHaveBeenCalled();
+    });
   });
 });

@@ -52,9 +52,26 @@ describe('Utils.CustomEventTarget', function() {
     expect(callback).not.toHaveBeenCalled();
   });
 
-  it('should check if the event produces change', function() {
-    expect(Utils.willProduceChange({keyCode: 77})).toBe(true);
-    expect(Utils.willProduceChange({keyCode: 37})).toBe(false);
-    expect(Utils.willProduceChange({keyCode: 46})).toBe(true);
+  it('should check if the event produces character', function() {
+    expect(Utils.willTypeCharacter({keyCode: 77})).toBe(true);
+    expect(Utils.willTypeCharacter({keyCode: 37})).toBe(false);
+    expect(Utils.willTypeCharacter({keyCode: 46})).toBe(true);
+    expect(Utils.willTypeCharacter({keyCode: 46, ctrlKey: true})).toBe(false);
+    expect(Utils.willTypeCharacter({keyCode: 46, metaKey: true})).toBe(false);
+  });
+
+  it('should return true if undo/redo', function() {
+    expect(Utils.isUndo({keyCode: 90, metaKey: true})).toBe(true);
+    expect(Utils.isUndo({
+      keyCode: 90, metaKey: true, shiftKey: true})).toBe(false);
+    expect(Utils.isUndo({keyCode: 52, metaKey: true})).toBe(false);
+    expect(Utils.isUndo({keyCode: 90})).toBe(false);
+    expect(Utils.isUndo({keyCode: 89})).toBe(false);
+
+    expect(Utils.isRedo({keyCode: 89})).toBe(false);
+    expect(Utils.isRedo({keyCode: 89, metaKey: true})).toBe(true);
+    expect(Utils.isRedo({
+      keyCode: 90, ctrlKey: true, shiftKey: true})).toBe(true);
+    expect(Utils.isRedo({keyCode: 90, ctrlKey: true})).toBe(false);
   });
 });

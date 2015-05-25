@@ -51,7 +51,7 @@ var Section = function(optParams) {
    */
   this.paragraphs = [];
   for (var i = 0; i < params.paragraphs.length; i++) {
-    this.insertParagraph(params.paragraphs[i]);
+    this.insertParagraphAt(params.paragraphs[i], i);
   }
 
 };
@@ -67,16 +67,15 @@ Section.TAG_NAME = 'section';
 /**
  * Inserts a paragraph in the section.
  * @param  {Paragraph} paragraph Paragraph to insert.
+ * @param  {number} index Where to insert the paragraph.
  * @return {Paragraph} The inserted paragraph.
  */
-Section.prototype.insertParagraph = function(paragraph) {
+Section.prototype.insertParagraphAt = function(paragraph, index) {
   // Update paragraph section reference to point to this section.
   paragraph.section = this;
 
   // Get current paragraph and its index in the section.
-  var currentParagraph = Selection.getInstance().getParagraphAtEnd();
-  var currentIndex = this.paragraphs.indexOf(currentParagraph);
-  var nextParagraph = currentParagraph && currentParagraph.getNextParagraph();
+  var nextParagraph = this.paragraphs[index];
 
   if (!nextParagraph) {
     // If the last paragraph in the section append it to the section.
@@ -86,7 +85,7 @@ Section.prototype.insertParagraph = function(paragraph) {
     this.dom.insertBefore(paragraph.dom, nextParagraph.dom);
   }
 
-  this.paragraphs.splice(currentIndex + 1, 0, paragraph);
+  this.paragraphs.splice(index, 0, paragraph);
 
   // Set the cursor to the new paragraph.
   Selection.getInstance().setCursor({
@@ -96,7 +95,6 @@ Section.prototype.insertParagraph = function(paragraph) {
 
   return paragraph;
 };
-
 
 /**
  * Removes a paragraph from a section.
@@ -112,17 +110,19 @@ Section.prototype.removeParagraph = function(paragraph) {
 
 
 /**
- * Removes paragraphs from a section between two paragraphs (exclusive).
+ * Returns paragraphs from a section between two paragraphs (exclusive).
  * @param  {Paragraph} startParagraph Starting paragraph.
  * @param  {Paragraph} endParagraph Ending paragraph.
  */
-Section.prototype.removeParagraphsBetween = function(
+Section.prototype.getParagraphsBetween = function(
     startParagraph, endParagraph) {
+  var paragraphs = [];
   var startIndex = this.paragraphs.indexOf(startParagraph) + 1;
   var endIndex = this.paragraphs.indexOf(endParagraph);
   for (var i = startIndex; i < endIndex; i++) {
-    this.removeParagraph(this.paragraphs[startIndex]);
+    paragraphs.push(this.paragraphs[i]);
   }
+  return paragraphs;
 };
 
 
