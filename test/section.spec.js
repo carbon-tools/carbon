@@ -26,17 +26,12 @@ describe('Section', function() {
     });
 
     var p1 = new Paragraph({ text: 'Hello p1' });
-    section.insertParagraph(p1);
+    section.insertParagraphAt(p1, 2);
     expect(section.paragraphs.length).toBe(3);
     expect(section.paragraphs[2]).toBe(p1);
 
-    Selection.getInstance().setCursor({
-      paragraph: section.paragraphs[1],
-      offset: 0
-    });
-
     var p2 = new Paragraph({ text: 'Hello p2' });
-    section.insertParagraph(p2);
+    section.insertParagraphAt(p2, 2);
     expect(section.paragraphs.length).toBe(4);
     expect(section.paragraphs[2]).toBe(p2);
   });
@@ -47,7 +42,7 @@ describe('Section', function() {
     });
 
     var p1 = new Paragraph({ text: 'Hello p1' });
-    section.insertParagraph(p1);
+    section.insertParagraphAt(p1, 0);
 
     expect(section.paragraphs.length).toBe(3);
     expect(section.dom.childNodes.length).toBe(3);
@@ -79,7 +74,7 @@ describe('Section', function() {
     });
   });
 
-  it('should remove paragraphs between two others', function() {
+  it('should return paragraphs between two others', function() {
     var section = new Section({
       paragraphs: [new Paragraph({
         name: '12'
@@ -95,11 +90,11 @@ describe('Section', function() {
       })]
     });
 
-    section.removeParagraphsBetween(
+    var paragraphs = section.getParagraphsBetween(
         section.paragraphs[0], section.paragraphs[3]);
-    expect(section.paragraphs.length).toBe(2);
-    expect(section.paragraphs[0].name).toBe('12');
-    expect(section.paragraphs[1].name).toBe('231');
+    expect(paragraphs.length).toBe(2);
+    expect(paragraphs[0].name).toBe('213');
+    expect(paragraphs[1].name).toBe('234');
   });
 
 });

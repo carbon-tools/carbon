@@ -42,6 +42,18 @@ var Article = function(optParams) {
     this.insertSection(params.sections[i]);
   }
 
+  /**
+   * Operations history on the article.
+   * @type {Array.<Object>}
+   */
+  this.history = [];
+
+  /**
+   * Currently at history point.
+   * @type {number}
+   */
+  this.historyAt = 0;
+
 };
 module.exports = Article;
 
@@ -60,7 +72,7 @@ Article.TAG_NAME = 'article';
 Article.prototype.insertSection = function(section) {
   // Section should always have a paragraph when inserted into article.
   if (!section.paragraphs || !section.paragraphs.length) {
-    section.insertParagraph(new Paragraph());
+    section.insertParagraphAt(new Paragraph(), 0);
   }
 
   this.sections.push(section);
@@ -131,6 +143,115 @@ Article.prototype.getJSONModel = function() {
   }
 
   return article;
+};
+
+
+/**
+ * Apply list of operations to the article model.
+ * @param  {Array.<Object>} ops List of operations to apply.
+ */
+Article.prototype.transaction = function(ops) {
+  if (this.historyAt < this.history.length) {
+    this.history.splice(
+        this.historyAt, this.history.length - this.historyAt);
+  }
+  this.history.push(ops);
+  this.do();
+};
+
+
+/**
+ * Executes the next available operation in the article history.
+ */
+Article.prototype.do = function() {
+  var ops = this.history[this.historyAt++];
+
+  for (var i = 0; i < ops.length; i++) {
+    this.exec(ops[i], 'do');
+  }
+};
+
+
+/**
+ * Executes an operation in the history only if there were any.
+ */
+Article.prototype.redo = function() {
+  if (this.historyAt < this.history.length) {
+    this.do();
+  }
+};
+
+
+/**
+ * Executes the reverse (undo) part of an operation.
+ */
+Article.prototype.undo = function() {
+  if (this.historyAt > 0) {
+    var ops = this.history[--this.historyAt];
+
+    for (var i = ops.length - 1; i >= 0; i--) {
+      this.exec(ops[i], 'undo');
+    }
+  }
+};
+
+
+/**
+ * Executes an operation with the passed action.
+ * @param  {Object} operation An operation object to execute.
+ * @param  {string} action Can be 'do' or 'undo'.
+ */
+Article.prototype.exec = function(operation, action) {
+  var op = operation[action].op;
+  var paragraph;
+  if (op === 'updateText') {
+    var value = operation[action].value;
+    var paragraphName = operation[action].paragraph;
+    paragraph = this.getParagraphByName(paragraphName);
+    paragraph.setText(value);
+    this.selection.setCursor({
+      paragraph: paragraph,
+      offset: operation[action].cursorOffset
+    });
+  } else if (op === 'deleteParagraph') {
+    paragraph = this.getParagraphByName(operation[action].paragraph);
+    paragraph.section.removeParagraph(paragraph);
+  } else if (op === 'insertParagraph') {
+    var section = this.getSectionByName(operation[action].section);
+    section.insertParagraphAt(new Paragraph({
+      name: operation[action].paragraph
+    }), operation[action].index);
+  }
+};
+
+
+/**
+ * Returns the section that has the specific name.
+ * @param  {string} name Name of the section.
+ * @return {Section} Section with the passed name.
+ */
+Article.prototype.getSectionByName = function(name) {
+  for (var i = 0; i < this.sections.length; i++) {
+    if (this.sections[i].name === name) {
+      return this.sections[i];
+    }
+  }
+};
+
+
+/**
+ * Returns the paragraph that has the specific name.
+ * @param  {string} name Name of the paragraph.
+ * @return {Paragraph} Paragraph with the passed name.
+ */
+Article.prototype.getParagraphByName = function(name) {
+  for (var i = 0; i < this.sections.length; i++) {
+    for (var j = 0; j < this.sections[i].paragraphs.length; j++) {
+      if (this.sections[i].paragraphs[j].name === name) {
+        return this.sections[i].paragraphs[j];
+      }
+    }
+  }
 };
 
 },{"./paragraph":4,"./selection":6,"./utils":7}],2:[function(require,module,exports){
@@ -213,11 +334,108 @@ Editor.prototype.init = function() {
 Editor.prototype.handleKeyDownEvent = function(event) {
   var selection = this.article.selection;
   var preventDefault = false;
+  var ops = [];
+  var inBetweenParagraphs = [];
+
+  if (Utils.isUndo(event)) {
+    this.article.undo();
+    preventDefault = true;
+  } else if (Utils.isRedo(event)) {
+    this.article.redo();
+    preventDefault = true;
+  }
 
   // If selected text and key pressed will produce a change. Remove selected.
   // i.e. Enter, characters, space, backspace...etc
-  if (selection.isRange() && Utils.willProduceChange(event)) {
-    selection.removeSelectedText();
+  else if (selection.isRange() && Utils.willTypeCharacter(event)) {
+    var section = selection.getSectionAtStart();
+    inBetweenParagraphs = section.getParagraphsBetween(
+        selection.start.paragraph, selection.end.paragraph);
+
+    for (var i = 0; i < inBetweenParagraphs.length; i++) {
+      ops.push({
+        do: {
+          op: 'updateText',
+          paragraph: inBetweenParagraphs[i].name,
+          cursorOffset: 0,
+          value: '',
+        },
+        undo: {
+          op: 'updateText',
+          paragraph: inBetweenParagraphs[i].name,
+          cursorOffset: inBetweenParagraphs[i].text.length,
+          value: inBetweenParagraphs[i].text
+        }
+      });
+      var paragraphIndex = section.paragraphs.indexOf(inBetweenParagraphs[i]);
+      ops.push({
+        do: {
+          op: 'deleteParagraph',
+          paragraph: inBetweenParagraphs[i].name
+        },
+        undo: {
+          op: 'insertParagraph',
+          section: inBetweenParagraphs[i].section.name,
+          paragraph: inBetweenParagraphs[i].name,
+          index: paragraphIndex - i
+        }
+      });
+    }
+
+    if (selection.end.paragraph !== selection.start.paragraph) {
+      var lastParagraphOldText = selection.end.paragraph.text;
+      var lastParagraphText = lastParagraphOldText.substring(
+          selection.end.offset, lastParagraphOldText.length);
+      var lastParagraphIndex = section.paragraphs.indexOf(selection.end.paragraph);
+      ops.push({
+        do: {
+          op: 'updateText',
+          paragraph: selection.end.paragraph.name,
+          cursorOffset: 0,
+          value: '',
+        },
+        undo: {
+          op: 'updateText',
+          paragraph: selection.end.paragraph.name,
+          cursorOffset: selection.end.offset,
+          value: lastParagraphOldText
+        }
+      });
+      ops.push({
+        do: {
+          op: 'deleteParagraph',
+          paragraph: selection.end.paragraph.name
+        },
+        undo: {
+          op: 'insertParagraph',
+          section: selection.end.paragraph.section.name,
+          paragraph: selection.end.paragraph.name,
+          index: lastParagraphIndex - inBetweenParagraphs.length
+        }
+      });
+
+      var firstParagraphOldText = selection.start.paragraph.text;
+      var firstParagraphText = firstParagraphOldText.substring(
+          0, selection.start.offset);
+      ops.push({
+        do: {
+          op: 'updateText',
+          paragraph: selection.start.paragraph.name,
+          cursorOffset: firstParagraphText.length,
+          value: firstParagraphText + lastParagraphText,
+        },
+        undo: {
+          op: 'updateText',
+          paragraph: selection.start.paragraph.name,
+          cursorOffset: selection.start.offset,
+          value: firstParagraphOldText
+        }
+      });
+    }
+
+    this.article.transaction(ops);
+    ops = [];
+
     // Only stop propagation on special characters (Enter, Delete, Backspace)
     // We already handled or will handle them in the switch statement.
     // For all others (e.g. typing a char key) don't stop propagation and
@@ -228,17 +446,63 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
   var offsetAfterOperation;
   var currentParagraph = selection.getParagraphAtEnd();
+  var currentIndex = currentParagraph.section.paragraphs.indexOf(
+      currentParagraph);
   var nextParagraph = currentParagraph.getNextParagraph();
   var prevParagraph = currentParagraph.getPreviousParagraph();
 
   switch (event.keyCode) {
     // Enter.
     case 13:
-      // TODO(mkhatib): Maybe Move handling the enter to inside the Paragraph
-      // class.
-
+      var uid = Utils.getUID();
       if (!selection.isCursorAtEnding()) {
-        currentParagraph.splitAtCursor();
+        var afterCursorText = currentParagraph.text.substring(
+            selection.end.offset, currentParagraph.text.length);
+        var beforeCursorText = currentParagraph.text.substring(
+            0, selection.start.offset);
+        ops.push({
+          do: {
+            op: 'insertParagraph',
+            section: selection.end.paragraph.section.name,
+            paragraph: uid,
+            index: currentIndex - inBetweenParagraphs.length + 1
+          },
+          undo: {
+            op: 'deleteParagraph',
+            paragraph: uid
+          }
+        });
+
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: currentParagraph.name,
+            cursorOffset: beforeCursorText.length,
+            value: beforeCursorText,
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: currentParagraph.name,
+            cursorOffset: beforeCursorText.length,
+            value: currentParagraph.text
+          }
+        });
+
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: uid,
+            cursorOffset: 0,
+            value: afterCursorText,
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: uid,
+            cursorOffset: 0,
+            value: ''
+          }
+        });
+
       } else if (nextParagraph && nextParagraph.isPlaceholder()) {
         // If the next paragraph is a placeholder, just move the cursor to it
         // and don't insert a new paragraph.
@@ -247,9 +511,20 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           offset: 0
         });
       } else {
-        var newParagraph = new Paragraph();
-        this.article.insertParagraph(newParagraph);
+        ops.push({
+          do: {
+            op: 'insertParagraph',
+            section: selection.end.paragraph.section.name,
+            paragraph: uid,
+            index: currentIndex - inBetweenParagraphs.length + 1
+          },
+          undo: {
+            op: 'deleteParagraph',
+            paragraph: uid
+          }
+        });
       }
+      this.article.transaction(ops);
       preventDefault = true;
       break;
 
@@ -258,7 +533,52 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // If the cursor at the beginning of paragraph. Merge Paragraphs.
       if (selection.isCursorAtBeginning() && prevParagraph) {
         offsetAfterOperation = prevParagraph.text.length;
-        prevParagraph.mergeWith(currentParagraph);
+
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: currentParagraph.name,
+            cursorOffset: 0,
+            value: '',
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: currentParagraph.name,
+            cursorOffset: 0,
+            value: currentParagraph.text
+          }
+        });
+
+        ops.push({
+          do: {
+            op: 'deleteParagraph',
+            paragraph: currentParagraph.name
+          },
+          undo: {
+            op: 'insertParagraph',
+            section: currentParagraph.section.name,
+            paragraph: currentParagraph.name,
+            index: currentIndex - inBetweenParagraphs.length
+          }
+        });
+
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: prevParagraph.name,
+            cursorOffset: offsetAfterOperation,
+            value: prevParagraph.text + currentParagraph.text,
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: prevParagraph.name,
+            cursorOffset: offsetAfterOperation,
+            value: prevParagraph.text
+          }
+        });
+
+        this.article.transaction(ops);
+
         selection.setCursor({
           paragraph: prevParagraph,
           offset: offsetAfterOperation
@@ -272,7 +592,52 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // If cursor at the end of the paragraph. Merge Paragraphs.
       if (selection.isCursorAtEnding() && nextParagraph) {
         offsetAfterOperation = currentParagraph.text.length;
-        currentParagraph.mergeWith(nextParagraph);
+
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: nextParagraph.name,
+            cursorOffset: 0,
+            value: '',
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: nextParagraph.name,
+            cursorOffset: 0,
+            value: nextParagraph.text
+          }
+        });
+
+        ops.push({
+          do: {
+            op: 'deleteParagraph',
+            paragraph: nextParagraph.name
+          },
+          undo: {
+            op: 'insertParagraph',
+            section: nextParagraph.section.name,
+            paragraph: nextParagraph.name,
+            index: currentIndex + 1 - inBetweenParagraphs.length
+          }
+        });
+
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: currentParagraph.name,
+            cursorOffset: offsetAfterOperation,
+            value: currentParagraph.text + nextParagraph.text,
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: currentParagraph.name,
+            cursorOffset: offsetAfterOperation,
+            value: currentParagraph.text
+          }
+        });
+
+        this.article.transaction(ops);
+
         selection.setCursor({
           paragraph: currentParagraph,
           offset: offsetAfterOperation
@@ -287,9 +652,28 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   if (preventDefault) {
     event.preventDefault();
     event.stopPropagation();
-  } else if (currentParagraph) {
+  } else if (currentParagraph && Utils.willTypeCharacter(event)) {
     // Update current paragraph internal text model.
-    setTimeout(currentParagraph.updateTextFromDom.bind(currentParagraph), 5);
+    var oldValue = currentParagraph.text;
+    var article = this.article;
+    var cursorOffsetDirection = event.keyCode === 8 ? -1 : 1;
+    setTimeout(function() {
+      ops.push({
+        do: {
+          op: 'updateText',
+          paragraph: currentParagraph.name,
+          cursorOffset: selection.end.offset + cursorOffsetDirection,
+          value: currentParagraph.dom.innerText,
+        },
+        undo: {
+          op: 'updateText',
+          paragraph: currentParagraph.name,
+          cursorOffset: selection.end.offset,
+          value: oldValue
+        }
+      });
+      article.transaction(ops);
+    }, 5);
   }
 
   // Dispatch a `change` event
@@ -320,7 +704,6 @@ module.exports.Selection = require('./selection');
 },{"./article":1,"./editor":2,"./paragraph":4,"./section":5,"./selection":6}],4:[function(require,module,exports){
 'use strict';
 
-var Selection = require('./selection');
 var Utils = require('./utils');
 
 
@@ -470,14 +853,6 @@ Paragraph.prototype.getPreviousParagraph = function() {
 
 
 /**
- * Updates internal text from DOM element.
- */
-Paragraph.prototype.updateTextFromDom = function() {
-  this.text = this.dom.innerText;
-};
-
-
-/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this paragraph.
  */
@@ -491,43 +866,7 @@ Paragraph.prototype.getJSONModel = function() {
   return paragraph;
 };
 
-
-/**
- * Splits the paragraph into two after the cursor.
- * @return {Paragraph} Newly created paragraph.
- */
-Paragraph.prototype.splitAtCursor = function() {
-  var selection = Selection.getInstance();
-  // Store the text after the cursor.
-  var afterCursorText = this.text.substring(
-      selection.end.offset, this.text.length);
-
-  // Remove the text after the cursor from the current paragraph.
-  this.setText(this.text.substring(0, selection.start.offset));
-
-  // Create and insert the new paragraph with the text after cursor.
-  var newParagraph = new Paragraph({
-    text: afterCursorText
-  });
-  this.section.insertParagraph(newParagraph);
-
-  return newParagraph;
-};
-
-
-/**
- * Merges the paragraph with the passed paragraph.
- * @param  {Paragraph} paragraph The paragraph to merge with.
- * @return {Paragraph} The merged paragraph.
- */
-Paragraph.prototype.mergeWith = function(paragraph) {
-  var paragraphText = paragraph.text;
-  paragraph.section.removeParagraph(paragraph);
-  this.setText(this.text + paragraphText);
-  return this;
-};
-
-},{"./selection":6,"./utils":7}],5:[function(require,module,exports){
+},{"./utils":7}],5:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -581,7 +920,7 @@ var Section = function(optParams) {
    */
   this.paragraphs = [];
   for (var i = 0; i < params.paragraphs.length; i++) {
-    this.insertParagraph(params.paragraphs[i]);
+    this.insertParagraphAt(params.paragraphs[i], i);
   }
 
 };
@@ -597,16 +936,15 @@ Section.TAG_NAME = 'section';
 /**
  * Inserts a paragraph in the section.
  * @param  {Paragraph} paragraph Paragraph to insert.
+ * @param  {number} index Where to insert the paragraph.
  * @return {Paragraph} The inserted paragraph.
  */
-Section.prototype.insertParagraph = function(paragraph) {
+Section.prototype.insertParagraphAt = function(paragraph, index) {
   // Update paragraph section reference to point to this section.
   paragraph.section = this;
 
   // Get current paragraph and its index in the section.
-  var currentParagraph = Selection.getInstance().getParagraphAtEnd();
-  var currentIndex = this.paragraphs.indexOf(currentParagraph);
-  var nextParagraph = currentParagraph && currentParagraph.getNextParagraph();
+  var nextParagraph = this.paragraphs[index];
 
   if (!nextParagraph) {
     // If the last paragraph in the section append it to the section.
@@ -616,7 +954,7 @@ Section.prototype.insertParagraph = function(paragraph) {
     this.dom.insertBefore(paragraph.dom, nextParagraph.dom);
   }
 
-  this.paragraphs.splice(currentIndex + 1, 0, paragraph);
+  this.paragraphs.splice(index, 0, paragraph);
 
   // Set the cursor to the new paragraph.
   Selection.getInstance().setCursor({
@@ -626,7 +964,6 @@ Section.prototype.insertParagraph = function(paragraph) {
 
   return paragraph;
 };
-
 
 /**
  * Removes a paragraph from a section.
@@ -642,17 +979,19 @@ Section.prototype.removeParagraph = function(paragraph) {
 
 
 /**
- * Removes paragraphs from a section between two paragraphs (exclusive).
+ * Returns paragraphs from a section between two paragraphs (exclusive).
  * @param  {Paragraph} startParagraph Starting paragraph.
  * @param  {Paragraph} endParagraph Ending paragraph.
  */
-Section.prototype.removeParagraphsBetween = function(
+Section.prototype.getParagraphsBetween = function(
     startParagraph, endParagraph) {
+  var paragraphs = [];
   var startIndex = this.paragraphs.indexOf(startParagraph) + 1;
   var endIndex = this.paragraphs.indexOf(endParagraph);
   for (var i = startIndex; i < endIndex; i++) {
-    this.removeParagraph(this.paragraphs[startIndex]);
+    paragraphs.push(this.paragraphs[i]);
   }
+  return paragraphs;
 };
 
 
@@ -882,31 +1221,6 @@ var Selection = (function() {
 
 
     /**
-     * Removes selected text.
-     */
-    Selection.prototype.removeSelectedText = function() {
-      // Removes all paragraphs in between the start and end of selection
-      // paragraphs.
-      var section = this.getSectionAtStart();
-      section.removeParagraphsBetween(this.start.paragraph, this.end.paragraph);
-
-      // Calculate the new text after deletion of selected.
-      var newOffset = this.start.offset;
-      var newText = this.start.paragraph.text.substring(0, this.start.offset);
-      newText += this.end.paragraph.text.substring(
-          this.end.offset, this.end.paragraph.text.length);
-      if (this.start.paragraph != this.end.paragraph) {
-        this.start.paragraph.mergeWith(this.end.paragraph);
-      }
-      this.start.paragraph.setText(newText);
-      this.setCursor({
-        paragraph: this.start.paragraph,
-        offset: newOffset
-      });
-    };
-
-
-    /**
      * Initialize selection listeners to the element.
      * @param  {HTMLElement} element The html element to listen for slection
      * changes on.
@@ -1017,11 +1331,11 @@ Utils.getUID = function(optLength) {
 
 
 /**
- * Whether an event will produce change or not.
+ * Whether an event will produce a character or not.
  * @param  {Event} event Keypress event.
  * @return {boolean} True if the key will produce a change.
  */
-Utils.willProduceChange = function(event) {
+Utils.willTypeCharacter = function(event) {
   var NO_CHANGE_KEYS = [
     // Command keys.
     16, 17, 18, 19, 20, 27,
@@ -1037,7 +1351,31 @@ Utils.willProduceChange = function(event) {
     144, 145
   ];
 
-  return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
+  return (NO_CHANGE_KEYS.indexOf(event.keyCode) === -1 &&
+          !event.ctrlKey && !event.metaKey);
+};
+
+
+/**
+ * Checks if the event is undo.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if it is undo.
+ */
+Utils.isUndo = function(event) {
+  return !!((event.ctrlKey || event.metaKey) &&
+          event.keyCode === 90 && !event.shiftKey);
+};
+
+
+/**
+ * Checks if the event is redo.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if it is redo.
+ */
+Utils.isRedo = function(event) {
+  return !!((event.ctrlKey || event.metaKey) &&
+          (event.keyCode === 89 ||
+           (event.shiftKey && event.keyCode === 90)));
 };
 
 

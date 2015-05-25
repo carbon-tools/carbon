@@ -207,31 +207,6 @@ var Selection = (function() {
 
 
     /**
-     * Removes selected text.
-     */
-    Selection.prototype.removeSelectedText = function() {
-      // Removes all paragraphs in between the start and end of selection
-      // paragraphs.
-      var section = this.getSectionAtStart();
-      section.removeParagraphsBetween(this.start.paragraph, this.end.paragraph);
-
-      // Calculate the new text after deletion of selected.
-      var newOffset = this.start.offset;
-      var newText = this.start.paragraph.text.substring(0, this.start.offset);
-      newText += this.end.paragraph.text.substring(
-          this.end.offset, this.end.paragraph.text.length);
-      if (this.start.paragraph != this.end.paragraph) {
-        this.start.paragraph.mergeWith(this.end.paragraph);
-      }
-      this.start.paragraph.setText(newText);
-      this.setCursor({
-        paragraph: this.start.paragraph,
-        offset: newOffset
-      });
-    };
-
-
-    /**
      * Initialize selection listeners to the element.
      * @param  {HTMLElement} element The html element to listen for slection
      * changes on.

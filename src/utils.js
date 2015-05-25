@@ -74,11 +74,11 @@ Utils.getUID = function(optLength) {
 
 
 /**
- * Whether an event will produce change or not.
+ * Whether an event will produce a character or not.
  * @param  {Event} event Keypress event.
  * @return {boolean} True if the key will produce a change.
  */
-Utils.willProduceChange = function(event) {
+Utils.willTypeCharacter = function(event) {
   var NO_CHANGE_KEYS = [
     // Command keys.
     16, 17, 18, 19, 20, 27,
@@ -94,7 +94,31 @@ Utils.willProduceChange = function(event) {
     144, 145
   ];
 
-  return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
+  return (NO_CHANGE_KEYS.indexOf(event.keyCode) === -1 &&
+          !event.ctrlKey && !event.metaKey);
+};
+
+
+/**
+ * Checks if the event is undo.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if it is undo.
+ */
+Utils.isUndo = function(event) {
+  return !!((event.ctrlKey || event.metaKey) &&
+          event.keyCode === 90 && !event.shiftKey);
+};
+
+
+/**
+ * Checks if the event is redo.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if it is redo.
+ */
+Utils.isRedo = function(event) {
+  return !!((event.ctrlKey || event.metaKey) &&
+          (event.keyCode === 89 ||
+           (event.shiftKey && event.keyCode === 90)));
 };
 
 

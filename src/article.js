@@ -41,6 +41,18 @@ var Article = function(optParams) {
     this.insertSection(params.sections[i]);
   }
 
+  /**
+   * Operations history on the article.
+   * @type {Array.<Object>}
+   */
+  this.history = [];
+
+  /**
+   * Currently at history point.
+   * @type {number}
+   */
+  this.historyAt = 0;
+
 };
 module.exports = Article;
 
@@ -59,7 +71,7 @@ Article.TAG_NAME = 'article';
 Article.prototype.insertSection = function(section) {
   // Section should always have a paragraph when inserted into article.
   if (!section.paragraphs || !section.paragraphs.length) {
-    section.insertParagraph(new Paragraph());
+    section.insertParagraphAt(new Paragraph(), 0);
   }
 
   this.sections.push(section);
@@ -130,4 +142,113 @@ Article.prototype.getJSONModel = function() {
   }
 
   return article;
+};
+
+
+/**
+ * Apply list of operations to the article model.
+ * @param  {Array.<Object>} ops List of operations to apply.
+ */
+Article.prototype.transaction = function(ops) {
+  if (this.historyAt < this.history.length) {
+    this.history.splice(
+        this.historyAt, this.history.length - this.historyAt);
+  }
+  this.history.push(ops);
+  this.do();
+};
+
+
+/**
+ * Executes the next available operation in the article history.
+ */
+Article.prototype.do = function() {
+  var ops = this.history[this.historyAt++];
+
+  for (var i = 0; i < ops.length; i++) {
+    this.exec(ops[i], 'do');
+  }
+};
+
+
+/**
+ * Executes an operation in the history only if there were any.
+ */
+Article.prototype.redo = function() {
+  if (this.historyAt < this.history.length) {
+    this.do();
+  }
+};
+
+
+/**
+ * Executes the reverse (undo) part of an operation.
+ */
+Article.prototype.undo = function() {
+  if (this.historyAt > 0) {
+    var ops = this.history[--this.historyAt];
+
+    for (var i = ops.length - 1; i >= 0; i--) {
+      this.exec(ops[i], 'undo');
+    }
+  }
+};
+
+
+/**
+ * Executes an operation with the passed action.
+ * @param  {Object} operation An operation object to execute.
+ * @param  {string} action Can be 'do' or 'undo'.
+ */
+Article.prototype.exec = function(operation, action) {
+  var op = operation[action].op;
+  var paragraph;
+  if (op === 'updateText') {
+    var value = operation[action].value;
+    var paragraphName = operation[action].paragraph;
+    paragraph = this.getParagraphByName(paragraphName);
+    paragraph.setText(value);
+    this.selection.setCursor({
+      paragraph: paragraph,
+      offset: operation[action].cursorOffset
+    });
+  } else if (op === 'deleteParagraph') {
+    paragraph = this.getParagraphByName(operation[action].paragraph);
+    paragraph.section.removeParagraph(paragraph);
+  } else if (op === 'insertParagraph') {
+    var section = this.getSectionByName(operation[action].section);
+    section.insertParagraphAt(new Paragraph({
+      name: operation[action].paragraph
+    }), operation[action].index);
+  }
+};
+
+
+/**
+ * Returns the section that has the specific name.
+ * @param  {string} name Name of the section.
+ * @return {Section} Section with the passed name.
+ */
+Article.prototype.getSectionByName = function(name) {
+  for (var i = 0; i < this.sections.length; i++) {
+    if (this.sections[i].name === name) {
+      return this.sections[i];
+    }
+  }
+};
+
+
+/**
+ * Returns the paragraph that has the specific name.
+ * @param  {string} name Name of the paragraph.
+ * @return {Paragraph} Paragraph with the passed name.
+ */
+Article.prototype.getParagraphByName = function(name) {
+  for (var i = 0; i < this.sections.length; i++) {
+    for (var j = 0; j < this.sections[i].paragraphs.length; j++) {
+      if (this.sections[i].paragraphs[j].name === name) {
+        return this.sections[i].paragraphs[j];
+      }
+    }
+  }
 };
