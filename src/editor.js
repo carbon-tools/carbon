@@ -59,6 +59,7 @@ Editor.prototype.init = function() {
   this.article.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.className += ' manshar-editor';
   this.element.setAttribute('contenteditable', true);
   this.element.appendChild(this.article.dom);
@@ -199,52 +200,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     case 13:
       var uid = Utils.getUID();
       if (!selection.isCursorAtEnding()) {
-        var afterCursorText = currentParagraph.text.substring(
-            selection.end.offset, currentParagraph.text.length);
-        var beforeCursorText = currentParagraph.text.substring(
-            0, selection.start.offset);
-        ops.push({
-          do: {
-            op: 'insertParagraph',
-            section: selection.end.paragraph.section.name,
-            paragraph: uid,
-            index: currentIndex - inBetweenParagraphs.length + 1
-          },
-          undo: {
-            op: 'deleteParagraph',
-            paragraph: uid
-          }
-        });
-
-        ops.push({
-          do: {
-            op: 'updateText',
-            paragraph: currentParagraph.name,
-            cursorOffset: beforeCursorText.length,
-            value: beforeCursorText,
-          },
-          undo: {
-            op: 'updateText',
-            paragraph: currentParagraph.name,
-            cursorOffset: beforeCursorText.length,
-            value: currentParagraph.text
-          }
-        });
-
-        ops.push({
-          do: {
-            op: 'updateText',
-            paragraph: uid,
-            cursorOffset: 0,
-            value: afterCursorText,
-          },
-          undo: {
-            op: 'updateText',
-            paragraph: uid,
-            cursorOffset: 0,
-            value: ''
-          }
-        });
+        ops.push.apply(ops, this.getSplitParagraphOps(
+            -inBetweenParagraphs.length));
 
       } else if (nextParagraph && nextParagraph.isPlaceholder()) {
         // If the next paragraph is a placeholder, just move the cursor to it
@@ -277,49 +234,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (selection.isCursorAtBeginning() && prevParagraph) {
         offsetAfterOperation = prevParagraph.text.length;
 
-        ops.push({
-          do: {
-            op: 'updateText',
-            paragraph: currentParagraph.name,
-            cursorOffset: 0,
-            value: '',
-          },
-          undo: {
-            op: 'updateText',
-            paragraph: currentParagraph.name,
-            cursorOffset: 0,
-            value: currentParagraph.text
-          }
-        });
-
-        ops.push({
-          do: {
-            op: 'deleteParagraph',
-            paragraph: currentParagraph.name
-          },
-          undo: {
-            op: 'insertParagraph',
-            section: currentParagraph.section.name,
-            paragraph: currentParagraph.name,
-            index: currentIndex - inBetweenParagraphs.length
-          }
-        });
-
-        ops.push({
-          do: {
-            op: 'updateText',
-            paragraph: prevParagraph.name,
-            cursorOffset: offsetAfterOperation,
-            value: prevParagraph.text + currentParagraph.text,
-          },
-          undo: {
-            op: 'updateText',
-            paragraph: prevParagraph.name,
-            cursorOffset: offsetAfterOperation,
-            value: prevParagraph.text
-          }
-        });
-
+        ops.push.apply(ops, this.getMergeParagraphsOps(
+            prevParagraph, currentParagraph, -inBetweenParagraphs.length));
         this.article.transaction(ops);
 
         selection.setCursor({
@@ -336,48 +252,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (selection.isCursorAtEnding() && nextParagraph) {
         offsetAfterOperation = currentParagraph.text.length;
 
-        ops.push({
-          do: {
-            op: 'updateText',
-            paragraph: nextParagraph.name,
-            cursorOffset: 0,
-            value: '',
-          },
-          undo: {
-            op: 'updateText',
-            paragraph: nextParagraph.name,
-            cursorOffset: 0,
-            value: nextParagraph.text
-          }
-        });
-
-        ops.push({
-          do: {
-            op: 'deleteParagraph',
-            paragraph: nextParagraph.name
-          },
-          undo: {
-            op: 'insertParagraph',
-            section: nextParagraph.section.name,
-            paragraph: nextParagraph.name,
-            index: currentIndex + 1 - inBetweenParagraphs.length
-          }
-        });
-
-        ops.push({
-          do: {
-            op: 'updateText',
-            paragraph: currentParagraph.name,
-            cursorOffset: offsetAfterOperation,
-            value: currentParagraph.text + nextParagraph.text,
-          },
-          undo: {
-            op: 'updateText',
-            paragraph: currentParagraph.name,
-            cursorOffset: offsetAfterOperation,
-            value: currentParagraph.text
-          }
-        });
+        ops.push.apply(ops, this.getMergeParagraphsOps(
+            currentParagraph, nextParagraph, -inBetweenParagraphs.length));
 
         this.article.transaction(ops);
 
@@ -428,9 +304,208 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
 
 /**
+ * Generates the operations needed to split a paragraph into two at the cursor.
+ * @param  {number} indexOffset Offset to add to paragraphs index.
+ * @return {Array.<Object>} List of operations to split the paragraph.
+ */
+Editor.prototype.getSplitParagraphOps = function(indexOffset) {
+  var ops = [];
+  var selection = this.article.selection;
+  var currentParagraph = selection.getParagraphAtEnd();
+  var currentIndex = currentParagraph.section.paragraphs.indexOf(
+      currentParagraph);
+  var afterCursorText = currentParagraph.text.substring(
+      selection.end.offset, currentParagraph.text.length);
+  var beforeCursorText = currentParagraph.text.substring(
+      0, selection.start.offset);
+  var uid = Utils.getUID();
+  ops.push({
+    do: {
+      op: 'insertParagraph',
+      section: selection.end.paragraph.section.name,
+      paragraph: uid,
+      index: currentIndex + 1 + indexOffset
+    },
+    undo: {
+      op: 'deleteParagraph',
+      paragraph: uid
+    }
+  });
+
+  ops.push({
+    do: {
+      op: 'updateText',
+      paragraph: currentParagraph.name,
+      cursorOffset: beforeCursorText.length,
+      value: beforeCursorText,
+    },
+    undo: {
+      op: 'updateText',
+      paragraph: currentParagraph.name,
+      cursorOffset: beforeCursorText.length,
+      value: currentParagraph.text
+    }
+  });
+
+  ops.push({
+    do: {
+      op: 'updateText',
+      paragraph: uid,
+      cursorOffset: 0,
+      value: afterCursorText,
+    },
+    undo: {
+      op: 'updateText',
+      paragraph: uid,
+      cursorOffset: 0,
+      value: ''
+    }
+  });
+
+  return ops;
+};
+
+
+/**
+ * Generates the operations needed to merge two paragraphs.
+ * @param  {Paragraph} firstP First Paragraph.
+ * @param  {Paragraph} secondP Second Paragraph.
+ * @param  {number} indexOffset Offset to add to paragraphs index.
+ * @return {Array.<Object>} List of operations to merge the paragraphs.
+ */
+Editor.prototype.getMergeParagraphsOps = function(
+    firstP, secondP, indexOffset) {
+  var ops = [];
+  var secondPIndex = secondP.section.paragraphs.indexOf(secondP);
+  var offsetAfterOperation = firstP.text.length;
+
+  ops.push({
+    do: {
+      op: 'updateText',
+      paragraph: secondP.name,
+      cursorOffset: 0,
+      value: '',
+    },
+    undo: {
+      op: 'updateText',
+      paragraph: secondP.name,
+      cursorOffset: 0,
+      value: secondP.text
+    }
+  });
+
+  ops.push({
+    do: {
+      op: 'deleteParagraph',
+      paragraph: secondP.name
+    },
+    undo: {
+      op: 'insertParagraph',
+      section: secondP.section.name,
+      paragraph: secondP.name,
+      index: secondPIndex + indexOffset
+    }
+  });
+
+  ops.push({
+    do: {
+      op: 'updateText',
+      paragraph: firstP.name,
+      cursorOffset: offsetAfterOperation,
+      value: firstP.text + secondP.text,
+    },
+    undo: {
+      op: 'updateText',
+      paragraph: firstP.name,
+      cursorOffset: offsetAfterOperation,
+      value: firstP.text
+    }
+  });
+
+  return ops;
+};
+
+
+/**
+ * Handles paste event for the editor.
+ * @param  {Event} event Paste Event.
+ */
+Editor.prototype.handlePaste = function(event) {
+  var pastedContent;
+  if (window.clipboardData && window.clipboardData.getData) { // IE
+    pastedContent = window.clipboardData.getData('Text');
+  } else if (event.clipboardData && event.clipboardData.getData) {
+    pastedContent = event.clipboardData.getData('text/html');
+  }
+
+  // TODO(mkhatib): Before anything, if any text is selected, delete it.
+  var ops = this.processPastedContent(pastedContent);
+  this.article.transaction(ops);
+
+  event.preventDefault();
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this paragraph.
  */
 Editor.prototype.getJSONModel = function() {
   return this.article.getJSONModel();
+};
+
+
+/**
+ * Sanitizes and generates list of operations to properly insert pasted
+ * content into the article.
+ *
+ * TODO(mkhatib): Probably move this to its own module and
+ * make it easier for people to customize or override this with
+ * their own sanitizer.
+ *
+ * @param  {string} html HTML code to sanitize.
+ * @return {Array.<Object>} List of operations objects that represents the
+ * the pasted content.
+ */
+Editor.prototype.processPastedContent = function(html) {
+  var ops = [];
+  var tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  var textPasted = tempDiv.innerText;
+  // var lines = tempDiv.innerText.split('\n');
+  // var children = tempDiv.childNodes;
+
+  // TODO(mkhatib): This single updateText operation should only be applied
+  // to single lines paste.
+
+  // if (!children || !children.length || lines.length < 2) {
+
+  var selection = this.article.selection;
+  var currentParagraph = selection.start.paragraph;
+
+  // Text before and after pasting.
+  var textStart = currentParagraph.text.substring(0, selection.start.offset);
+  var textEnd = currentParagraph.text.substring(
+      selection.start.offset, currentParagraph.text.length);
+
+  // Calculate cursor offset before and after pasting.
+  var offsetAfterOperation = (textStart + textPasted).length - 1;
+  var offsetBeforeOperation = textStart.length;
+
+  ops.push({
+    do: {
+      op: 'updateText',
+      paragraph: currentParagraph.name,
+      cursorOffset: offsetAfterOperation,
+      value: textStart + textPasted + textEnd
+    },
+    undo: {
+      op: 'updateText',
+      paragraph: currentParagraph.name,
+      cursorOffset: offsetBeforeOperation,
+      value: currentParagraph.text
+    }
+  });
+  // }
+  return ops;
 };

@@ -208,10 +208,16 @@ Article.prototype.exec = function(operation, action) {
     var paragraphName = operation[action].paragraph;
     paragraph = this.getParagraphByName(paragraphName);
     paragraph.setText(value);
-    this.selection.setCursor({
-      paragraph: paragraph,
-      offset: operation[action].cursorOffset
-    });
+
+    var selection = this.selection;
+    setTimeout(function() {
+      // Allow DOM to reflect the updated text before moving the cursor.
+      selection.setCursor({
+        paragraph: paragraph,
+        offset: operation[action].cursorOffset
+      });
+    }, 5);
+
   } else if (op === 'deleteParagraph') {
     paragraph = this.getParagraphByName(operation[action].paragraph);
     paragraph.section.removeParagraph(paragraph);

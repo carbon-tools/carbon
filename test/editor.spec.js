@@ -25,6 +25,9 @@ describe('Editor', function() {
     expect(selection.initSelectionListener).toHaveBeenCalledWith(div);
     expect(div.addEventListener).toHaveBeenCalledWith(
         'keydown', jasmine.any(Function));
+    expect(div.addEventListener).toHaveBeenCalledWith(
+        'paste', jasmine.any(Function));
+
     expect(div.className.indexOf('manshar-editor') !== -1).toBe(true);
     expect(div.getAttribute('contenteditable')).toBe('true');
   });
@@ -288,6 +291,42 @@ describe('Editor', function() {
       event.keyCode = 89;
       editor.handleKeyDownEvent(event);
       expect(editor.article.redo).toHaveBeenCalled();
+    });
+  });
+
+  describe('Editor.handlePaste', function() {
+    it('should call processPastedContent', function() {
+      var div = document.createElement('div');
+      var event = {
+        preventDefault: function(){},
+        clipboardData: {
+          getData: function(){}
+        }
+      };
+
+
+      spyOn(event.clipboardData, 'getData').and.returnValue('Hello World');
+      spyOn(event, 'preventDefault');
+      spyOn(div, 'addEventListener');
+
+      var editor = new Editor(div);
+      spyOn(editor, 'processPastedContent').and.returnValue([]);
+
+      editor.handlePaste(event);
+      expect(editor.processPastedContent).toHaveBeenCalledWith('Hello World');
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+  });
+
+  describe('Editor.processPastedContent', function() {
+    // TODO(mkhatib): ADd more complicated tests to the pasting processing.
+    it('should generate single operation for inline content', function() {
+      var div = document.createElement('div');
+      var editor = new Editor(div);
+      var ops = editor.processPastedContent('<p>Hello <span>World</span></p>');
+
+      expect(ops.length).toBe(1);
+      expect(ops[0].do.op).toBe('updateText');
     });
   });
 });
