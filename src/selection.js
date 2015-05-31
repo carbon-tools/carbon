@@ -122,14 +122,23 @@ var Selection = (function() {
       if (this.start.offset > 0) {
         startNode = startNode.firstChild;
       }
-      range.setStart(startNode, this.start.offset);
+
+      try {
+        range.setStart(startNode, this.start.offset);
+      } catch (e) {
+        range.setStart(startNode, this.start.offset - 1);
+      }
 
       var endNode = this.end.paragraph.dom;
       // Select the #text node instead of the parent element.
       if (this.end.offset > 0) {
         endNode = endNode.firstChild;
       }
-      range.setEnd(endNode, this.end.offset);
+      try {
+        range.setEnd(endNode, this.end.offset);
+      } catch (e) {
+        range.setEnd(endNode, this.end.offset - 1);
+      }
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -157,9 +166,9 @@ var Selection = (function() {
       start.paragraph = Utils.getReference(startNode.getAttribute('name'));
 
       // Update the selection end point.
-      var endNode = selection.extentNode;
+      var endNode = selection.focusNode;
       var end = {
-        offset: selection.extentOffset
+        offset: selection.focusOffset
       };
       if (endNode.nodeName === '#text') {
         endNode = endNode.parentNode;

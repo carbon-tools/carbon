@@ -211,21 +211,20 @@ Article.prototype.exec = function(operation, action) {
     paragraph.setText(value);
 
     var selection = this.selection;
-    setTimeout(function() {
-      // Allow DOM to reflect the updated text before moving the cursor.
-      selection.setCursor({
-        paragraph: paragraph,
-        offset: operation[action].cursorOffset
-      });
-    }, 5);
+    selection.setCursor({
+      paragraph: paragraph,
+      offset: operation[action].cursorOffset
+    });
 
   } else if (op === 'deleteParagraph') {
     paragraph = this.getParagraphByName(operation[action].paragraph);
     paragraph.section.removeParagraph(paragraph);
   } else if (op === 'insertParagraph') {
     var section = this.getSectionByName(operation[action].section);
+    var pType = operation[action].paragraphType || Paragraph.Types.Paragraph;
     section.insertParagraphAt(new Paragraph({
-      name: operation[action].paragraph
+      name: operation[action].paragraph,
+      paragraphType: pType
     }), operation[action].index);
   }
 };
@@ -311,7 +310,9 @@ Editor.prototype.init = function() {
         paragraphType: Paragraph.Types.ThirdHeader
       }),
       new Paragraph({
-        placeholderText: 'Play around and see the internal model of the article being displayed to the right. The Editor is still under development.'
+        placeholderText: 'Play around and see the internal model of the' +
+          ' article being displayed to the right. The Editor is still under'+
+          ' development.'
       })
     ]
   });
@@ -358,87 +359,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     var section = selection.getSectionAtStart();
     inBetweenParagraphs = section.getParagraphsBetween(
         selection.start.paragraph, selection.end.paragraph);
-
-    for (var i = 0; i < inBetweenParagraphs.length; i++) {
-      ops.push({
-        do: {
-          op: 'updateText',
-          paragraph: inBetweenParagraphs[i].name,
-          cursorOffset: 0,
-          value: '',
-        },
-        undo: {
-          op: 'updateText',
-          paragraph: inBetweenParagraphs[i].name,
-          cursorOffset: inBetweenParagraphs[i].text.length,
-          value: inBetweenParagraphs[i].text
-        }
-      });
-      var paragraphIndex = section.paragraphs.indexOf(inBetweenParagraphs[i]);
-      ops.push({
-        do: {
-          op: 'deleteParagraph',
-          paragraph: inBetweenParagraphs[i].name
-        },
-        undo: {
-          op: 'insertParagraph',
-          section: inBetweenParagraphs[i].section.name,
-          paragraph: inBetweenParagraphs[i].name,
-          index: paragraphIndex - i
-        }
-      });
-    }
-
-    if (selection.end.paragraph !== selection.start.paragraph) {
-      var lastParagraphOldText = selection.end.paragraph.text;
-      var lastParagraphText = lastParagraphOldText.substring(
-          selection.end.offset, lastParagraphOldText.length);
-      var lastParagraphIndex = section.paragraphs.indexOf(selection.end.paragraph);
-      ops.push({
-        do: {
-          op: 'updateText',
-          paragraph: selection.end.paragraph.name,
-          cursorOffset: 0,
-          value: '',
-        },
-        undo: {
-          op: 'updateText',
-          paragraph: selection.end.paragraph.name,
-          cursorOffset: selection.end.offset,
-          value: lastParagraphOldText
-        }
-      });
-      ops.push({
-        do: {
-          op: 'deleteParagraph',
-          paragraph: selection.end.paragraph.name
-        },
-        undo: {
-          op: 'insertParagraph',
-          section: selection.end.paragraph.section.name,
-          paragraph: selection.end.paragraph.name,
-          index: lastParagraphIndex - inBetweenParagraphs.length
-        }
-      });
-
-      var firstParagraphOldText = selection.start.paragraph.text;
-      var firstParagraphText = firstParagraphOldText.substring(
-          0, selection.start.offset);
-      ops.push({
-        do: {
-          op: 'updateText',
-          paragraph: selection.start.paragraph.name,
-          cursorOffset: firstParagraphText.length,
-          value: firstParagraphText + lastParagraphText,
-        },
-        undo: {
-          op: 'updateText',
-          paragraph: selection.start.paragraph.name,
-          cursorOffset: selection.start.offset,
-          value: firstParagraphOldText
-        }
-      });
-    }
+    ops.push.apply(ops, this.getDeleteSelectionOps());
 
     this.article.transaction(ops);
     ops = [];
@@ -563,6 +484,123 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   setTimeout(function() {
     dispatchEvent(new Event('change'));
   }, 10);
+};
+
+
+/**
+ * Generates the operations needed to delete current selection.
+ * @return {Array.<Object>} List of operations to delete selection.
+ */
+Editor.prototype.getDeleteSelectionOps = function() {
+  var ops = [];
+  var selection = this.article.selection;
+  var section = selection.getSectionAtStart();
+  var inBetweenParagraphs = section.getParagraphsBetween(
+      selection.start.paragraph, selection.end.paragraph);
+
+  for (var i = 0; i < inBetweenParagraphs.length; i++) {
+    ops.push({
+      do: {
+        op: 'updateText',
+        paragraph: inBetweenParagraphs[i].name,
+        cursorOffset: 0,
+        value: '',
+      },
+      undo: {
+        op: 'updateText',
+        paragraph: inBetweenParagraphs[i].name,
+        cursorOffset: inBetweenParagraphs[i].text.length,
+        value: inBetweenParagraphs[i].text
+      }
+    });
+    var paragraphIndex = section.paragraphs.indexOf(inBetweenParagraphs[i]);
+    ops.push({
+      do: {
+        op: 'deleteParagraph',
+        paragraph: inBetweenParagraphs[i].name
+      },
+      undo: {
+        op: 'insertParagraph',
+        section: inBetweenParagraphs[i].section.name,
+        paragraph: inBetweenParagraphs[i].name,
+        index: paragraphIndex - i
+      }
+    });
+  }
+
+  if (selection.end.paragraph !== selection.start.paragraph) {
+    var lastParagraphOldText = selection.end.paragraph.text;
+    var lastParagraphText = lastParagraphOldText.substring(
+        selection.end.offset, lastParagraphOldText.length);
+    var lastParagraphIndex = section.paragraphs.indexOf(
+        selection.end.paragraph);
+    ops.push({
+      do: {
+        op: 'updateText',
+        paragraph: selection.end.paragraph.name,
+        cursorOffset: 0,
+        value: '',
+      },
+      undo: {
+        op: 'updateText',
+        paragraph: selection.end.paragraph.name,
+        cursorOffset: selection.end.offset,
+        value: lastParagraphOldText
+      }
+    });
+    ops.push({
+      do: {
+        op: 'deleteParagraph',
+        paragraph: selection.end.paragraph.name
+      },
+      undo: {
+        op: 'insertParagraph',
+        section: selection.end.paragraph.section.name,
+        paragraph: selection.end.paragraph.name,
+        index: lastParagraphIndex - inBetweenParagraphs.length
+      }
+    });
+
+    var firstParagraphOldText = selection.start.paragraph.text;
+    var firstParagraphText = firstParagraphOldText.substring(
+        0, selection.start.offset);
+    ops.push({
+      do: {
+        op: 'updateText',
+        paragraph: selection.start.paragraph.name,
+        cursorOffset: firstParagraphText.length,
+        value: firstParagraphText + lastParagraphText,
+      },
+      undo: {
+        op: 'updateText',
+        paragraph: selection.start.paragraph.name,
+        cursorOffset: selection.start.offset,
+        value: firstParagraphOldText
+      }
+    });
+  } else {
+    var currentParagraph = selection.start.paragraph;
+    var afterCursorText = currentParagraph.text.substring(
+        selection.end.offset, currentParagraph.text.length);
+    var beforeCursorText = currentParagraph.text.substring(
+        0, selection.start.offset);
+    ops.push({
+      do: {
+        op: 'updateText',
+        paragraph: currentParagraph.name,
+        cursorOffset: selection.start.offset,
+        value: beforeCursorText + afterCursorText
+      },
+      undo: {
+        op: 'updateText',
+        paragraph: currentParagraph.name,
+        cursorOffset: selection.start.offset,
+        value: currentParagraph.text
+      }
+    });
+  }
+
+  return ops;
 };
 
 
@@ -701,8 +739,10 @@ Editor.prototype.handlePaste = function(event) {
     pastedContent = event.clipboardData.getData('text/html');
   }
 
-  // TODO(mkhatib): Before anything, if any text is selected, delete it.
-  var ops = this.processPastedContent(pastedContent);
+  var tempEl = document.createElement('div');
+  tempEl.innerHTML = pastedContent;
+
+  var ops = this.processPastedContent(tempEl);
   this.article.transaction(ops);
 
   event.preventDefault();
@@ -726,50 +766,201 @@ Editor.prototype.getJSONModel = function() {
  * make it easier for people to customize or override this with
  * their own sanitizer.
  *
- * @param  {string} html HTML code to sanitize.
+ * @param  {HTMLElement} element HTML Element to sanitize and create ops for.
  * @return {Array.<Object>} List of operations objects that represents the
  * the pasted content.
  */
-Editor.prototype.processPastedContent = function(html) {
+Editor.prototype.processPastedContent = function(element, indexOffset) {
   var ops = [];
-  var tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-  var textPasted = tempDiv.innerText;
-  // var lines = tempDiv.innerText.split('\n');
-  // var children = tempDiv.childNodes;
-
-  // TODO(mkhatib): This single updateText operation should only be applied
-  // to single lines paste.
-
-  // if (!children || !children.length || lines.length < 2) {
+  var text, uid, paragraphType, appendOperations;
+  var textPasted = element.innerText;
+  var children = element.childNodes;
 
   var selection = this.article.selection;
   var currentParagraph = selection.start.paragraph;
+  var section = selection.getSectionAtStart();
+  var startParagraphIndex = section.paragraphs.indexOf(currentParagraph);
+  var currentIndex = indexOffset || startParagraphIndex;
+  var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
-  // Text before and after pasting.
-  var textStart = currentParagraph.text.substring(0, selection.start.offset);
-  var textEnd = currentParagraph.text.substring(
-      selection.start.offset, currentParagraph.text.length);
+  var INLINE_ELEMENTS = 'B BR BIG I SMALL ABBR ACRONYM CITE EM STRONG A BDO'+
+      ' SPAN SUB SUP #text'.split(' ');
 
-  // Calculate cursor offset before and after pasting.
-  var offsetAfterOperation = (textStart + textPasted).length - 1;
-  var offsetBeforeOperation = textStart.length;
-
-  ops.push({
-    do: {
-      op: 'updateText',
-      paragraph: currentParagraph.name,
-      cursorOffset: offsetAfterOperation,
-      value: textStart + textPasted + textEnd
-    },
-    undo: {
-      op: 'updateText',
-      paragraph: currentParagraph.name,
-      cursorOffset: offsetBeforeOperation,
-      value: currentParagraph.text
+  function hasOnlyInlineChildNodes(elem) {
+    var children = elem.childNodes;
+    for (var i = 0; i < children.length ; i++) {
+      if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
+        return false;
+      }
     }
-  });
-  // }
+    return true;
+  }
+
+  function getTextProp(el) {
+    var textProp;
+
+    if (el.nodeType === Node.TEXT_NODE) {
+      textProp = "data";
+    } else if (isFirefox) {
+      textProp = "textContent";
+    } else {
+      textProp = "innerText";
+    }
+
+    return textProp;
+  }
+
+  function isInlinePaste(children) {
+    var metaNodes = 0;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i] && children[i].nodeName.toLowerCase() === 'meta') {
+        metaNodes++;
+      }
+    }
+
+    if (children.length - metaNodes < 2) {
+      return true;
+    }
+  }
+
+  if (!children || !children.length || isInlinePaste(children)) {
+
+    // Text before and after pasting.
+    var textStart = currentParagraph.text.substring(0, selection.start.offset);
+    var textEnd = currentParagraph.text.substring(
+        selection.end.offset, currentParagraph.text.length);
+
+    // Calculate cursor offset before and after pasting.
+    var offsetAfterOperation = (textStart + textPasted).length;
+    var offsetBeforeOperation = textStart.length;
+
+    ops.push({
+      do: {
+        op: 'updateText',
+        paragraph: currentParagraph.name,
+        cursorOffset: offsetAfterOperation,
+        value: textStart + textPasted + textEnd
+      },
+      undo: {
+        op: 'updateText',
+        paragraph: currentParagraph.name,
+        cursorOffset: offsetBeforeOperation,
+        value: currentParagraph.text
+      }
+    });
+  } else {
+    // When pasting multi-line split the current paragraph if pasting
+    // mid-paragraph.
+    if (!selection.isCursorAtEnding()) {
+      ops.push.apply(ops, this.getSplitParagraphOps(
+          currentIndex));
+    }
+    currentIndex++;
+    for (var i = 0; i < children.length; i++) {
+      var el = children[i];
+      var tag = el.nodeName && el.nodeName.toLowerCase();
+      switch (tag) {
+        // These tags are currently unsupported for paste and are stripped out.
+        case undefined:
+        case 'meta':
+        case 'script':
+        case 'style':
+        case 'embed':
+        case 'br':
+        case 'hr':
+        case 'img':
+        case 'figure':
+          continue;
+        // All the following will just insert a normal paragraph for now.
+        // TODO(mkhatib): When the editor supports more paragraph types
+        // fix this to allow pasting lists and other types.
+        case 'ul':
+        case 'ol':
+        case 'p':
+        case '#text':
+          paragraphType = Paragraph.Types.Paragraph;
+          break;
+        case 'blockquote':
+          paragraphType = Paragraph.Types.Quote;
+          break;
+        case 'h1':
+          paragraphType = Paragraph.Types.MainHeader;
+          break;
+        case 'h2':
+          paragraphType = Paragraph.Types.SecondaryHeader;
+          break;
+        case 'h3':
+        case 'h4':
+        case 'h5':
+        case 'h6':
+          paragraphType = Paragraph.Types.ThirdHeader;
+          break;
+        case 'pre':
+          paragraphType = Paragraph.Types.Code;
+          break;
+
+
+        default:
+          // To preserve inline styling.
+          if (hasOnlyInlineChildNodes(children[i])) {
+            // TODO(mkhatib): This is here to preserve inline styling, which
+            // is currently unsupported by the editor. Once this is added
+            // change this to reflect that. Currently just add a non-styled
+            // paragraph.
+            paragraphType = Paragraph.Types.Paragraph;
+          } else {
+            // In case there are still more block elements, recursively get
+            // their operations and add them to the operations list.
+
+            // TODO(mkhatib): This is very clumsy and not very readable, move
+            // the recursive process to its own helper method and make it more
+            // readable.
+            appendOperations = this.processPastedContent(
+                children[i], currentIndex);
+
+            // Increase the currentIndex by the amount of paragraphs we've added
+            // which is the amount of operations over 2 (2 operations per
+            // paragraph, one insert one update.).
+            currentIndex += appendOperations.length/2;
+          }
+      }
+
+      if (appendOperations) {
+        Array.prototype.push.apply(ops, appendOperations);
+      } else {
+        // Add an operation to insert new paragraph and update its text.
+        uid = Utils.getUID();
+        text = el[getTextProp(el)];
+        ops.push({
+          do: {
+            op: 'insertParagraph',
+            section: section.name,
+            paragraph: uid,
+            index: currentIndex++,
+            paragraphType: paragraphType
+          },
+          undo: {
+            op: 'deleteParagraph',
+            paragraph: uid,
+          }
+        });
+        ops.push({
+          do: {
+            op: 'updateText',
+            paragraph: uid,
+            cursorOffset: text.length,
+            value: text
+          },
+          undo: {
+            op: 'updateText',
+            paragraph: uid,
+            cursorOffset: 0,
+            value: ''
+          }
+        });
+      }
+    }
+  }
   return ops;
 };
 
@@ -880,6 +1071,8 @@ Paragraph.Types = {
   MainHeader: 'h1',
   SecondaryHeader: 'h2',
   ThirdHeader: 'h3',
+  Quote: 'blockquote',
+  Code: 'pre',
   Media: 'figure',
   Embed: 'embed',
   Iframe: 'iframe'
@@ -1217,14 +1410,23 @@ var Selection = (function() {
       if (this.start.offset > 0) {
         startNode = startNode.firstChild;
       }
-      range.setStart(startNode, this.start.offset);
+
+      try {
+        range.setStart(startNode, this.start.offset);
+      } catch (e) {
+        range.setStart(startNode, this.start.offset - 1);
+      }
 
       var endNode = this.end.paragraph.dom;
       // Select the #text node instead of the parent element.
       if (this.end.offset > 0) {
         endNode = endNode.firstChild;
       }
-      range.setEnd(endNode, this.end.offset);
+      try {
+        range.setEnd(endNode, this.end.offset);
+      } catch (e) {
+        range.setEnd(endNode, this.end.offset - 1);
+      }
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
@@ -1252,9 +1454,9 @@ var Selection = (function() {
       start.paragraph = Utils.getReference(startNode.getAttribute('name'));
 
       // Update the selection end point.
-      var endNode = selection.extentNode;
+      var endNode = selection.focusNode;
       var end = {
-        offset: selection.extentOffset
+        offset: selection.focusOffset
       };
       if (endNode.nodeName === '#text') {
         endNode = endNode.parentNode;
@@ -1499,7 +1701,8 @@ Utils.CustomEventTarget.prototype._getListeners = function(type, useCapture) {
  * @param  {Function} listener Callback function.
  * @param  {boolean} useCapture
  */
-Utils.CustomEventTarget.prototype.addEventListener = function(type, listener, useCapture) {
+Utils.CustomEventTarget.prototype.addEventListener = function(
+    type, listener, useCapture) {
   var listeners = this._getListeners(type, useCapture);
   var ix = listeners.indexOf(listener);
   if (ix === -1) {
@@ -1514,7 +1717,8 @@ Utils.CustomEventTarget.prototype.addEventListener = function(type, listener, us
  * @param  {Function} listener Callback function.
  * @param  {boolean} useCapture
  */
-Utils.CustomEventTarget.prototype.removeEventListener = function(type, listener, useCapture) {
+Utils.CustomEventTarget.prototype.removeEventListener = function(
+    type, listener, useCapture) {
     var listeners = this._getListeners(type, useCapture);
     var ix = listeners.indexOf(listener);
     if (ix !== -1) {
