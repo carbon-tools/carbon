@@ -304,7 +304,6 @@ describe('Editor', function() {
         }
       };
 
-
       spyOn(event.clipboardData, 'getData').and.returnValue('Hello World');
       spyOn(event, 'preventDefault');
       spyOn(div, 'addEventListener');
@@ -312,21 +311,42 @@ describe('Editor', function() {
       var editor = new Editor(div);
       spyOn(editor, 'processPastedContent').and.returnValue([]);
 
+      var el = document.createElement('div');
+      el.innerHTML = 'Hello World';
       editor.handlePaste(event);
-      expect(editor.processPastedContent).toHaveBeenCalledWith('Hello World');
+      expect(editor.processPastedContent).toHaveBeenCalledWith(el);
       expect(event.preventDefault).toHaveBeenCalled();
     });
   });
 
   describe('Editor.processPastedContent', function() {
-    // TODO(mkhatib): ADd more complicated tests to the pasting processing.
     it('should generate single operation for inline content', function() {
       var div = document.createElement('div');
       var editor = new Editor(div);
-      var ops = editor.processPastedContent('<p>Hello <span>World</span></p>');
+
+      var el = document.createElement('div');
+      el.innerHTML = 'Hello World';
+      var ops = editor.processPastedContent(el);
 
       expect(ops.length).toBe(1);
       expect(ops[0].do.op).toBe('updateText');
+    });
+
+    // TODO(mkhatib): Add more tests to test paste handling like when the cursor
+    // in the middle of the paragraph or so.
+    it('should generate proper operations when pasting multi-line', function() {
+      var div = document.createElement('div');
+      var editor = new Editor(div);
+
+      var el = document.createElement('div');
+      el.innerHTML = '<p style="color:red;">Hello <b>World</b></p>'+
+          '<h4 class="header">Why are we here?</h4>'+
+          '<div><h2>Subheader</h2><p class="hello">Sweet</p></div>';
+      var ops = editor.processPastedContent(el);
+
+      expect(ops.length).toBe(8);
+      expect(ops[0].do.op).toBe('insertParagraph');
+      expect(ops[1].do.op).toBe('updateText');
     });
   });
 });

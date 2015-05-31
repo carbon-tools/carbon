@@ -95,6 +95,8 @@ Paragraph.Types = {
   MainHeader: 'h1',
   SecondaryHeader: 'h2',
   ThirdHeader: 'h3',
+  Quote: 'blockquote',
+  Code: 'pre',
   Media: 'figure',
   Embed: 'embed',
   Iframe: 'iframe'

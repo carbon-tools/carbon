@@ -210,21 +210,20 @@ Article.prototype.exec = function(operation, action) {
     paragraph.setText(value);
 
     var selection = this.selection;
-    setTimeout(function() {
-      // Allow DOM to reflect the updated text before moving the cursor.
-      selection.setCursor({
-        paragraph: paragraph,
-        offset: operation[action].cursorOffset
-      });
-    }, 5);
+    selection.setCursor({
+      paragraph: paragraph,
+      offset: operation[action].cursorOffset
+    });
 
   } else if (op === 'deleteParagraph') {
     paragraph = this.getParagraphByName(operation[action].paragraph);
     paragraph.section.removeParagraph(paragraph);
   } else if (op === 'insertParagraph') {
     var section = this.getSectionByName(operation[action].section);
+    var pType = operation[action].paragraphType || Paragraph.Types.Paragraph;
     section.insertParagraphAt(new Paragraph({
-      name: operation[action].paragraph
+      name: operation[action].paragraph,
+      paragraphType: pType
     }), operation[action].index);
   }
 };

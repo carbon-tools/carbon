@@ -161,7 +161,8 @@ Utils.CustomEventTarget.prototype._getListeners = function(type, useCapture) {
  * @param  {Function} listener Callback function.
  * @param  {boolean} useCapture
  */
-Utils.CustomEventTarget.prototype.addEventListener = function(type, listener, useCapture) {
+Utils.CustomEventTarget.prototype.addEventListener = function(
+    type, listener, useCapture) {
   var listeners = this._getListeners(type, useCapture);
   var ix = listeners.indexOf(listener);
   if (ix === -1) {
@@ -176,7 +177,8 @@ Utils.CustomEventTarget.prototype.addEventListener = function(type, listener, us
  * @param  {Function} listener Callback function.
  * @param  {boolean} useCapture
  */
-Utils.CustomEventTarget.prototype.removeEventListener = function(type, listener, useCapture) {
+Utils.CustomEventTarget.prototype.removeEventListener = function(
+    type, listener, useCapture) {
     var listeners = this._getListeners(type, useCapture);
     var ix = listeners.indexOf(listener);
     if (ix !== -1) {
