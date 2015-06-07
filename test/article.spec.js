@@ -121,13 +121,13 @@ describe('Article', function() {
 
     op = {
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: section.paragraphs[0].name,
         value: 'Hello World',
         cursorOffset: 11
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: section.paragraphs[0].name,
         value: '',
         cursorOffset: 0

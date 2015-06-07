@@ -329,7 +329,7 @@ describe('Editor', function() {
       var ops = editor.processPastedContent(el);
 
       expect(ops.length).toBe(1);
-      expect(ops[0].do.op).toBe('updateText');
+      expect(ops[0].do.op).toBe('updateParagraph');
     });
 
     // TODO(mkhatib): Add more tests to test paste handling like when the cursor
@@ -346,7 +346,7 @@ describe('Editor', function() {
 
       expect(ops.length).toBe(8);
       expect(ops[0].do.op).toBe('insertParagraph');
-      expect(ops[1].do.op).toBe('updateText');
+      expect(ops[1].do.op).toBe('updateParagraph');
     });
   });
 });

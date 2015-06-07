@@ -4,12 +4,37 @@ var Article = require('./article');
 var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
+var FormattingExtension = require('./extensions/formatting');
 
 /**
  * Editor main.
  * @param {HTMLElement} element Editor element to decorate.
+ * @param {Object} optParams Optional params to initialize the editor.
+ * Default:
+ *   {
+ *     extensions: [new FormattingExtension()]
+ *   }
  */
-var Editor = function(element) {
+var Editor = function(element, optParams) {
+
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    // The extensions enabled in this editor.
+    extensions: [new FormattingExtension()]
+  }, optParams);
+
+
+  /**
+   * Unique name to identify the editor.
+   * @type {string}
+   */
+  this.name = Utils.getUID();
+
+  /**
+   * Extensions enabled in the editor.
+   * @type {Array.<Object>}
+   */
+  this.extensions = params.extensions;
 
   /**
    * Element to decorate the editor on.
@@ -60,6 +85,14 @@ Editor.prototype.init = function() {
   });
   this.article.selection.initSelectionListener(this.element);
 
+  if (this.extensions) {
+    for (var i = 0; i < this.extensions.length; i++) {
+      var extension = this.extensions[i];
+      if (typeof extension.init === 'function') {
+        extension.init(this);
+      }
+    }
+  }
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.className += ' manshar-editor';
@@ -201,13 +234,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     setTimeout(function() {
       ops.push({
         do: {
-          op: 'updateText',
+          op: 'updateParagraph',
           paragraph: currentParagraph.name,
           cursorOffset: selection.end.offset + cursorOffsetDirection,
           value: currentParagraph.dom.innerText,
         },
         undo: {
-          op: 'updateText',
+          op: 'updateParagraph',
           paragraph: currentParagraph.name,
           cursorOffset: selection.end.offset,
           value: oldValue
@@ -239,13 +272,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
   for (var i = 0; i < inBetweenParagraphs.length; i++) {
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: inBetweenParagraphs[i].name,
         cursorOffset: 0,
         value: '',
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: inBetweenParagraphs[i].name,
         cursorOffset: inBetweenParagraphs[i].text.length,
         value: inBetweenParagraphs[i].text
@@ -274,13 +307,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
         selection.end.paragraph);
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.end.paragraph.name,
         cursorOffset: 0,
         value: '',
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.end.paragraph.name,
         cursorOffset: selection.end.offset,
         value: lastParagraphOldText
@@ -304,13 +337,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
         0, selection.start.offset);
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.start.paragraph.name,
         cursorOffset: firstParagraphText.length,
         value: firstParagraphText + lastParagraphText,
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.start.paragraph.name,
         cursorOffset: selection.start.offset,
         value: firstParagraphOldText
@@ -324,13 +357,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
         0, selection.start.offset);
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: selection.start.offset,
         value: beforeCursorText + afterCursorText
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: selection.start.offset,
         value: currentParagraph.text
@@ -373,13 +406,13 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: currentParagraph.name,
       cursorOffset: beforeCursorText.length,
       value: beforeCursorText,
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: currentParagraph.name,
       cursorOffset: beforeCursorText.length,
       value: currentParagraph.text
@@ -388,13 +421,13 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: uid,
       cursorOffset: 0,
       value: afterCursorText,
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: uid,
       cursorOffset: 0,
       value: ''
@@ -420,13 +453,13 @@ Editor.prototype.getMergeParagraphsOps = function(
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: secondP.name,
       cursorOffset: 0,
       value: '',
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: secondP.name,
       cursorOffset: 0,
       value: secondP.text
@@ -448,13 +481,13 @@ Editor.prototype.getMergeParagraphsOps = function(
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: firstP.name,
       cursorOffset: offsetAfterOperation,
       value: firstP.text + secondP.text,
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: firstP.name,
       cursorOffset: offsetAfterOperation,
       value: firstP.text
@@ -574,13 +607,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: offsetAfterOperation,
         value: textStart + textPasted + textEnd
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: offsetBeforeOperation,
         value: currentParagraph.text
@@ -684,13 +717,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         });
         ops.push({
           do: {
-            op: 'updateText',
+            op: 'updateParagraph',
             paragraph: uid,
             cursorOffset: text.length,
             value: text
           },
           undo: {
-            op: 'updateText',
+            op: 'updateParagraph',
             paragraph: uid,
             cursorOffset: 0,
             value: ''

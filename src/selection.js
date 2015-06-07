@@ -31,6 +31,15 @@ var Selection = (function() {
       };
     };
 
+    Selection.prototype = new Utils.CustomEventTarget();
+
+    /**
+     * Differet types of selection events.
+     * @type {Enum}
+     */
+    Selection.Events = {
+      SELECTION_CHANGED: 'selectionchanged'
+    };
 
     /**
      * Resets selection start and end point.
@@ -66,6 +75,24 @@ var Selection = (function() {
       if (this.end) {
         return this.end.paragraph;
       }
+    };
+
+
+    /**
+     * Returns the list of paragraphs in the selection.
+     * @return {Array.<Paragraph>} List of paragraphs selected.
+     */
+    Selection.prototype.getSelectedParagraphs = function() {
+      var startParagraph = this.start.paragraph;
+      var endParagraph = this.end.paragraph;
+      var inBetweenParagraphs = this.getSectionAtStart().getParagraphsBetween(
+          startParagraph, endParagraph);
+      var selectedParagraphs = [startParagraph];
+      Array.prototype.push.apply(selectedParagraphs, inBetweenParagraphs);
+      if (startParagraph !== endParagraph) {
+        selectedParagraphs.push(endParagraph);
+      }
+      return selectedParagraphs;
     };
 
 
@@ -183,6 +210,9 @@ var Selection = (function() {
 
       this.end = reversedSelection ? start : end;
       this.start = reversedSelection ? end : start;
+
+      var event = new Event(Selection.Events.SELECTION_CHANGED);
+      this.dispatchEvent(event);
     };
 
 
@@ -243,7 +273,8 @@ var Selection = (function() {
           instance.constructor = null;
         }
         return instance;
-      }
+      },
+      Events: Selection.Events
     };
 
 })();
