@@ -203,12 +203,14 @@ Article.prototype.undo = function() {
 Article.prototype.exec = function(operation, action) {
   var op = operation[action].op;
   var paragraph;
-  if (op === 'updateText') {
-    var value = operation[action].value;
+  if (op === 'updateParagraph') {
     var paragraphName = operation[action].paragraph;
+    var value = operation[action].value;
     paragraph = this.getParagraphByName(paragraphName);
-    paragraph.setText(value);
 
+    if (value !== undefined) {
+      paragraph.setText(value);
+    }
     var selection = this.selection;
     selection.setCursor({
       paragraph: paragraph,

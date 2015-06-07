@@ -204,12 +204,14 @@ Article.prototype.undo = function() {
 Article.prototype.exec = function(operation, action) {
   var op = operation[action].op;
   var paragraph;
-  if (op === 'updateText') {
-    var value = operation[action].value;
+  if (op === 'updateParagraph') {
     var paragraphName = operation[action].paragraph;
+    var value = operation[action].value;
     paragraph = this.getParagraphByName(paragraphName);
-    paragraph.setText(value);
 
+    if (value !== undefined) {
+      paragraph.setText(value);
+    }
     var selection = this.selection;
     selection.setCursor({
       paragraph: paragraph,
@@ -259,19 +261,44 @@ Article.prototype.getParagraphByName = function(name) {
   }
 };
 
-},{"./paragraph":4,"./selection":6,"./utils":7}],2:[function(require,module,exports){
+},{"./paragraph":5,"./selection":7,"./utils":8}],2:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
 var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
+var FormattingExtension = require('./extensions/formatting');
 
 /**
  * Editor main.
  * @param {HTMLElement} element Editor element to decorate.
+ * @param {Object} optParams Optional params to initialize the editor.
+ * Default:
+ *   {
+ *     extensions: [new FormattingExtension()]
+ *   }
  */
-var Editor = function(element) {
+var Editor = function(element, optParams) {
+
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    // The extensions enabled in this editor.
+    extensions: [new FormattingExtension()]
+  }, optParams);
+
+
+  /**
+   * Unique name to identify the editor.
+   * @type {string}
+   */
+  this.name = Utils.getUID();
+
+  /**
+   * Extensions enabled in the editor.
+   * @type {Array.<Object>}
+   */
+  this.extensions = params.extensions;
 
   /**
    * Element to decorate the editor on.
@@ -322,6 +349,14 @@ Editor.prototype.init = function() {
   });
   this.article.selection.initSelectionListener(this.element);
 
+  if (this.extensions) {
+    for (var i = 0; i < this.extensions.length; i++) {
+      var extension = this.extensions[i];
+      if (typeof extension.init === 'function') {
+        extension.init(this);
+      }
+    }
+  }
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.className += ' manshar-editor';
@@ -463,13 +498,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     setTimeout(function() {
       ops.push({
         do: {
-          op: 'updateText',
+          op: 'updateParagraph',
           paragraph: currentParagraph.name,
           cursorOffset: selection.end.offset + cursorOffsetDirection,
           value: currentParagraph.dom.innerText,
         },
         undo: {
-          op: 'updateText',
+          op: 'updateParagraph',
           paragraph: currentParagraph.name,
           cursorOffset: selection.end.offset,
           value: oldValue
@@ -501,13 +536,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
   for (var i = 0; i < inBetweenParagraphs.length; i++) {
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: inBetweenParagraphs[i].name,
         cursorOffset: 0,
         value: '',
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: inBetweenParagraphs[i].name,
         cursorOffset: inBetweenParagraphs[i].text.length,
         value: inBetweenParagraphs[i].text
@@ -536,13 +571,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
         selection.end.paragraph);
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.end.paragraph.name,
         cursorOffset: 0,
         value: '',
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.end.paragraph.name,
         cursorOffset: selection.end.offset,
         value: lastParagraphOldText
@@ -566,13 +601,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
         0, selection.start.offset);
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.start.paragraph.name,
         cursorOffset: firstParagraphText.length,
         value: firstParagraphText + lastParagraphText,
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: selection.start.paragraph.name,
         cursorOffset: selection.start.offset,
         value: firstParagraphOldText
@@ -586,13 +621,13 @@ Editor.prototype.getDeleteSelectionOps = function() {
         0, selection.start.offset);
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: selection.start.offset,
         value: beforeCursorText + afterCursorText
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: selection.start.offset,
         value: currentParagraph.text
@@ -635,13 +670,13 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: currentParagraph.name,
       cursorOffset: beforeCursorText.length,
       value: beforeCursorText,
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: currentParagraph.name,
       cursorOffset: beforeCursorText.length,
       value: currentParagraph.text
@@ -650,13 +685,13 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: uid,
       cursorOffset: 0,
       value: afterCursorText,
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: uid,
       cursorOffset: 0,
       value: ''
@@ -682,13 +717,13 @@ Editor.prototype.getMergeParagraphsOps = function(
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: secondP.name,
       cursorOffset: 0,
       value: '',
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: secondP.name,
       cursorOffset: 0,
       value: secondP.text
@@ -710,13 +745,13 @@ Editor.prototype.getMergeParagraphsOps = function(
 
   ops.push({
     do: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: firstP.name,
       cursorOffset: offsetAfterOperation,
       value: firstP.text + secondP.text,
     },
     undo: {
-      op: 'updateText',
+      op: 'updateParagraph',
       paragraph: firstP.name,
       cursorOffset: offsetAfterOperation,
       value: firstP.text
@@ -836,13 +871,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     ops.push({
       do: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: offsetAfterOperation,
         value: textStart + textPasted + textEnd
       },
       undo: {
-        op: 'updateText',
+        op: 'updateParagraph',
         paragraph: currentParagraph.name,
         cursorOffset: offsetBeforeOperation,
         value: currentParagraph.text
@@ -946,13 +981,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         });
         ops.push({
           do: {
-            op: 'updateText',
+            op: 'updateParagraph',
             paragraph: uid,
             cursorOffset: text.length,
             value: text
           },
           undo: {
-            op: 'updateText',
+            op: 'updateParagraph',
             paragraph: uid,
             cursorOffset: 0,
             value: ''
@@ -964,7 +999,417 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   return ops;
 };
 
-},{"./article":1,"./paragraph":4,"./section":5,"./utils":7}],3:[function(require,module,exports){
+},{"./article":1,"./extensions/formatting":3,"./paragraph":5,"./section":6,"./utils":8}],3:[function(require,module,exports){
+'use strict';
+
+var Paragraph = require('../paragraph');
+var Selection = require('../selection');
+var Utils = require('../utils');
+
+
+// TODO: Refactor this to make toolbar its own module and separate
+// the logic of formatting from the UI components.
+// Also encompass toolbar into an object with a .dom property on it
+// to access its HTMLElement.
+
+/**
+ * Editor formatting logic is an extension to the editor.
+ * @param {Object} optParams Optional params to initialize the Formatting object.
+ * Default:
+ *   {
+ *     enableInline: true,
+ *     enableBlock: true
+ *   }
+ */
+var Formatting = function(optParams) {
+
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    // TODO: Use these configurations to disable/enable toolbars.
+    enableInline: true,
+    enableBlock: true
+  }, optParams);
+
+  /**
+   * Whether inline formatting toolbar is enabled.
+   * @type {boolean}
+   */
+  this.enableInline = params.enableInline;
+
+  /**
+   * Whether inline formatting toolbar is enabled.
+   * @type {boolean}
+   */
+  this.enableBlock = params.enableBlock;
+
+  /**
+   * Editor reference.
+   * @type {Editor}
+   */
+  this.editor = null;
+
+};
+module.exports = Formatting;
+
+
+/**
+ * Active button class name.
+ * @type {string}
+ */
+Formatting.ACTIVE_ACTION_CLASS = 'active';
+
+
+/**
+ * Types of formatting.
+ * @enum {string}
+ */
+Formatting.Types = {
+  BLOCK: 'block',
+  INLINE: 'inline'
+};
+
+
+/**
+ * Used to position the toolbars outside the user view.
+ * @type {number}
+ */
+Formatting.EDGE = -999999;
+
+
+/**
+ * Actions allowed on the toolbars.
+ * @type {Object}
+ */
+Formatting.Actions = {
+
+  // Block formatting.
+  // TODO: Implement Ordered and Unordered lists.
+  Block: [{
+    label: 'h1',
+    value: Paragraph.Types.MainHeader
+  }, {
+    label: 'h2',
+    value: Paragraph.Types.SecondaryHeader
+  }, {
+    label: 'h3',
+    value: Paragraph.Types.ThirdHeader
+  }, {
+    label: '”',
+    value: Paragraph.Types.Quote
+  }, {
+    label: '{}',
+    value: Paragraph.Types.Code
+  }],
+
+  // TODO: Implement inline formatting. This is just placeholder
+  // to show the toolbar. The formatting functionality is still not
+  // implemeneted.
+  Inline: [{
+    label: 'B',
+    value: 'strong'
+  }, {
+    label: 'I',
+    value: 'italic'
+  }, {
+    label: 'U',
+    value: 'underline'
+  }, {
+    label: 'S',
+    value: 'strike'
+  }, {
+    label: 'a',
+    value: 'href'
+  }]
+};
+
+
+/**
+ * Initializes the formatting extension.
+ * @param  {Editor} editor The parent editor for the extension.
+ */
+Formatting.prototype.init = function(editor) {
+  this.editor = editor;
+
+  // Inline toolbar used for formatting inline elements (bold, italic...).
+  this.inlineToolbar = this.createInlineToolbar();
+  document.body.appendChild(this.inlineToolbar);
+
+  // Block toolbar used for formatting block elements (h1, h2, pre...).
+  this.blockToolbar = this.createBlockToolbar();
+  document.body.appendChild(this.blockToolbar);
+
+  // Initializes event listener to update toolbars position and status
+  // when selection or cursor change.
+  this.editor.article.selection.addEventListener(
+      Selection.Events.SELECTION_CHANGED,
+      this.handleSelectionChangedEvent.bind(this));
+};
+
+
+/**
+ * Creates inline formatting toolbar.
+ * @return {HTMLElement} Toolbar Element.
+ */
+Formatting.prototype.createInlineToolbar = function() {
+  var toolbar = document.createElement('div');
+  toolbar.id = 'editor-inline-toolbar-' + this.editor.name;
+  toolbar.className = 'editor-toolbar editor-inline-toolbar';
+
+  toolbar.appendChild(this.createToolbarButtons(
+      Formatting.Actions.Inline, Formatting.Types.INLINE));
+  return toolbar;
+};
+
+
+/**
+ * Creates block formatting toolbar.
+ * @return {HTMLElement} Toolbar Element.
+ */
+Formatting.prototype.createBlockToolbar = function() {
+  var toolbar = document.createElement('div');
+  toolbar.id = 'editor-block-toolbar-' + this.editor.name;
+  toolbar.className = 'editor-toolbar editor-block-toolbar';
+
+  toolbar.appendChild(this.createToolbarButtons(
+      Formatting.Actions.Block, Formatting.Types.BLOCK));
+  return toolbar;
+};
+
+
+/**
+ * Creates toolbar buttons from passed actions.
+ * @param  {Array.<Object>} actions Actions to create buttons for.
+ * @param  {string} type Can be 'block' or 'inline'.
+ * @return {HTMLElement} Element that holds the list of created buttons.
+ */
+Formatting.prototype.createToolbarButtons = function(actions, type) {
+  var ul = document.createElement('ul');
+  ul.className = 'editor-toolbar-buttons';
+
+  for (var i = 0; i < actions.length; i++) {
+    ul.appendChild(this.createButton(actions[i], type));
+  }
+  return ul;
+};
+
+
+/**
+ * Creates a single action button.
+ * @param  {Object} action Action to create the button for.
+ * @param  {string} type Can be 'block' or 'inline'.
+ * @return {HTMLElement} Button element.
+ */
+Formatting.prototype.createButton = function(action, type) {
+  var button = document.createElement('button');
+  button.innerHTML = action.label;
+  button.value = action.value;
+  button.type = type;
+
+  // Add Event Listener to take action when clicking the button.
+  button.addEventListener('click', this.handleButtonClicked.bind(this));
+  return button;
+};
+
+
+/**
+ * Handles clicking a formatting bar action button.
+ * @param  {Event} event Click event.
+ */
+Formatting.prototype.handleButtonClicked = function(event) {
+  if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
+    this.handleBlockFormatting(event);
+    this.repositionBlockToolbar();
+  } else {
+    throw 'Inline formatting is not implemented yet.';
+  }
+};
+
+
+/**
+ * Handles changing in selection or cursor.
+ */
+Formatting.prototype.handleSelectionChangedEvent = function() {
+  var wSelection = window.getSelection();
+
+  if (wSelection.isCollapsed) {
+    // If there's no selection, show the block toolbar.
+    this.repositionBlockToolbar();
+  } else {
+    // Otherwise, show the inline toolbar.
+    this.repositionInlineToolbar();
+  }
+};
+
+
+/**
+ * Reposition inline formatting toolbar and hides block toolbar.
+ */
+Formatting.prototype.repositionInlineToolbar = function() {
+  var wSelection = window.getSelection();
+  var range = wSelection.getRangeAt(0);
+  var bounds = range.getBoundingClientRect();
+
+  // Hide the block formatting toolbar.
+  this.setToolbarPosition(
+      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
+
+  // Calculate the left edge of the inline toolbar.
+  var toolbarWidth = this.inlineToolbar.getClientRects()[0].width;
+  var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
+
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.top + window.pageYOffset;
+
+  this.setToolbarPosition(this.inlineToolbar, top, left);
+};
+
+
+/**
+ * Reposition block formatting toolbar and hides inline toolbar.
+ */
+Formatting.prototype.repositionBlockToolbar = function() {
+  var selection = this.editor.article.selection;
+  var paragraph = selection.getParagraphAtStart();
+  var bounds = paragraph.dom.getBoundingClientRect();
+
+  // Hide inline formatting toolbar.
+  this.setToolbarPosition(
+      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
+
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.top + window.pageYOffset;
+
+  this.setToolbarPosition(this.blockToolbar, top, bounds.left);
+
+  // Update the active buttons on block toolbar.
+  this.reloadBlockToolbarStatus();
+};
+
+
+/**
+ * Reloads the status of the block toolbar buttons.
+ */
+Formatting.prototype.reloadBlockToolbarStatus = function() {
+  var selection = this.editor.article.selection;
+  var paragraph = selection.getParagraphAtStart();
+  var activeAction = paragraph.paragraphType;
+
+  // Reset the old activated button to deactivate it.
+  var oldActive = this.blockToolbar.querySelector('button.active');
+  if (oldActive) {
+    oldActive.className = '';
+  }
+
+  // Activate the current paragraph block formatted button.
+  var activeButton = this.blockToolbar.querySelector(
+      '[value=' + activeAction + ']');
+  if (activeButton) {
+    activeButton.className = Formatting.ACTIVE_ACTION_CLASS;
+  }
+};
+
+
+/**
+ * Positions a toolbar to a specific location.
+ * @param {HTMLElement} toolbar The toolbar to position.
+ * @param {number} top Top offset of the toolbar.
+ * @param {number} left Left offset of the toolbar.
+ */
+Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
+  toolbar.style.top = top + 'px';
+  toolbar.style.left = left + 'px';
+};
+
+
+/**
+ * Creates the actual operations needed to execute block formatting.
+ * @param  {Event} event Click event.
+ */
+Formatting.prototype.handleBlockFormatting = function(event) {
+  var clickedParagraphType = event.target.getAttribute('value');
+  var selection = this.editor.article.selection;
+  var paragraphs = selection.getSelectedParagraphs();
+  var ops = [];
+
+  for (var i = 0; i < paragraphs.length; i++) {
+    var toType = clickedParagraphType;
+    if (paragraphs[i].paragraphType === clickedParagraphType) {
+      toType = Paragraph.Types.Paragraph;
+    }
+
+    // Step 0: updateParagraph to remove content the old one.
+    var index = paragraphs[i].section.paragraphs.indexOf(paragraphs[i]) + i;
+    ops.push({
+      do: {
+        op: 'updateParagraph',
+        paragraph: paragraphs[i].name,
+        value: '',
+        cursorOffset: 0
+      },
+      undo: {
+        op: 'updateParagraph',
+        paragraph: paragraphs[i].name,
+        value: paragraphs[i].text,
+        cursorOffset: selection.end.offset
+      }
+    });
+
+    // Step 1: deleteParagraph to remove current Paragraph.
+    ops.push({
+      do: {
+        op: 'deleteParagraph',
+        paragraph: paragraphs[i].name
+      },
+      undo: {
+        op: 'insertParagraph',
+        section: paragraphs[i].section.name,
+        index: index,
+        paragraph: paragraphs[i].name,
+        paragraphType: paragraphs[i].paragraphType
+      }
+    });
+
+    // Step 2: insertParagraph to Insert a new Paragraph in its place with the
+    // new paragraph type. Make sure to keep the name of the paragraph.
+    ops.push({
+      do: {
+        op: 'insertParagraph',
+        section: paragraphs[i].section.name,
+        paragraph: paragraphs[i].name,
+        index: index,
+        paragraphType: toType
+      },
+      undo: {
+        op: 'deleteParagraph',
+        paragraph: paragraphs[i].name,
+      }
+    });
+
+    // Step 3: updateParagraph to update with the content of the old one.
+    ops.push({
+      do: {
+        op: 'updateParagraph',
+        paragraph: paragraphs[i].name,
+        value: paragraphs[i].text,
+        cursorOffset: selection.end.offset
+      },
+      undo: {
+        op: 'updateParagraph',
+        paragraph: paragraphs[i].name,
+        value: '',
+        cursorOffset: 0
+      }
+    });
+  }
+
+  // Execute the transaction.
+  this.editor.article.transaction(ops);
+
+  // Tell listeners that there was a change in the editor.
+  this.editor.dispatchEvent(new Event('change'));
+};
+
+},{"../paragraph":5,"../selection":7,"../utils":8}],4:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -972,8 +1417,9 @@ module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
+module.exports.Formatting = require('./extensions/formatting');
 
-},{"./article":1,"./editor":2,"./paragraph":4,"./section":5,"./selection":6}],4:[function(require,module,exports){
+},{"./article":1,"./editor":2,"./extensions/formatting":3,"./paragraph":5,"./section":6,"./selection":7}],5:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -1072,10 +1518,7 @@ Paragraph.Types = {
   SecondaryHeader: 'h2',
   ThirdHeader: 'h3',
   Quote: 'blockquote',
-  Code: 'pre',
-  Media: 'figure',
-  Embed: 'embed',
-  Iframe: 'iframe'
+  Code: 'pre'
 };
 
 
@@ -1140,7 +1583,7 @@ Paragraph.prototype.getJSONModel = function() {
   return paragraph;
 };
 
-},{"./utils":7}],5:[function(require,module,exports){
+},{"./utils":8}],6:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -1285,7 +1728,7 @@ Section.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./selection":6,"./utils":7}],6:[function(require,module,exports){
+},{"./selection":7,"./utils":8}],7:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -1319,6 +1762,15 @@ var Selection = (function() {
       };
     };
 
+    Selection.prototype = new Utils.CustomEventTarget();
+
+    /**
+     * Differet types of selection events.
+     * @type {Enum}
+     */
+    Selection.Events = {
+      SELECTION_CHANGED: 'selectionchanged'
+    };
 
     /**
      * Resets selection start and end point.
@@ -1354,6 +1806,24 @@ var Selection = (function() {
       if (this.end) {
         return this.end.paragraph;
       }
+    };
+
+
+    /**
+     * Returns the list of paragraphs in the selection.
+     * @return {Array.<Paragraph>} List of paragraphs selected.
+     */
+    Selection.prototype.getSelectedParagraphs = function() {
+      var startParagraph = this.start.paragraph;
+      var endParagraph = this.end.paragraph;
+      var inBetweenParagraphs = this.getSectionAtStart().getParagraphsBetween(
+          startParagraph, endParagraph);
+      var selectedParagraphs = [startParagraph];
+      Array.prototype.push.apply(selectedParagraphs, inBetweenParagraphs);
+      if (startParagraph !== endParagraph) {
+        selectedParagraphs.push(endParagraph);
+      }
+      return selectedParagraphs;
     };
 
 
@@ -1471,6 +1941,9 @@ var Selection = (function() {
 
       this.end = reversedSelection ? start : end;
       this.start = reversedSelection ? end : start;
+
+      var event = new Event(Selection.Events.SELECTION_CHANGED);
+      this.dispatchEvent(event);
     };
 
 
@@ -1531,13 +2004,14 @@ var Selection = (function() {
           instance.constructor = null;
         }
         return instance;
-      }
+      },
+      Events: Selection.Events
     };
 
 })();
 module.exports = Selection;
 
-},{"./utils":7}],7:[function(require,module,exports){
+},{"./utils":8}],8:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -1740,5 +2214,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[3])(3)
+},{}]},{},[4])(4)
 });

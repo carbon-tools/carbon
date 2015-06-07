@@ -34,6 +34,7 @@ body {
   box-sizing: border-box;
 }
 
+
 /**
  * The following are for the editor library and should be moved
  * under src/ directory instead of demo.
@@ -56,4 +57,69 @@ body {
   cursor: text;
   display: block; /* For Firefox */
   color: #c0c0c0;
+}
+
+.editor-toolbar {
+  position: absolute;
+  top: -99999px;
+  left: -99999px;
+}
+
+.editor-toolbar-buttons {
+  margin: 0;
+  padding: 0;
+  font-family: serif;
+}
+
+.editor-inline-toolbar .editor-toolbar-buttons:after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-width: 10px;
+  border-style: solid;
+  border-color: #FF5722 transparent transparent transparent;
+  top: -10px;
+  left: 45%;
+}
+
+.editor-inline-toolbar .editor-toolbar-buttons {
+  margin-top: -50px;
+}
+
+.editor-block-toolbar .editor-toolbar-buttons {
+  margin-top: -30px;
+}
+
+.editor-toolbar-buttons button {
+  border: 0;
+}
+
+.editor-inline-toolbar .editor-toolbar-buttons button {
+  background-color: #FF5722;
+  color: #fff;
+  padding: 0.5em 0.8em;
+  width: 2.5em;
+  font-size: 0.9em;
+}
+
+.editor-block-toolbar .editor-toolbar-buttons button {
+  background-color: #fafafa;
+  color: #ccc;
+  padding: 0.3em 0.5em;
+  width: 2em;
+  font-size: 0.7em;
+}
+
+.editor-toolbar-buttons button:hover {
+  background-color: #BF360C;
+  color: #fff;
+}
+
+.editor-toolbar-buttons button:focus {
+  outline: none;
+}
+
+.editor-toolbar-buttons button.active {
+  color: #2196F3;
 }
