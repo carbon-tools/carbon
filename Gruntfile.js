@@ -218,13 +218,12 @@ module.exports = function(grunt) {
     'browserify:standalone',
     'uglify',
     'concat',
-    'karma:unit',
     'jshint'
   ]);
 
   grunt.registerTask('default', [
     'build',
-    'watch'
+    'karma:unit'
   ]);
 
 };

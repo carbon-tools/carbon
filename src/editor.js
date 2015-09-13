@@ -232,22 +232,49 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     var article = this.article;
     var cursorOffsetDirection = event.keyCode === 8 ? -1 : 1;
     setTimeout(function() {
-      ops.push({
-        do: {
-          op: 'updateParagraph',
-          paragraph: currentParagraph.name,
-          cursorOffset: selection.end.offset + cursorOffsetDirection,
-          value: currentParagraph.dom.innerText,
-        },
-        undo: {
-          op: 'updateParagraph',
-          paragraph: currentParagraph.name,
-          cursorOffset: selection.end.offset,
-          value: oldValue
-        }
-      });
+      var newValue = currentParagraph.dom.innerText;
+      var newOffset = selection.end.offset + cursorOffsetDirection;
+
+      if (cursorOffsetDirection !== -1) {
+        var insertedChar = newValue.charAt(Math.min(newOffset, newValue.length) - 1);
+        ops.push({
+          do: {
+            op: 'insertChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: newOffset,
+            value: insertedChar,
+            index: selection.end.offset
+          },
+          undo: {
+            op: 'removeChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: selection.end.offset,
+            index: selection.end.offset,
+            count: 1
+          }
+        });
+      } else if (oldValue) {
+        var deletedChar = oldValue.charAt(newOffset);
+        ops.push({
+          do: {
+            op: 'removeChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: newOffset,
+            index: newOffset,
+            count: 1
+          },
+          undo: {
+            op: 'insertChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: selection.end.offset,
+            value: deletedChar,
+            index: newOffset
+          }
+        });
+      }
+
       article.transaction(ops);
-    }, 5);
+    }, 3);
   }
 
   // Dispatch a `change` event
@@ -598,8 +625,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     // Text before and after pasting.
     var textStart = currentParagraph.text.substring(0, selection.start.offset);
-    var textEnd = currentParagraph.text.substring(
-        selection.end.offset, currentParagraph.text.length);
 
     // Calculate cursor offset before and after pasting.
     var offsetAfterOperation = (textStart + textPasted).length;
@@ -607,16 +632,18 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     ops.push({
       do: {
-        op: 'updateParagraph',
+        op: 'insertChars',
         paragraph: currentParagraph.name,
         cursorOffset: offsetAfterOperation,
-        value: textStart + textPasted + textEnd
+        value: textPasted,
+        index: offsetBeforeOperation
       },
       undo: {
-        op: 'updateParagraph',
+        op: 'removeChars',
         paragraph: currentParagraph.name,
         cursorOffset: offsetBeforeOperation,
-        value: currentParagraph.text
+        index: offsetBeforeOperation,
+        count: textPasted.length
       }
     });
   } else {

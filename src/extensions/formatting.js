@@ -107,16 +107,16 @@ Formatting.Actions = {
     value: 'strong'
   }, {
     label: 'I',
-    value: 'italic'
+    value: 'em'
   }, {
     label: 'U',
-    value: 'underline'
+    value: 'u'
   }, {
     label: 'S',
-    value: 'strike'
+    value: 's'
   }, {
     label: 'a',
-    value: 'href'
+    value: 'a'
   }]
 };
 
@@ -218,7 +218,8 @@ Formatting.prototype.handleButtonClicked = function(event) {
     this.handleBlockFormatting(event);
     this.repositionBlockToolbar();
   } else {
-    throw 'Inline formatting is not implemented yet.';
+    this.handleInlineFormatting(event);
+    this.reloadToolbarStatus(this.inlineToolbar);
   }
 };
 
@@ -280,26 +281,27 @@ Formatting.prototype.repositionBlockToolbar = function() {
   this.setToolbarPosition(this.blockToolbar, top, bounds.left);
 
   // Update the active buttons on block toolbar.
-  this.reloadBlockToolbarStatus();
+  this.reloadToolbarStatus(this.blockToolbar);
 };
 
 
 /**
  * Reloads the status of the block toolbar buttons.
+ * @param {HTMLElement} toolbar Toolbar to reload its status.
  */
-Formatting.prototype.reloadBlockToolbarStatus = function() {
+Formatting.prototype.reloadToolbarStatus = function(toolbar) {
   var selection = this.editor.article.selection;
   var paragraph = selection.getParagraphAtStart();
   var activeAction = paragraph.paragraphType;
 
   // Reset the old activated button to deactivate it.
-  var oldActive = this.blockToolbar.querySelector('button.active');
+  var oldActive = toolbar.querySelector('button.active');
   if (oldActive) {
     oldActive.className = '';
   }
 
   // Activate the current paragraph block formatted button.
-  var activeButton = this.blockToolbar.querySelector(
+  var activeButton = toolbar.querySelector(
       '[value=' + activeAction + ']');
   if (activeButton) {
     activeButton.className = Formatting.ACTIVE_ACTION_CLASS;
@@ -406,3 +408,170 @@ Formatting.prototype.handleBlockFormatting = function(event) {
   // Tell listeners that there was a change in the editor.
   this.editor.dispatchEvent(new Event('change'));
 };
+
+
+/**
+ * Applies an inline formatter to a paragraph.
+ * @param  {Paragraph} paragraph A paragraph object to apply to format to.
+ * @param  {Selection} selection The current selection to apply format to.
+ * @param  {Object} format Format object describing the format.
+ * @return {Array.<Object>} A list of operations describing the change.
+ */
+Formatting.prototype.format = function(paragraph, selection, format) {
+  var ops = [], newDo, newUndo, newOp;
+  var defaultDo = {
+    op: 'updateParagraph',
+    paragraph: paragraph.name,
+    cursorOffset: selection.start.offset,
+    selectRange: selection.end.offset - selection.start.offset,
+    formats: []
+  };
+
+  // See the range already formatted in a similar type.
+  var existingFormats = paragraph.getFormattedRanges(format, true);
+  if (existingFormats && existingFormats.length) {
+
+    for (var i = 0; i < existingFormats.length; i++) {
+      var existingFormat = existingFormats[i];
+      // If the format is re-applied to the same range remove the format.
+      if (format.to === existingFormat.to &&
+          format.from === existingFormat.from) {
+
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(existingFormat);
+
+        newOp = {
+          do: newDo,
+          undo: newDo
+        };
+        ops.push(newOp);
+
+      } else if (format.to === existingFormat.to) {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(format);
+
+        newOp = {
+          do: newDo,
+          undo: newDo
+        };
+        ops.push(newOp);
+      } else if (format.from === existingFormat.from) {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(format);
+
+        newOp = {
+          do: newDo,
+          undo: newDo
+        };
+        ops.push(newOp);
+      }
+      // If the selected range is already formatted and is in the middle split
+      // the old format to unformat the selected range.
+      else if (format.to < existingFormat.to &&
+               format.from > existingFormat.from) {
+
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(existingFormat);
+        newDo.formats.push({
+          type: existingFormat.type,
+          from: existingFormat.from,
+          to: format.from
+        });
+        newDo.formats.push({
+          type: existingFormat.type,
+          from: format.to,
+          to: existingFormat.to
+        });
+
+        newUndo = Utils.clone(newDo);
+        newUndo.formats.reverse();
+
+        newOp = {
+          do: newDo,
+          undo: newUndo
+        };
+        ops.push(newOp);
+
+      } else {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(existingFormat);
+        newDo.formats.push({
+          type: existingFormat.type,
+          from: Math.min(existingFormat.from, format.from),
+          to: Math.max(existingFormat.to, format.to)
+        });
+
+        newUndo = Utils.clone(newDo);
+        newUndo.formats.reverse();
+
+        newOp = {
+          do: newDo,
+          undo: newUndo
+        };
+        ops.push(newOp);
+      }
+    }
+  } else {
+    var formattedRanges = paragraph.getFormattedRanges(format, false);
+
+    // Clear all formats touching the range and apply the new format.
+    var unformatRanges = Utils.clone(formattedRanges);
+    for (var j = 0; j < unformatRanges.length; j++) {
+      if (unformatRanges[j].from < format.from &&
+          unformatRanges[j].to > format.from) {
+        unformatRanges[j].from = format.from;
+      }
+
+      if (unformatRanges[j].to > format.to &&
+          unformatRanges[j].from < format.to) {
+        unformatRanges[j].to = format.to;
+      }
+    }
+    newDo = Utils.clone(defaultDo);
+    Array.prototype.push.apply(newDo.formats, unformatRanges);
+    // Apply the requested format.
+    newDo.formats.push(format);
+
+    newUndo = Utils.clone(newDo);
+    newUndo.formats.reverse();
+
+    newOp = {
+      do: newDo,
+      undo: newUndo
+    };
+    ops.push(newOp);
+  }
+
+  return ops;
+};
+
+
+/**
+ * Creates the actual operations needed to execute inline formatting.
+ * @param  {Event} event Click event.
+ */
+Formatting.prototype.handleInlineFormatting = function(event) {
+
+  // TODO(mkhatib): Highlight the appropriate formatter button when something
+  // formatted selected.
+
+  var clickedFormatter = event.target.getAttribute('value');
+  var selection = this.editor.article.selection;
+  var currentParagraph = selection.getParagraphAtStart();
+  var format = {
+    type: clickedFormatter,
+    from: selection.start.offset,
+    to: selection.end.offset
+  };
+
+  var ops = this.format(currentParagraph, selection, format);
+  this.editor.article.transaction(ops);
+
+  // Tell listeners that there was a change in the editor.
+  this.editor.dispatchEvent(new Event('change'));
+
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+

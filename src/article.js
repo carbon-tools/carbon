@@ -201,21 +201,66 @@ Article.prototype.undo = function() {
  * @param  {string} action Can be 'do' or 'undo'.
  */
 Article.prototype.exec = function(operation, action) {
+  var selection = this.selection;
   var op = operation[action].op;
-  var paragraph;
-  if (op === 'updateParagraph') {
-    var paragraphName = operation[action].paragraph;
-    var value = operation[action].value;
+  var paragraph, paragraphName, value, index, count;
+
+  if (op === 'insertChars') {
+    paragraphName = operation[action].paragraph;
+    value = operation[action].value;
+    index = operation[action].index;
+    paragraph = this.getParagraphByName(paragraphName);
+    paragraph.insertCharactersAt(value, index);
+
+    if (operation[action].cursorOffset) {
+      selection.setCursor({
+        paragraph: paragraph,
+        offset: operation[action].cursorOffset
+      });
+    }
+  } else if (op === 'removeChars') {
+    paragraphName = operation[action].paragraph;
+    index = operation[action].index;
+    count = operation[action].count;
+    paragraph = this.getParagraphByName(paragraphName);
+    paragraph.removeCharactersAt(index, count);
+
+    if (operation[action].cursorOffset) {
+      selection.setCursor({
+        paragraph: paragraph,
+        offset: operation[action].cursorOffset
+      });
+    }
+  } else if (op === 'updateParagraph') {
+    paragraphName = operation[action].paragraph;
+    value = operation[action].value;
     paragraph = this.getParagraphByName(paragraphName);
 
     if (value !== undefined) {
       paragraph.setText(value);
     }
-    var selection = this.selection;
-    selection.setCursor({
-      paragraph: paragraph,
-      offset: operation[action].cursorOffset
-    });
+
+    // If this is to update inline formatting.
+    if (operation[action].formats) {
+      paragraph.applyFormats(operation[action].formats);
+    }
+
+    if (operation[action].cursorOffset) {
+      if (!operation[action].selectRange) {
+        selection.setCursor({
+          paragraph: paragraph,
+          offset: operation[action].cursorOffset
+        });
+      } else {
+        selection.select({
+          paragraph: paragraph,
+          offset: operation[action].cursorOffset
+        }, {
+          paragraph: paragraph,
+          offset: operation[action].cursorOffset + operation[action].selectRange
+        });
+      }
+    }
 
   } else if (op === 'deleteParagraph') {
     paragraph = this.getParagraphByName(operation[action].paragraph);

@@ -202,21 +202,66 @@ Article.prototype.undo = function() {
  * @param  {string} action Can be 'do' or 'undo'.
  */
 Article.prototype.exec = function(operation, action) {
+  var selection = this.selection;
   var op = operation[action].op;
-  var paragraph;
-  if (op === 'updateParagraph') {
-    var paragraphName = operation[action].paragraph;
-    var value = operation[action].value;
+  var paragraph, paragraphName, value, index, count;
+
+  if (op === 'insertChars') {
+    paragraphName = operation[action].paragraph;
+    value = operation[action].value;
+    index = operation[action].index;
+    paragraph = this.getParagraphByName(paragraphName);
+    paragraph.insertCharactersAt(value, index);
+
+    if (operation[action].cursorOffset) {
+      selection.setCursor({
+        paragraph: paragraph,
+        offset: operation[action].cursorOffset
+      });
+    }
+  } else if (op === 'removeChars') {
+    paragraphName = operation[action].paragraph;
+    index = operation[action].index;
+    count = operation[action].count;
+    paragraph = this.getParagraphByName(paragraphName);
+    paragraph.removeCharactersAt(index, count);
+
+    if (operation[action].cursorOffset) {
+      selection.setCursor({
+        paragraph: paragraph,
+        offset: operation[action].cursorOffset
+      });
+    }
+  } else if (op === 'updateParagraph') {
+    paragraphName = operation[action].paragraph;
+    value = operation[action].value;
     paragraph = this.getParagraphByName(paragraphName);
 
     if (value !== undefined) {
       paragraph.setText(value);
     }
-    var selection = this.selection;
-    selection.setCursor({
-      paragraph: paragraph,
-      offset: operation[action].cursorOffset
-    });
+
+    // If this is to update inline formatting.
+    if (operation[action].formats) {
+      paragraph.applyFormats(operation[action].formats);
+    }
+
+    if (operation[action].cursorOffset) {
+      if (!operation[action].selectRange) {
+        selection.setCursor({
+          paragraph: paragraph,
+          offset: operation[action].cursorOffset
+        });
+      } else {
+        selection.select({
+          paragraph: paragraph,
+          offset: operation[action].cursorOffset
+        }, {
+          paragraph: paragraph,
+          offset: operation[action].cursorOffset + operation[action].selectRange
+        });
+      }
+    }
 
   } else if (op === 'deleteParagraph') {
     paragraph = this.getParagraphByName(operation[action].paragraph);
@@ -496,22 +541,49 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     var article = this.article;
     var cursorOffsetDirection = event.keyCode === 8 ? -1 : 1;
     setTimeout(function() {
-      ops.push({
-        do: {
-          op: 'updateParagraph',
-          paragraph: currentParagraph.name,
-          cursorOffset: selection.end.offset + cursorOffsetDirection,
-          value: currentParagraph.dom.innerText,
-        },
-        undo: {
-          op: 'updateParagraph',
-          paragraph: currentParagraph.name,
-          cursorOffset: selection.end.offset,
-          value: oldValue
-        }
-      });
+      var newValue = currentParagraph.dom.innerText;
+      var newOffset = selection.end.offset + cursorOffsetDirection;
+
+      if (cursorOffsetDirection !== -1) {
+        var insertedChar = newValue.charAt(Math.min(newOffset, newValue.length) - 1);
+        ops.push({
+          do: {
+            op: 'insertChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: newOffset,
+            value: insertedChar,
+            index: selection.end.offset
+          },
+          undo: {
+            op: 'removeChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: selection.end.offset,
+            index: selection.end.offset,
+            count: 1
+          }
+        });
+      } else if (oldValue) {
+        var deletedChar = oldValue.charAt(newOffset);
+        ops.push({
+          do: {
+            op: 'removeChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: newOffset,
+            index: newOffset,
+            count: 1
+          },
+          undo: {
+            op: 'insertChars',
+            paragraph: currentParagraph.name,
+            cursorOffset: selection.end.offset,
+            value: deletedChar,
+            index: newOffset
+          }
+        });
+      }
+
       article.transaction(ops);
-    }, 5);
+    }, 3);
   }
 
   // Dispatch a `change` event
@@ -862,8 +934,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     // Text before and after pasting.
     var textStart = currentParagraph.text.substring(0, selection.start.offset);
-    var textEnd = currentParagraph.text.substring(
-        selection.end.offset, currentParagraph.text.length);
 
     // Calculate cursor offset before and after pasting.
     var offsetAfterOperation = (textStart + textPasted).length;
@@ -871,16 +941,18 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     ops.push({
       do: {
-        op: 'updateParagraph',
+        op: 'insertChars',
         paragraph: currentParagraph.name,
         cursorOffset: offsetAfterOperation,
-        value: textStart + textPasted + textEnd
+        value: textPasted,
+        index: offsetBeforeOperation
       },
       undo: {
-        op: 'updateParagraph',
+        op: 'removeChars',
         paragraph: currentParagraph.name,
         cursorOffset: offsetBeforeOperation,
-        value: currentParagraph.text
+        index: offsetBeforeOperation,
+        count: textPasted.length
       }
     });
   } else {
@@ -1109,16 +1181,16 @@ Formatting.Actions = {
     value: 'strong'
   }, {
     label: 'I',
-    value: 'italic'
+    value: 'em'
   }, {
     label: 'U',
-    value: 'underline'
+    value: 'u'
   }, {
     label: 'S',
-    value: 'strike'
+    value: 's'
   }, {
     label: 'a',
-    value: 'href'
+    value: 'a'
   }]
 };
 
@@ -1220,7 +1292,8 @@ Formatting.prototype.handleButtonClicked = function(event) {
     this.handleBlockFormatting(event);
     this.repositionBlockToolbar();
   } else {
-    throw 'Inline formatting is not implemented yet.';
+    this.handleInlineFormatting(event);
+    this.reloadToolbarStatus(this.inlineToolbar);
   }
 };
 
@@ -1282,26 +1355,27 @@ Formatting.prototype.repositionBlockToolbar = function() {
   this.setToolbarPosition(this.blockToolbar, top, bounds.left);
 
   // Update the active buttons on block toolbar.
-  this.reloadBlockToolbarStatus();
+  this.reloadToolbarStatus(this.blockToolbar);
 };
 
 
 /**
  * Reloads the status of the block toolbar buttons.
+ * @param {HTMLElement} toolbar Toolbar to reload its status.
  */
-Formatting.prototype.reloadBlockToolbarStatus = function() {
+Formatting.prototype.reloadToolbarStatus = function(toolbar) {
   var selection = this.editor.article.selection;
   var paragraph = selection.getParagraphAtStart();
   var activeAction = paragraph.paragraphType;
 
   // Reset the old activated button to deactivate it.
-  var oldActive = this.blockToolbar.querySelector('button.active');
+  var oldActive = toolbar.querySelector('button.active');
   if (oldActive) {
     oldActive.className = '';
   }
 
   // Activate the current paragraph block formatted button.
-  var activeButton = this.blockToolbar.querySelector(
+  var activeButton = toolbar.querySelector(
       '[value=' + activeAction + ']');
   if (activeButton) {
     activeButton.className = Formatting.ACTIVE_ACTION_CLASS;
@@ -1409,6 +1483,173 @@ Formatting.prototype.handleBlockFormatting = function(event) {
   this.editor.dispatchEvent(new Event('change'));
 };
 
+
+/**
+ * Applies an inline formatter to a paragraph.
+ * @param  {Paragraph} paragraph A paragraph object to apply to format to.
+ * @param  {Selection} selection The current selection to apply format to.
+ * @param  {Object} format Format object describing the format.
+ * @return {Array.<Object>} A list of operations describing the change.
+ */
+Formatting.prototype.format = function(paragraph, selection, format) {
+  var ops = [], newDo, newUndo, newOp;
+  var defaultDo = {
+    op: 'updateParagraph',
+    paragraph: paragraph.name,
+    cursorOffset: selection.start.offset,
+    selectRange: selection.end.offset - selection.start.offset,
+    formats: []
+  };
+
+  // See the range already formatted in a similar type.
+  var existingFormats = paragraph.getFormattedRanges(format, true);
+  if (existingFormats && existingFormats.length) {
+
+    for (var i = 0; i < existingFormats.length; i++) {
+      var existingFormat = existingFormats[i];
+      // If the format is re-applied to the same range remove the format.
+      if (format.to === existingFormat.to &&
+          format.from === existingFormat.from) {
+
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(existingFormat);
+
+        newOp = {
+          do: newDo,
+          undo: newDo
+        };
+        ops.push(newOp);
+
+      } else if (format.to === existingFormat.to) {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(format);
+
+        newOp = {
+          do: newDo,
+          undo: newDo
+        };
+        ops.push(newOp);
+      } else if (format.from === existingFormat.from) {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(format);
+
+        newOp = {
+          do: newDo,
+          undo: newDo
+        };
+        ops.push(newOp);
+      }
+      // If the selected range is already formatted and is in the middle split
+      // the old format to unformat the selected range.
+      else if (format.to < existingFormat.to &&
+               format.from > existingFormat.from) {
+
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(existingFormat);
+        newDo.formats.push({
+          type: existingFormat.type,
+          from: existingFormat.from,
+          to: format.from
+        });
+        newDo.formats.push({
+          type: existingFormat.type,
+          from: format.to,
+          to: existingFormat.to
+        });
+
+        newUndo = Utils.clone(newDo);
+        newUndo.formats.reverse();
+
+        newOp = {
+          do: newDo,
+          undo: newUndo
+        };
+        ops.push(newOp);
+
+      } else {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(existingFormat);
+        newDo.formats.push({
+          type: existingFormat.type,
+          from: Math.min(existingFormat.from, format.from),
+          to: Math.max(existingFormat.to, format.to)
+        });
+
+        newUndo = Utils.clone(newDo);
+        newUndo.formats.reverse();
+
+        newOp = {
+          do: newDo,
+          undo: newUndo
+        };
+        ops.push(newOp);
+      }
+    }
+  } else {
+    var formattedRanges = paragraph.getFormattedRanges(format, false);
+
+    // Clear all formats touching the range and apply the new format.
+    var unformatRanges = Utils.clone(formattedRanges);
+    for (var j = 0; j < unformatRanges.length; j++) {
+      if (unformatRanges[j].from < format.from &&
+          unformatRanges[j].to > format.from) {
+        unformatRanges[j].from = format.from;
+      }
+
+      if (unformatRanges[j].to > format.to &&
+          unformatRanges[j].from < format.to) {
+        unformatRanges[j].to = format.to;
+      }
+    }
+    newDo = Utils.clone(defaultDo);
+    Array.prototype.push.apply(newDo.formats, unformatRanges);
+    // Apply the requested format.
+    newDo.formats.push(format);
+
+    newUndo = Utils.clone(newDo);
+    newUndo.formats.reverse();
+
+    newOp = {
+      do: newDo,
+      undo: newUndo
+    };
+    ops.push(newOp);
+  }
+
+  return ops;
+};
+
+
+/**
+ * Creates the actual operations needed to execute inline formatting.
+ * @param  {Event} event Click event.
+ */
+Formatting.prototype.handleInlineFormatting = function(event) {
+
+  // TODO(mkhatib): Highlight the appropriate formatter button when something
+  // formatted selected.
+
+  var clickedFormatter = event.target.getAttribute('value');
+  var selection = this.editor.article.selection;
+  var currentParagraph = selection.getParagraphAtStart();
+  var format = {
+    type: clickedFormatter,
+    from: selection.start.offset,
+    to: selection.end.offset
+  };
+
+  var ops = this.format(currentParagraph, selection, format);
+  this.editor.article.transaction(ops);
+
+  // Tell listeners that there was a change in the editor.
+  this.editor.dispatchEvent(new Event('change'));
+
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+
+
 },{"../paragraph":5,"../selection":7,"../utils":8}],4:[function(require,module,exports){
 'use strict';
 
@@ -1468,10 +1709,13 @@ var Paragraph = function(optParams) {
    */
   this.placeholderText = params.placeholderText;
 
-  this.markups = [];
+  /**
+   * Inline formats for the paragraph.
+   * @type {Array.<Object>}
+   */
+  this.formats = [];
 
   this.metadata = {};
-
   this.layout = {};
 
   /**
@@ -1533,6 +1777,85 @@ Paragraph.prototype.setText = function(text) {
   } else {
     this.dom.innerText = this.text;
   }
+  this.updateInnerDom_();
+};
+
+
+/**
+ * Inserts characters at a specific index.
+ * @param  {string} chars A string representing the characters to insert.
+ * @param  {number} index Start index to insert characters at.
+ */
+Paragraph.prototype.insertCharactersAt = function(chars, index) {
+  var texts = [this.text.substring(0, index), this.text.substring(index)];
+  var updatedText = texts.join(chars);
+
+  this.shiftFormatsFrom_(index, chars.length);
+  this.setText(updatedText);
+  this.updateInnerDom_();
+};
+
+
+/**
+ * Removes number of characters starting from an index.
+ * @param  {number} index Start index to start removing characters at.
+ * @param  {number} count Number of characters to remove.
+ */
+Paragraph.prototype.removeCharactersAt = function(index, count) {
+  var texts = [this.text.substring(0, index), this.text.substring(index + count)];
+  var updatedText = texts.join('');
+
+  this.shiftFormatsFrom_(index, -1 * count);
+  this.setText(updatedText);
+  this.updateInnerDom_();
+};
+
+
+/**
+ * Shift the formats representations by an amount starting from an index.
+ * @param  {number} startIndex Start index to start shifting at.
+ * @param  {number} shift A positive or negative shift to add to formats index.
+ * @private
+ */
+Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
+  for (var i = 0; i < this.formats.length; i++) {
+    if (this.formats[i].from >= startIndex) {
+      this.formats[i].from += shift;
+    }
+    if (this.formats[i].to >= startIndex) {
+      this.formats[i].to += shift;
+    }
+  }
+};
+
+
+/**
+ * Updates the inner dom representation of the paragraph to apply formats
+ * attached to this paragraph.
+ * @private
+ */
+Paragraph.prototype.updateInnerDom_ = function () {
+  var newDom = document.createElement(this.paragraphType);
+  var formatOpen = 0;
+  var formatClose = 0;
+  var text;
+  for (var i = 0; i < this.formats.length; i++) {
+    formatOpen = this.formats[i].from;
+    if (formatOpen - formatClose > 0) {
+      text = this.text.substring(formatClose, formatOpen);
+      newDom.appendChild(document.createTextNode(text));
+    }
+    formatClose = this.formats[i].to;
+    var formatEl = document.createElement(this.formats[i].type);
+    formatEl.innerText = this.text.substring(formatOpen, formatClose);
+    newDom.appendChild(formatEl);
+  }
+  var length = this.text.length;
+  if (length - formatClose > 0) {
+    text = this.text.substring(length, formatClose);
+    newDom.appendChild(document.createTextNode(text));
+  }
+  this.dom.innerHTML = newDom.innerHTML;
 };
 
 
@@ -1570,6 +1893,185 @@ Paragraph.prototype.getPreviousParagraph = function() {
 
 
 /**
+ * Applies a list of formats to this paragraph.
+ * @param  {Array.<Object>} formats A list of format objects to apply.
+ */
+Paragraph.prototype.applyFormats = function(formats) {
+  for (var i = 0; i < formats.length; i++) {
+    this.format(formats[i]);
+  }
+};
+
+
+/**
+ * Applies a format to this paragraph. This could add, remove or subtract from
+ * the formats on the paragraph.
+ * @param  {Object} format A format objects to apply.
+ */
+Paragraph.prototype.format = function(format, clear) {
+  // See the range already formatted in a similar type.
+  format = Utils.clone(format);
+  var originalExistingFormats = this.getFormattedRanges(format, !clear);
+  if (originalExistingFormats && originalExistingFormats.length) {
+    var existingFormats = Utils.clone(originalExistingFormats);
+    for (var i = 0; i < existingFormats.length; i++) {
+      var existingFormat = existingFormats[i];
+      var index = this.formats.indexOf(originalExistingFormats[i]);
+      // If the format is re-applied to the same range remove the format.
+      if (format.to === existingFormat.to &&
+          format.from === existingFormat.from) {
+        this.formats.splice(index, 1);
+      } else if (format.to === existingFormat.to || (
+          format.to > existingFormat.to &&
+          format.from < existingFormat.to && clear)) {
+        existingFormat.to = format.from;
+        this.formats[index] = existingFormat;
+      } else if (format.from === existingFormat.from || (
+          format.from < existingFormat.from &&
+          format.to > existingFormat.from && clear)) {
+        existingFormat.from = format.to;
+        this.formats[index] = existingFormat;
+      }
+      // If the selected range is already formatted and is in the middle split
+      // the old format to unformat the selected range.
+      else if (format.to < existingFormat.to &&
+               format.from > existingFormat.from) {
+
+        this.formats.splice(index, 1);
+
+        this.addNewFormatting({
+            type: existingFormat.type, from: existingFormat.from, to: format.from });
+
+        this.addNewFormatting({
+            type: existingFormat.type, from: format.to, to: existingFormat.to });
+      } else {
+        // this.updateFormatting(existingFormat, fromat);
+        if (!clear) {
+          existingFormat.from = Math.min(existingFormat.from, format.from);
+          existingFormat.to = Math.max(existingFormat.to, format.to);
+          this.formats[index] = existingFormat;
+        } else {
+          this.formats.splice(index, 1);
+        }
+      }
+    }
+  } else {
+    var formattedRanges = this.getFormattedRanges(format, false);
+    if (!formattedRanges || !formattedRanges.length) {
+      this.addNewFormatting(format);
+    } else {
+      // Clear all formats touching the range and apply the new format.
+      if (!clear) {
+        this.format(format, true);
+        this.format(format);
+      }
+    }
+  }
+
+  if (!clear) {
+    this.normalizeFormats_();
+  }
+  this.updateInnerDom_();
+};
+
+
+/**
+ * Merges similar formats that overlaps together.
+ */
+Paragraph.prototype.normalizeFormats_ = function() {
+  if (!this.formats || !this.formats.length) {
+    return;
+  }
+
+  var newFormats = [Utils.clone(this.formats[0])];
+  for (var i = 1; i < this.formats.length; i++) {
+    if ((newFormats[newFormats.length - 1].to > this.formats[i].from) ||
+        (newFormats[newFormats.length - 1].to === this.formats[i].from &&
+         newFormats[newFormats.length - 1].type === this.formats[i].type)) {
+      newFormats[newFormats.length - 1].to = this.formats[i].to;
+    } else {
+      newFormats.push(Utils.clone(this.formats[i]));
+    }
+  }
+
+  this.formats = newFormats;
+};
+
+
+/**
+ * Finds if the paragraph has formatted regions in the format range.
+ * @param  {Object} format The format to check in its range.
+ * @param  {boolean=} matchType Whether to check for type match.
+ * @return {Array.<Object>} List of formats that overlap the format.
+ */
+Paragraph.prototype.getFormattedRanges = function(format, matchType) {
+  var matchingFormats = [];
+  var matchingFormatsWithType = [];
+  for (var i = 0; i < this.formats.length; i++) {
+    // Out of range so no simialr format.
+    if (this.formats[i].from > format.to) {
+      continue;
+    }
+    if (
+        // Range inside or on the border of already formatted area.
+        (this.formats[i].from < format.from &&
+         this.formats[i].to >= format.to) ||
+
+        // Range contains an already format area.
+        (this.formats[i].from >= format.from &&
+         this.formats[i].to <= format.to) ||
+
+        // Range is partially formatted to the left.
+        (this.formats[i].to > format.from &&
+         this.formats[i].to <= format.to &&
+         this.formats[i].from < format.from) ||
+
+        // Range is partially formatted to the right.
+        (this.formats[i].from >= format.from &&
+         this.formats[i].from < format.to &&
+         this.formats[i].to > format.to)) {
+
+      matchingFormats.push(this.formats[i]);
+
+      if (this.formats[i].type === format.type) {
+        matchingFormatsWithType.push(this.formats[i]);
+      }
+    }
+  }
+
+  if (matchType) {
+    if (matchingFormatsWithType.length === matchingFormats.length) {
+      return matchingFormatsWithType;
+    }
+  } else {
+    return matchingFormats;
+  }
+};
+
+
+/**
+ * Adds and sorts the formatting to be in the correct order.
+ * @param {Object} format The new formatter to add.
+ */
+Paragraph.prototype.addNewFormatting = function(format) {
+  this.formats.push(format);
+  this.formats.sort(function(formatA, formatB) {
+    var result = formatA.from - formatB.from;
+    if (!result) {
+      if (formatA.type > formatB.type) {
+        result = 1;
+      } else if (formatA.type < formatB.type) {
+        result = -1;
+      } else {
+        result = 0;
+      }
+    }
+    return result;
+  });
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this paragraph.
  */
@@ -1579,6 +2081,10 @@ Paragraph.prototype.getJSONModel = function() {
     text: this.text,
     paragraphType: this.paragraphType
   };
+
+  if (this.formats) {
+    paragraph.formats = this.formats;
+  }
 
   return paragraph;
 };
@@ -1850,6 +2356,28 @@ var Selection = (function() {
 
 
     /**
+     * Selects a range.
+     * @param {Object} start An object with `paragraph` and `offset`.
+     * @param {Object} end An object with `paragraph` and `offset`.
+     */
+    Selection.prototype.select = function(start, end) {
+      // Update start and end points to the cursor value.
+      this.start = {
+        paragraph: start.paragraph,
+        offset: start.offset
+      };
+
+      this.end = {
+        paragraph: end.paragraph,
+        offset: end.offset
+      };
+
+      // Reflect the update to the cursor to the browser selection.
+      this.updateWindowSelectionFromModel();
+    };
+
+
+    /**
      * Sets the cursor on the selection.
      * @param {Object} cursor An object with `paragraph` and `offset`.
      */
@@ -1871,35 +2399,235 @@ var Selection = (function() {
 
 
     /**
+     * Calculates the offset from node starts instead of parents.
+     * @param  {HTMLElement} parent Parent HTML element.
+     * @param  {number} parentOffset Offset relative to the parent element.
+     * @param  {HTMLElement} node Offset to calculate offset relative to.
+     * @return {number} The offset relative to the node.
+     */
+    Selection.prototype.calculateOffsetFromNode = function (
+        parent, parentOffset, node) {
+
+      var offset = 0;
+      for (var i = 0; i < parent.childNodes.length; i++) {
+        var currentNode = parent.childNodes[i];
+        if (currentNode === node) {
+          break;
+        }
+        offset += (currentNode.textContent || currentNode.innerText).length;
+      }
+      return offset;
+    };
+
+    /**
      * Updates the window selection from the selection model.
      */
     Selection.prototype.updateWindowSelectionFromModel = function() {
       var range = document.createRange();
       var startNode = this.start.paragraph.dom;
+      var startOffset = this.start.offset;
+      var endNode = this.end.paragraph.dom;
+      var endOffset = this.end.offset;
+
       // Select the #text node instead of the parent element.
       if (this.start.offset > 0) {
-        startNode = startNode.firstChild;
+        startNode = this.getTextNodeAtOffset_(
+            this.start.paragraph.dom, startOffset);
+
+        // TODO(mkhatib): FIGURE OUT WHY start.offset sometimes larger than
+        // the current length of the content. This is a hack to fix not finding
+        // the startNode when this happens.
+        if (!startNode) {
+          startNode = this.getTextNodeAtOffset_(
+              this.start.paragraph.dom, startOffset - 1);
+        }
+        var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
+            this.start.paragraph.dom, // Paragraph node
+            startNode); // Start node to calculate new offset from
+        startOffset = this.start.offset - startPrevSiblingsOffset;
       }
 
       try {
-        range.setStart(startNode, this.start.offset);
+        range.setStart(startNode, startOffset);
       } catch (e) {
-        range.setStart(startNode, this.start.offset - 1);
+        range.setStart(startNode, startOffset - 1);
       }
 
-      var endNode = this.end.paragraph.dom;
+      endNode = this.end.paragraph.dom;
       // Select the #text node instead of the parent element.
       if (this.end.offset > 0) {
-        endNode = endNode.firstChild;
+        endNode = this.getTextNodeAtOffset_(
+            this.end.paragraph.dom, endOffset);
+        // TODO(mkhatib): FIGURE OUT WHY end.offset sometimes larger than
+        // the current length of the content. This is a hack to fix not finding
+        // the endNode when this happens.
+        if (!endNode) {
+          endNode = this.getTextNodeAtOffset_(
+              this.end.paragraph.dom, endOffset - 1);
+        }
+        var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
+            this.end.paragraph.dom, // Paragraph node
+            endNode); // Start node to calculate new offset from
+        endOffset = this.end.offset - endPrevSiblingsOffset;
       }
       try {
-        range.setEnd(endNode, this.end.offset);
+        range.setEnd(endNode, endOffset);
       } catch (e) {
-        range.setEnd(endNode, this.end.offset - 1);
+        range.setEnd(endNode, endOffset - 1);
       }
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
+    };
+
+
+    /**
+     * Returns the text node at the specified offset.
+     * @param  {HTMLElement} parent Parent element.
+     * @param  {number} offset Offset relative to parent.
+     * @return {HTMLElement} TextNode at the offset.
+     */
+    Selection.prototype.getTextNodeAtOffset_ = function(parent, offset) {
+      var prevOffset = 0;
+
+      for (var i = 0; i < parent.childNodes.length; i++) {
+        var currentNode = parent.childNodes[i];
+
+        var currentOffset = (currentNode.textContent || currentNode.innerText).length;
+        // In the wanted offset return the found node.
+        if (prevOffset + currentOffset >= offset) {
+          // If current node is not a text node.
+          // recurse(currentNode, offset-prevOffset). If it finds a node return it.
+          if (currentNode.nodeName !== '#text') {
+            currentNode = this.getTextNodeAtOffset_(
+                currentNode, offset - prevOffset);
+          }
+          return currentNode;
+        }
+        prevOffset += currentOffset;
+      }
+
+      // Didn't find any node at the offset.
+      return null;
+    };
+
+
+    /**
+     * Calculates start offset from the window selection. Relative to the parent
+     * paragaraph currently selected.
+     * @param  {Selection} selection Current selection.
+     * @return {number} Start offset relative to parent.
+     */
+    Selection.prototype.calculateStartOffsetFromWindowSelection_ = function (
+        selection) {
+          // offset from node.
+        var startNode = selection.anchorNode;
+        var startNodeOffset = selection.anchorOffset;
+
+        if (startNode.getAttribute && startNode.getAttribute('name')) {
+          return startNodeOffset;
+        }
+
+        // Get the real paragraph.
+        var node = this.getStartParagraphFromWindowSelection_(selection);
+        startNodeOffset += this.calculatePreviousSiblingsOffset_(
+            node, startNode);
+        return startNodeOffset;
+    };
+
+
+    /**
+     * Calculates end offset from the window selection. Relative to the parent
+     * paragaraph currently selected.
+     * @param  {Selection} selection Current selection.
+     * @return {number} End offset relative to parent.
+     */
+    Selection.prototype.calculateEndOffsetFromWindowSelection_ = function (
+        selection) {
+      var startNode = selection.focusNode;
+      var startNodeOffset = selection.focusOffset;
+
+      if (startNode.getAttribute && startNode.getAttribute('name')) {
+        return startNodeOffset;
+      }
+
+      // Get the real paragraph.
+      var node = this.getStartParagraphFromWindowSelection_(selection);
+      startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
+      return startNodeOffset;
+    };
+
+
+    /**
+     * Calculates previous siblings offsets sum until a node.
+     * @param  {HTMLElement} parent Parent paragraph element.
+     * @param  {HTMLElement} node Node to stop at.
+     * @return {number} Offset of the previous siblings.
+     */
+    Selection.prototype.calculatePreviousSiblingsOffset_ = function (
+        parent, node) {
+
+      var offset = 0;
+      for (var i = 0; i < parent.childNodes.length; i++) {
+        var currentNode = parent.childNodes[i];
+
+        // If found the node break and return the calculated offset.
+        if (currentNode === node) {
+          break;
+        }
+
+        // If not a text node recurse to calculate the offset from there.
+        if (currentNode.nodeName !== '#text') {
+          var currentOffset = (currentNode.textContent ||
+              currentNode.innerText).length;
+
+          var childOffset = this.calculatePreviousSiblingsOffset_(
+              currentNode, node);
+
+          // If childOffset is smaller than the whole node offset then the node
+          // needed is inside the currentNode. Add childOffset to the offset so
+          // far and break;
+          if (childOffset < currentOffset) {
+            offset += childOffset;
+            break;
+          }
+        }
+
+        offset += (currentNode.textContent || currentNode.innerText).length;
+      }
+      return offset;
+    };
+
+
+    /**
+     * Retruns the start paragraph from window selection.
+     * @param  {Selection} selection Current selection.
+     * @return {HTMLElement} Start paragraph html element.
+     */
+    Selection.prototype.getStartParagraphFromWindowSelection_ = function (
+        selection) {
+        var node = selection.anchorNode;
+        while (!node.getAttribute ||
+               (!node.getAttribute('name') && node.parentNode)) {
+          node = node.parentNode;
+        }
+        return node;
+    };
+
+
+    /**
+     * Retruns the end paragraph from window selection.
+     * @param  {Selection} selection Current selection.
+     * @return {HTMLElement} End paragraph html element.
+     */
+    Selection.prototype.getEndParagraphFromWindowSelection_ = function (
+        selection) {
+        var node = selection.focusNode;
+        while (!node.getAttribute ||
+               (!node.getAttribute('name') && node.parentNode)) {
+          node = node.parentNode;
+        }
+        return node;
     };
 
 
@@ -1911,27 +2639,18 @@ var Selection = (function() {
       var selection = window.getSelection();
 
       // Update the selection start point.
-      var startNode = selection.anchorNode;
+      var startNode = this.getStartParagraphFromWindowSelection_(selection);
       var start = {
-        offset: selection.anchorOffset
+        paragraph: Utils.getReference(startNode.getAttribute('name')),
+        offset: this.calculateStartOffsetFromWindowSelection_(selection)
       };
-      // TODO(mkhatib): Better logic is needed here to get to the node we're
-      // interested in. When we start formatting text, there will be multiple
-      // levels of nodes that we need to account for.
-      if (startNode.nodeName === '#text') {
-        startNode = startNode.parentNode;
-      }
-      start.paragraph = Utils.getReference(startNode.getAttribute('name'));
 
       // Update the selection end point.
-      var endNode = selection.focusNode;
+      var endNode = this.getEndParagraphFromWindowSelection_(selection);
       var end = {
-        offset: selection.focusOffset
+        paragraph: Utils.getReference(endNode.getAttribute('name')),
+        offset: this.calculateEndOffsetFromWindowSelection_(selection)
       };
-      if (endNode.nodeName === '#text') {
-        endNode = endNode.parentNode;
-      }
-      end.paragraph = Utils.getReference(endNode.getAttribute('name'));
 
       var endIndex = end.paragraph.section.paragraphs.indexOf(end.paragraph);
       var startIndex = start.paragraph.section.paragraphs.indexOf(
@@ -1978,7 +2697,7 @@ var Selection = (function() {
 
     /**
      * Initialize selection listeners to the element.
-     * @param  {HTMLElement} element The html element to listen for slection
+     * @param  {HTMLElement} element The html element to listen for selection
      * changes on.
      */
     Selection.prototype.initSelectionListener = function(element) {
@@ -2133,6 +2852,51 @@ Utils.isRedo = function(event) {
   return !!((event.ctrlKey || event.metaKey) &&
           (event.keyCode === 89 ||
            (event.shiftKey && event.keyCode === 90)));
+};
+
+
+/**
+ * Makes a copy of the passed object.
+ *   Reference: http://stackoverflow.com/a/728694/646979
+ * @param  {Object} obj Object to clone.
+ * @return {Object} cloned object.
+ */
+Utils.clone = function(obj) {
+  var copy;
+
+  // Handle the 3 simple types, and null or undefined
+  if (null === obj || 'object' !== typeof obj) {
+    return obj;
+  }
+
+  // Handle Date
+  if (obj instanceof Date) {
+    copy = new Date();
+    copy.setTime(obj.getTime());
+    return copy;
+  }
+
+  // Handle Array
+  if (obj instanceof Array) {
+    copy = [];
+    for (var i = 0, len = obj.length; i < len; i++) {
+      copy[i] = Utils.clone(obj[i]);
+    }
+    return copy;
+  }
+
+  // Handle Object
+  if (obj instanceof Object) {
+    copy = {};
+    for (var attr in obj) {
+      if (obj.hasOwnProperty(attr)) {
+        copy[attr] = Utils.clone(obj[attr]);
+      }
+    }
+    return copy;
+  }
+
+  throw new Error('Unable to copy object! Its type is not supported.');
 };
 
 

@@ -119,6 +119,28 @@ var Selection = (function() {
 
 
     /**
+     * Selects a range.
+     * @param {Object} start An object with `paragraph` and `offset`.
+     * @param {Object} end An object with `paragraph` and `offset`.
+     */
+    Selection.prototype.select = function(start, end) {
+      // Update start and end points to the cursor value.
+      this.start = {
+        paragraph: start.paragraph,
+        offset: start.offset
+      };
+
+      this.end = {
+        paragraph: end.paragraph,
+        offset: end.offset
+      };
+
+      // Reflect the update to the cursor to the browser selection.
+      this.updateWindowSelectionFromModel();
+    };
+
+
+    /**
      * Sets the cursor on the selection.
      * @param {Object} cursor An object with `paragraph` and `offset`.
      */
@@ -140,35 +162,235 @@ var Selection = (function() {
 
 
     /**
+     * Calculates the offset from node starts instead of parents.
+     * @param  {HTMLElement} parent Parent HTML element.
+     * @param  {number} parentOffset Offset relative to the parent element.
+     * @param  {HTMLElement} node Offset to calculate offset relative to.
+     * @return {number} The offset relative to the node.
+     */
+    Selection.prototype.calculateOffsetFromNode = function (
+        parent, parentOffset, node) {
+
+      var offset = 0;
+      for (var i = 0; i < parent.childNodes.length; i++) {
+        var currentNode = parent.childNodes[i];
+        if (currentNode === node) {
+          break;
+        }
+        offset += (currentNode.textContent || currentNode.innerText).length;
+      }
+      return offset;
+    };
+
+    /**
      * Updates the window selection from the selection model.
      */
     Selection.prototype.updateWindowSelectionFromModel = function() {
       var range = document.createRange();
       var startNode = this.start.paragraph.dom;
+      var startOffset = this.start.offset;
+      var endNode = this.end.paragraph.dom;
+      var endOffset = this.end.offset;
+
       // Select the #text node instead of the parent element.
       if (this.start.offset > 0) {
-        startNode = startNode.firstChild;
+        startNode = this.getTextNodeAtOffset_(
+            this.start.paragraph.dom, startOffset);
+
+        // TODO(mkhatib): FIGURE OUT WHY start.offset sometimes larger than
+        // the current length of the content. This is a hack to fix not finding
+        // the startNode when this happens.
+        if (!startNode) {
+          startNode = this.getTextNodeAtOffset_(
+              this.start.paragraph.dom, startOffset - 1);
+        }
+        var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
+            this.start.paragraph.dom, // Paragraph node
+            startNode); // Start node to calculate new offset from
+        startOffset = this.start.offset - startPrevSiblingsOffset;
       }
 
       try {
-        range.setStart(startNode, this.start.offset);
+        range.setStart(startNode, startOffset);
       } catch (e) {
-        range.setStart(startNode, this.start.offset - 1);
+        range.setStart(startNode, startOffset - 1);
       }
 
-      var endNode = this.end.paragraph.dom;
+      endNode = this.end.paragraph.dom;
       // Select the #text node instead of the parent element.
       if (this.end.offset > 0) {
-        endNode = endNode.firstChild;
+        endNode = this.getTextNodeAtOffset_(
+            this.end.paragraph.dom, endOffset);
+        // TODO(mkhatib): FIGURE OUT WHY end.offset sometimes larger than
+        // the current length of the content. This is a hack to fix not finding
+        // the endNode when this happens.
+        if (!endNode) {
+          endNode = this.getTextNodeAtOffset_(
+              this.end.paragraph.dom, endOffset - 1);
+        }
+        var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
+            this.end.paragraph.dom, // Paragraph node
+            endNode); // Start node to calculate new offset from
+        endOffset = this.end.offset - endPrevSiblingsOffset;
       }
       try {
-        range.setEnd(endNode, this.end.offset);
+        range.setEnd(endNode, endOffset);
       } catch (e) {
-        range.setEnd(endNode, this.end.offset - 1);
+        range.setEnd(endNode, endOffset - 1);
       }
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
+    };
+
+
+    /**
+     * Returns the text node at the specified offset.
+     * @param  {HTMLElement} parent Parent element.
+     * @param  {number} offset Offset relative to parent.
+     * @return {HTMLElement} TextNode at the offset.
+     */
+    Selection.prototype.getTextNodeAtOffset_ = function(parent, offset) {
+      var prevOffset = 0;
+
+      for (var i = 0; i < parent.childNodes.length; i++) {
+        var currentNode = parent.childNodes[i];
+
+        var currentOffset = (currentNode.textContent || currentNode.innerText).length;
+        // In the wanted offset return the found node.
+        if (prevOffset + currentOffset >= offset) {
+          // If current node is not a text node.
+          // recurse(currentNode, offset-prevOffset). If it finds a node return it.
+          if (currentNode.nodeName !== '#text') {
+            currentNode = this.getTextNodeAtOffset_(
+                currentNode, offset - prevOffset);
+          }
+          return currentNode;
+        }
+        prevOffset += currentOffset;
+      }
+
+      // Didn't find any node at the offset.
+      return null;
+    };
+
+
+    /**
+     * Calculates start offset from the window selection. Relative to the parent
+     * paragaraph currently selected.
+     * @param  {Selection} selection Current selection.
+     * @return {number} Start offset relative to parent.
+     */
+    Selection.prototype.calculateStartOffsetFromWindowSelection_ = function (
+        selection) {
+          // offset from node.
+        var startNode = selection.anchorNode;
+        var startNodeOffset = selection.anchorOffset;
+
+        if (startNode.getAttribute && startNode.getAttribute('name')) {
+          return startNodeOffset;
+        }
+
+        // Get the real paragraph.
+        var node = this.getStartParagraphFromWindowSelection_(selection);
+        startNodeOffset += this.calculatePreviousSiblingsOffset_(
+            node, startNode);
+        return startNodeOffset;
+    };
+
+
+    /**
+     * Calculates end offset from the window selection. Relative to the parent
+     * paragaraph currently selected.
+     * @param  {Selection} selection Current selection.
+     * @return {number} End offset relative to parent.
+     */
+    Selection.prototype.calculateEndOffsetFromWindowSelection_ = function (
+        selection) {
+      var startNode = selection.focusNode;
+      var startNodeOffset = selection.focusOffset;
+
+      if (startNode.getAttribute && startNode.getAttribute('name')) {
+        return startNodeOffset;
+      }
+
+      // Get the real paragraph.
+      var node = this.getStartParagraphFromWindowSelection_(selection);
+      startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
+      return startNodeOffset;
+    };
+
+
+    /**
+     * Calculates previous siblings offsets sum until a node.
+     * @param  {HTMLElement} parent Parent paragraph element.
+     * @param  {HTMLElement} node Node to stop at.
+     * @return {number} Offset of the previous siblings.
+     */
+    Selection.prototype.calculatePreviousSiblingsOffset_ = function (
+        parent, node) {
+
+      var offset = 0;
+      for (var i = 0; i < parent.childNodes.length; i++) {
+        var currentNode = parent.childNodes[i];
+
+        // If found the node break and return the calculated offset.
+        if (currentNode === node) {
+          break;
+        }
+
+        // If not a text node recurse to calculate the offset from there.
+        if (currentNode.nodeName !== '#text') {
+          var currentOffset = (currentNode.textContent ||
+              currentNode.innerText).length;
+
+          var childOffset = this.calculatePreviousSiblingsOffset_(
+              currentNode, node);
+
+          // If childOffset is smaller than the whole node offset then the node
+          // needed is inside the currentNode. Add childOffset to the offset so
+          // far and break;
+          if (childOffset < currentOffset) {
+            offset += childOffset;
+            break;
+          }
+        }
+
+        offset += (currentNode.textContent || currentNode.innerText).length;
+      }
+      return offset;
+    };
+
+
+    /**
+     * Retruns the start paragraph from window selection.
+     * @param  {Selection} selection Current selection.
+     * @return {HTMLElement} Start paragraph html element.
+     */
+    Selection.prototype.getStartParagraphFromWindowSelection_ = function (
+        selection) {
+        var node = selection.anchorNode;
+        while (!node.getAttribute ||
+               (!node.getAttribute('name') && node.parentNode)) {
+          node = node.parentNode;
+        }
+        return node;
+    };
+
+
+    /**
+     * Retruns the end paragraph from window selection.
+     * @param  {Selection} selection Current selection.
+     * @return {HTMLElement} End paragraph html element.
+     */
+    Selection.prototype.getEndParagraphFromWindowSelection_ = function (
+        selection) {
+        var node = selection.focusNode;
+        while (!node.getAttribute ||
+               (!node.getAttribute('name') && node.parentNode)) {
+          node = node.parentNode;
+        }
+        return node;
     };
 
 
@@ -180,27 +402,18 @@ var Selection = (function() {
       var selection = window.getSelection();
 
       // Update the selection start point.
-      var startNode = selection.anchorNode;
+      var startNode = this.getStartParagraphFromWindowSelection_(selection);
       var start = {
-        offset: selection.anchorOffset
+        paragraph: Utils.getReference(startNode.getAttribute('name')),
+        offset: this.calculateStartOffsetFromWindowSelection_(selection)
       };
-      // TODO(mkhatib): Better logic is needed here to get to the node we're
-      // interested in. When we start formatting text, there will be multiple
-      // levels of nodes that we need to account for.
-      if (startNode.nodeName === '#text') {
-        startNode = startNode.parentNode;
-      }
-      start.paragraph = Utils.getReference(startNode.getAttribute('name'));
 
       // Update the selection end point.
-      var endNode = selection.focusNode;
+      var endNode = this.getEndParagraphFromWindowSelection_(selection);
       var end = {
-        offset: selection.focusOffset
+        paragraph: Utils.getReference(endNode.getAttribute('name')),
+        offset: this.calculateEndOffsetFromWindowSelection_(selection)
       };
-      if (endNode.nodeName === '#text') {
-        endNode = endNode.parentNode;
-      }
-      end.paragraph = Utils.getReference(endNode.getAttribute('name'));
 
       var endIndex = end.paragraph.section.paragraphs.indexOf(end.paragraph);
       var startIndex = start.paragraph.section.paragraphs.indexOf(
@@ -247,7 +460,7 @@ var Selection = (function() {
 
     /**
      * Initialize selection listeners to the element.
-     * @param  {HTMLElement} element The html element to listen for slection
+     * @param  {HTMLElement} element The html element to listen for selection
      * changes on.
      */
     Selection.prototype.initSelectionListener = function(element) {
