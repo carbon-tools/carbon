@@ -241,6 +241,25 @@ Paragraph.prototype.applyFormats = function(formats) {
 
 
 /**
+ * Returns the currently selected formatter in the range.
+ * @param {Selection} selection Selection to get formatter at.
+ * @return {Object|null} Currently selected formatter.
+ */
+Paragraph.prototype.getSelectedFormatter = function(selection) {
+  for (var i = 0; i < this.formats.length; i++) {
+    if (selection.start.offset >= this.formats[i].from &&
+        selection.start.offset < this.formats[i].to &&
+        selection.end.offset > this.formats[i].from &&
+        selection.end.offset <= this.formats[i].to) {
+      return this.formats[i];
+    }
+  }
+
+  return null;
+};
+
+
+/**
  * Applies a format to this paragraph. This could add, remove or subtract from
  * the formats on the paragraph.
  * @param  {Object} format A format objects to apply.

@@ -1290,10 +1290,10 @@ Formatting.prototype.createButton = function(action, type) {
 Formatting.prototype.handleButtonClicked = function(event) {
   if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
     this.handleBlockFormatting(event);
-    this.repositionBlockToolbar();
+    this.reloadBlockToolbarStatus();
   } else {
     this.handleInlineFormatting(event);
-    this.reloadToolbarStatus(this.inlineToolbar);
+    this.reloadInlineToolbarStatus();
   }
 };
 
@@ -1334,6 +1334,7 @@ Formatting.prototype.repositionInlineToolbar = function() {
   var top = bounds.top + window.pageYOffset;
 
   this.setToolbarPosition(this.inlineToolbar, top, left);
+  this.reloadInlineToolbarStatus();
 };
 
 
@@ -1355,7 +1356,27 @@ Formatting.prototype.repositionBlockToolbar = function() {
   this.setToolbarPosition(this.blockToolbar, top, bounds.left);
 
   // Update the active buttons on block toolbar.
-  this.reloadToolbarStatus(this.blockToolbar);
+  this.reloadBlockToolbarStatus(this.blockToolbar);
+};
+
+
+Formatting.prototype.reloadBlockToolbarStatus = function() {
+  var selection = this.editor.article.selection;
+  var paragraph = selection.getParagraphAtStart();
+  var activeAction = paragraph.paragraphType;
+  this.setToolbarActiveAction(this.blockToolbar, activeAction);
+};
+
+
+/**
+ * Reloads the status of the inline toolbar and selects the active action.
+ */
+Formatting.prototype.reloadInlineToolbarStatus = function() {
+  var selection = this.editor.article.selection;
+  var paragraph = selection.getParagraphAtStart();
+  var activeAction = paragraph.getSelectedFormatter(selection);
+  activeAction = activeAction ? activeAction.type : null;
+  this.setToolbarActiveAction(this.inlineToolbar, activeAction);
 };
 
 
@@ -1363,22 +1384,20 @@ Formatting.prototype.repositionBlockToolbar = function() {
  * Reloads the status of the block toolbar buttons.
  * @param {HTMLElement} toolbar Toolbar to reload its status.
  */
-Formatting.prototype.reloadToolbarStatus = function(toolbar) {
-  var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
-  var activeAction = paragraph.paragraphType;
-
+Formatting.prototype.setToolbarActiveAction = function(toolbar, active) {
   // Reset the old activated button to deactivate it.
   var oldActive = toolbar.querySelector('button.active');
   if (oldActive) {
     oldActive.className = '';
   }
 
-  // Activate the current paragraph block formatted button.
-  var activeButton = toolbar.querySelector(
-      '[value=' + activeAction + ']');
-  if (activeButton) {
-    activeButton.className = Formatting.ACTIVE_ACTION_CLASS;
+  if (active) {
+    // Activate the current paragraph block formatted button.
+    var activeButton = toolbar.querySelector(
+        '[value=' + active + ']');
+    if (activeButton) {
+      activeButton.className = Formatting.ACTIVE_ACTION_CLASS;
+    }
   }
 };
 
@@ -1648,8 +1667,6 @@ Formatting.prototype.handleInlineFormatting = function(event) {
   event.stopPropagation();
 };
 
-
-
 },{"../paragraph":5,"../selection":7,"../utils":8}],4:[function(require,module,exports){
 'use strict';
 
@@ -1900,6 +1917,25 @@ Paragraph.prototype.applyFormats = function(formats) {
   for (var i = 0; i < formats.length; i++) {
     this.format(formats[i]);
   }
+};
+
+
+/**
+ * Returns the currently selected formatter in the range.
+ * @param {Selection} selection Selection to get formatter at.
+ * @return {Object|null} Currently selected formatter.
+ */
+Paragraph.prototype.getSelectedFormatter = function(selection) {
+  for (var i = 0; i < this.formats.length; i++) {
+    if (selection.start.offset >= this.formats[i].from &&
+        selection.start.offset < this.formats[i].to &&
+        selection.end.offset > this.formats[i].from &&
+        selection.end.offset <= this.formats[i].to) {
+      return this.formats[i];
+    }
+  }
+
+  return null;
 };
 
 
