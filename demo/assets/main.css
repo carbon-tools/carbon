@@ -116,10 +116,15 @@ body {
   color: #fff;
 }
 
-.editor-toolbar-buttons button:focus {
+.editor-block-toolbar .editor-toolbar-buttons button:focus {
   outline: none;
 }
 
-.editor-toolbar-buttons button.active {
+.editor-block-toolbar .editor-toolbar-buttons button.active {
   color: #2196F3;
+}
+
+.editor-inline-toolbar .editor-toolbar-buttons button.active {
+  background-color: #2196F3;
+  color: #fff;
 }
