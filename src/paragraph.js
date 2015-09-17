@@ -172,6 +172,10 @@ Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
  * @private
  */
 Paragraph.prototype.updateInnerDom_ = function () {
+  if (!this.formats.length) {
+    return;
+  }
+
   var newDom = document.createElement(this.paragraphType);
   var formatOpen = 0;
   var formatClose = 0;

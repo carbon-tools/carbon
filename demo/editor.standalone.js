@@ -246,7 +246,7 @@ Article.prototype.exec = function(operation, action) {
       paragraph.applyFormats(operation[action].formats);
     }
 
-    if (operation[action].cursorOffset) {
+    if (operation[action].cursorOffset === undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({
           paragraph: paragraph,
@@ -641,6 +641,9 @@ Editor.prototype.getDeleteSelectionOps = function() {
         selection.end.offset, lastParagraphOldText.length);
     var lastParagraphIndex = section.paragraphs.indexOf(
         selection.end.paragraph);
+
+    // TODO(mkhatib): Figure out a way to handle this without discarding
+    // the formats of the text.
     ops.push({
       do: {
         op: 'updateParagraph',
@@ -687,22 +690,24 @@ Editor.prototype.getDeleteSelectionOps = function() {
     });
   } else {
     var currentParagraph = selection.start.paragraph;
-    var afterCursorText = currentParagraph.text.substring(
-        selection.end.offset, currentParagraph.text.length);
-    var beforeCursorText = currentParagraph.text.substring(
-        0, selection.start.offset);
+    var selectedText = currentParagraph.text.substring(
+        selection.start.offset, selection.end.offset);
+    var count = selection.end.offset - selection.start.offset;
     ops.push({
       do: {
-        op: 'updateParagraph',
+        op: 'removeChars',
         paragraph: currentParagraph.name,
         cursorOffset: selection.start.offset,
-        value: beforeCursorText + afterCursorText
+        index: selection.start.offset,
+        count: count
       },
       undo: {
-        op: 'updateParagraph',
+        op: 'insertChars',
         paragraph: currentParagraph.name,
         cursorOffset: selection.start.offset,
-        value: currentParagraph.text
+        selectRange: count,
+        index: selection.start.offset,
+        value: selectedText
       }
     });
   }
@@ -776,6 +781,8 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
 
 /**
  * Generates the operations needed to merge two paragraphs.
+ * TODO(mkhatib): Figure out a way to handle this without discarding the formats
+ * of the text in the paragraphs.
  * @param  {Paragraph} firstP First Paragraph.
  * @param  {Paragraph} secondP Second Paragraph.
  * @param  {number} indexOffset Offset to add to paragraphs index.
@@ -1852,6 +1859,10 @@ Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
  * @private
  */
 Paragraph.prototype.updateInnerDom_ = function () {
+  if (!this.formats.length) {
+    return;
+  }
+
   var newDom = document.createElement(this.paragraphType);
   var formatOpen = 0;
   var formatClose = 0;
