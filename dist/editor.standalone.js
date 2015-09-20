@@ -246,7 +246,7 @@ Article.prototype.exec = function(operation, action) {
       paragraph.applyFormats(operation[action].formats);
     }
 
-    if (operation[action].cursorOffset === undefined) {
+    if (operation[action].cursorOffset !== undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({
           paragraph: paragraph,
@@ -306,7 +306,7 @@ Article.prototype.getParagraphByName = function(name) {
   }
 };
 
-},{"./paragraph":5,"./selection":7,"./utils":8}],2:[function(require,module,exports){
+},{"./paragraph":6,"./selection":8,"./utils":9}],2:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -314,6 +314,7 @@ var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
 var FormattingExtension = require('./extensions/formatting');
+var ShortcutsManager = require('./extensions/shortcutsManager');
 
 /**
  * Editor main.
@@ -329,9 +330,11 @@ var Editor = function(element, optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The extensions enabled in this editor.
-    extensions: [new FormattingExtension()]
+    extensions: [
+        // TODO(mkhatib): Handle different kind of shortcuts (e.g. formatting)
+        new FormattingExtension(this),
+    ]
   }, optParams);
-
 
   /**
    * Unique name to identify the editor.
@@ -356,6 +359,12 @@ var Editor = function(element, optParams) {
    * @type {Article}
    */
   this.article = null;
+
+  /**
+   * Shortcuts manager to handle keyboard shortcuts on the editor.
+   * @type {ShortcutsManager}
+   */
+  this.shortcutsManager = new ShortcutsManager(this);
 
   this.init();
 };
@@ -479,6 +488,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           do: {
             op: 'insertParagraph',
             section: selection.end.paragraph.section.name,
+            cursorOffset: 0,
             paragraph: uid,
             index: currentIndex - inBetweenParagraphs.length + 1
           },
@@ -1078,7 +1088,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   return ops;
 };
 
-},{"./article":1,"./extensions/formatting":3,"./paragraph":5,"./section":6,"./utils":8}],3:[function(require,module,exports){
+},{"./article":1,"./extensions/formatting":3,"./extensions/shortcutsManager":4,"./paragraph":6,"./section":7,"./utils":9}],3:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -1165,19 +1175,24 @@ Formatting.Actions = {
   // TODO: Implement Ordered and Unordered lists.
   Block: [{
     label: 'h1',
-    value: Paragraph.Types.MainHeader
+    value: Paragraph.Types.MainHeader,
+    shortcuts: ['alt+cmd+1', 'alt+ctrl+1']
   }, {
     label: 'h2',
-    value: Paragraph.Types.SecondaryHeader
+    value: Paragraph.Types.SecondaryHeader,
+    shortcuts: ['alt+cmd+2', 'alt+ctrl+2']
   }, {
     label: 'h3',
-    value: Paragraph.Types.ThirdHeader
+    value: Paragraph.Types.ThirdHeader,
+    shortcuts: ['alt+cmd+3', 'alt+ctrl+3']
   }, {
     label: '”',
-    value: Paragraph.Types.Quote
+    value: Paragraph.Types.Quote,
+    shortcuts: ['alt+cmd+4', 'alt+ctrl+4']
   }, {
     label: '{}',
-    value: Paragraph.Types.Code
+    value: Paragraph.Types.Code,
+    shortcuts: ['alt+cmd+5', 'alt+ctrl+5']
   }],
 
   // TODO: Implement inline formatting. This is just placeholder
@@ -1185,19 +1200,24 @@ Formatting.Actions = {
   // implemeneted.
   Inline: [{
     label: 'B',
-    value: 'strong'
+    value: 'strong',
+    shortcuts: ['ctrl+b', 'cmd+b']
   }, {
     label: 'I',
-    value: 'em'
+    value: 'em',
+    shortcuts: ['ctrl+i', 'cmd+i']
   }, {
     label: 'U',
-    value: 'u'
+    value: 'u',
+    shortcuts: ['ctrl+u', 'cmd+u']
   }, {
     label: 'S',
-    value: 's'
+    value: 's',
+    shortcuts: ['ctrl+s', 'cmd+s']
   }, {
     label: 'a',
-    value: 'a'
+    value: 'a',
+    shortcuts: ['ctrl+k', 'cmd+k']
   }]
 };
 
@@ -1286,6 +1306,10 @@ Formatting.prototype.createButton = function(action, type) {
 
   // Add Event Listener to take action when clicking the button.
   button.addEventListener('click', this.handleButtonClicked.bind(this));
+  for (var i = 0; i < action.shortcuts.length; i++) {
+    this.editor.shortcutsManager.register(
+        action.shortcuts[i], this.handleKeyboardShortcut.bind(this));
+  }
   return button;
 };
 
@@ -1296,10 +1320,10 @@ Formatting.prototype.createButton = function(action, type) {
  */
 Formatting.prototype.handleButtonClicked = function(event) {
   if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
-    this.handleBlockFormatting(event);
+    this.handleBlockFormatterClicked(event);
     this.reloadBlockToolbarStatus();
   } else {
-    this.handleInlineFormatting(event);
+    this.handleInlineFormatterClicked(event);
     this.reloadInlineToolbarStatus();
   }
 };
@@ -1367,6 +1391,9 @@ Formatting.prototype.repositionBlockToolbar = function() {
 };
 
 
+/**
+ * Reloads the status of the block toolbar and selects the active action.
+ */
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getParagraphAtStart();
@@ -1422,18 +1449,29 @@ Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
 
 
 /**
- * Creates the actual operations needed to execute block formatting.
+ * Handles block formatter button clicked.
  * @param  {Event} event Click event.
  */
-Formatting.prototype.handleBlockFormatting = function(event) {
-  var clickedParagraphType = event.target.getAttribute('value');
+Formatting.prototype.handleBlockFormatterClicked = function(event) {
+  var clickedFormatter = event.target.getAttribute('value');
+  this.handleBlockFormatting(clickedFormatter);
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+
+/**
+ * Creates the actual operations needed to execute block formatting.
+ * @param  {string} Formatter to format the paragraph with.
+ */
+Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
   var paragraphs = selection.getSelectedParagraphs();
   var ops = [];
 
   for (var i = 0; i < paragraphs.length; i++) {
-    var toType = clickedParagraphType;
-    if (paragraphs[i].paragraphType === clickedParagraphType) {
+    var toType = clickedFormatter;
+    if (paragraphs[i].paragraphType === clickedFormatter) {
       toType = Paragraph.Types.Paragraph;
     }
 
@@ -1519,6 +1557,7 @@ Formatting.prototype.handleBlockFormatting = function(event) {
  */
 Formatting.prototype.format = function(paragraph, selection, format) {
   var ops = [], newDo, newUndo, newOp;
+
   var defaultDo = {
     op: 'updateParagraph',
     paragraph: paragraph.name,
@@ -1647,15 +1686,22 @@ Formatting.prototype.format = function(paragraph, selection, format) {
 
 
 /**
- * Creates the actual operations needed to execute inline formatting.
+ * Handles inline formatter buttons clicks.
  * @param  {Event} event Click event.
  */
-Formatting.prototype.handleInlineFormatting = function(event) {
-
-  // TODO(mkhatib): Highlight the appropriate formatter button when something
-  // formatted selected.
-
+Formatting.prototype.handleInlineFormatterClicked = function(event) {
   var clickedFormatter = event.target.getAttribute('value');
+  this.handleInlineFormatting(clickedFormatter);
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+
+/**
+ * Creates the actual operations needed to execute inline formatting.
+ * @param  {string} clickedFormatter formatter value string.
+ */
+Formatting.prototype.handleInlineFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
   var currentParagraph = selection.getParagraphAtStart();
   var format = {
@@ -1664,17 +1710,206 @@ Formatting.prototype.handleInlineFormatting = function(event) {
     to: selection.end.offset
   };
 
+  // If there's no selection no need to format.
+  if (selection.end.offset - selection.start.offset === 0) {
+    return;
+  }
+
   var ops = this.format(currentParagraph, selection, format);
   this.editor.article.transaction(ops);
 
   // Tell listeners that there was a change in the editor.
   this.editor.dispatchEvent(new Event('change'));
-
-  event.preventDefault();
-  event.stopPropagation();
 };
 
-},{"../paragraph":5,"../selection":7,"../utils":8}],4:[function(require,module,exports){
+
+/**
+ * Handles keyboard shortcut event.
+ * @param  {Event} event Keyboard event.
+ */
+Formatting.prototype.handleKeyboardShortcut = function(event) {
+  var shortcutId = this.editor.shortcutsManager.getShortcutId(event);
+
+  var inlineFormatter = this.getInlineFormatterForShortcut(shortcutId);
+  if (inlineFormatter) {
+    this.handleInlineFormatting(inlineFormatter.value);
+    return false;
+  }
+
+  var blockFormatter = this.getBlockFormatterForShortcut(shortcutId);
+  if (blockFormatter) {
+    this.handleBlockFormatting(blockFormatter.value);
+    return false;
+  }
+
+  return true;
+};
+
+
+/**
+ * Returns the matched inline formatter for the shortcut.
+ * @param  {string} shortcutId Shortcut ID to find the formatter for.
+ * @return {Object|null} Inline formatter for the shortcut.
+ */
+Formatting.prototype.getInlineFormatterForShortcut = function(shortcutId) {
+  var inlineFormatters = Formatting.Actions.Inline;
+  for (var i = 0; i < inlineFormatters.length; i++) {
+    if (inlineFormatters[i].shortcuts.indexOf(shortcutId) !== -1) {
+      return inlineFormatters[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns the matched block formatter for the shortcut.
+ * @param  {string} shortcutId Shortcut ID to find the formatter for.
+ * @return {Object|null} Block formatter for the shortcut.
+ */
+Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
+  var blockFormatters = Formatting.Actions.Block;
+  for (var i = 0; i < blockFormatters.length; i++) {
+    if (blockFormatters[i].shortcuts.indexOf(shortcutId) !== -1) {
+      return blockFormatters[i];
+    }
+  }
+  return null;
+};
+
+},{"../paragraph":6,"../selection":8,"../utils":9}],4:[function(require,module,exports){
+'use strict';
+
+
+/**
+ * Shortcut manager that manages the registeration and delivery of shortcuts
+ * events triggered on the editor.
+ * @param {Editor} editor The editor to manage the shortcuts for.
+ */
+var ShortcutsManager = function(editor) {
+
+  /**
+   * The editor to manage the shortcuts for.
+   * @type {Editor}
+   */
+  this.editor = editor;
+
+  /**
+   * Registery to keep track of registered events and its listeners.
+   * @type {Object.<Function>}
+   */
+  this.registery = {};
+
+  this.editor.element.addEventListener(
+      'keydown', this.handleKeyDownEvent.bind(this));
+};
+module.exports = ShortcutsManager;
+
+
+/**
+ * Main meta keys used for shortcuts (Shift, Ctrl, Cmd).
+ * @type {Array}
+ */
+ShortcutsManager.META_KEYS = [16, 17, 91];
+
+
+/**
+ * Generates a shortcut ID string for the keyboard event.
+ * @param  {Event} event Keyboard event.
+ * @return {string} Generated shortcut ID (e.g. cmd+shift+a).
+ */
+ShortcutsManager.prototype.getShortcutId = function(event) {
+  var keys = [];
+  var keyCode = event.keyCode || event.which;
+  if (ShortcutsManager.META_KEYS.indexOf(keyCode) !== -1) {
+    return false;
+  }
+
+  if (event.metaKey) {
+    keys.push('cmd');
+  }
+
+  if (event.ctrlKey) {
+    keys.push('ctrl');
+  }
+
+  if (event.shiftKey) {
+    keys.push('shift');
+  }
+
+  if (event.altKey) {
+    keys.push('alt');
+  }
+
+  keys.sort();
+
+  if (keyCode) {
+    keys.push(String.fromCharCode(keyCode));
+  }
+
+  return keys.join('+').toLowerCase();
+};
+
+
+/**
+ * Checks if the current event is for a shortcut.
+ * @param  {Event} event Keyboard event shortcut.
+ * @return {boolean} True if the shortcut is for the event.
+ */
+ShortcutsManager.prototype.isShortcutEvent = function(event) {
+  var keyCode = event.keyCode || event.which;
+  return ((event.metaKey || event.ctrlKey) && keyCode &&
+          (ShortcutsManager.META_KEYS.indexOf(keyCode) === -1));
+};
+
+
+/**
+ * Handles keydown events.
+ * @param  {Event} event Keyboard event.
+ * @return {boolean} True if the event wasn't handled and should bubble up.
+ */
+ShortcutsManager.prototype.handleKeyDownEvent = function(event) {
+  if (this.isShortcutEvent(event)) {
+    var shortcutId = this.getShortcutId(event);
+
+    // If the shortcut is registered.
+    if (this.registery[shortcutId]) {
+
+      // Call the listener callback method passing the event.
+      var returnValue = this.registery[shortcutId](event);
+
+      // Stop the event from bubbling up if it was handled.
+      if (returnValue === false) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+    }
+  }
+
+  // Not handled bubble it up.
+  return true;
+};
+
+
+/**
+ * Registers a handler for a shortcut.
+ * @param  {string} shortcutId A shortcut ID to listen to.
+ * @param  {Function} handler Callback handler for the shortcut.
+ * @param  {boolean=} optForce Optional parameter to force replacing an already
+ * existing shortcut listener.
+ */
+ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
+
+  // If the shortcut already registered throw an error.
+  if (this.registery[shortcutId] && !optForce) {
+    throw '"' + shortcutId + '" shortcut has already been registered.';
+  }
+
+  this.registery[shortcutId] = handler;
+};
+
+},{}],5:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -1684,7 +1919,7 @@ module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 module.exports.Formatting = require('./extensions/formatting');
 
-},{"./article":1,"./editor":2,"./extensions/formatting":3,"./paragraph":5,"./section":6,"./selection":7}],5:[function(require,module,exports){
+},{"./article":1,"./editor":2,"./extensions/formatting":3,"./paragraph":6,"./section":7,"./selection":8}],6:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -1801,7 +2036,6 @@ Paragraph.prototype.setText = function(text) {
   } else {
     this.dom.innerText = this.text;
   }
-  this.updateInnerDom_();
 };
 
 
@@ -1860,6 +2094,7 @@ Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
  */
 Paragraph.prototype.updateInnerDom_ = function () {
   if (!this.formats.length) {
+    this.setText(this.text);
     return;
   }
 
@@ -2136,7 +2371,7 @@ Paragraph.prototype.getJSONModel = function() {
   return paragraph;
 };
 
-},{"./utils":8}],6:[function(require,module,exports){
+},{"./utils":9}],7:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -2281,7 +2516,7 @@ Section.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./selection":7,"./utils":8}],7:[function(require,module,exports){
+},{"./selection":8,"./utils":9}],8:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -2777,7 +3012,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./utils":8}],8:[function(require,module,exports){
+},{"./utils":9}],9:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -3025,5 +3260,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[4])(4)
+},{}]},{},[5])(5)
 });

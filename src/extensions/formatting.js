@@ -84,19 +84,24 @@ Formatting.Actions = {
   // TODO: Implement Ordered and Unordered lists.
   Block: [{
     label: 'h1',
-    value: Paragraph.Types.MainHeader
+    value: Paragraph.Types.MainHeader,
+    shortcuts: ['alt+cmd+1', 'alt+ctrl+1']
   }, {
     label: 'h2',
-    value: Paragraph.Types.SecondaryHeader
+    value: Paragraph.Types.SecondaryHeader,
+    shortcuts: ['alt+cmd+2', 'alt+ctrl+2']
   }, {
     label: 'h3',
-    value: Paragraph.Types.ThirdHeader
+    value: Paragraph.Types.ThirdHeader,
+    shortcuts: ['alt+cmd+3', 'alt+ctrl+3']
   }, {
     label: '”',
-    value: Paragraph.Types.Quote
+    value: Paragraph.Types.Quote,
+    shortcuts: ['alt+cmd+4', 'alt+ctrl+4']
   }, {
     label: '{}',
-    value: Paragraph.Types.Code
+    value: Paragraph.Types.Code,
+    shortcuts: ['alt+cmd+5', 'alt+ctrl+5']
   }],
 
   // TODO: Implement inline formatting. This is just placeholder
@@ -104,19 +109,24 @@ Formatting.Actions = {
   // implemeneted.
   Inline: [{
     label: 'B',
-    value: 'strong'
+    value: 'strong',
+    shortcuts: ['ctrl+b', 'cmd+b']
   }, {
     label: 'I',
-    value: 'em'
+    value: 'em',
+    shortcuts: ['ctrl+i', 'cmd+i']
   }, {
     label: 'U',
-    value: 'u'
+    value: 'u',
+    shortcuts: ['ctrl+u', 'cmd+u']
   }, {
     label: 'S',
-    value: 's'
+    value: 's',
+    shortcuts: ['ctrl+s', 'cmd+s']
   }, {
     label: 'a',
-    value: 'a'
+    value: 'a',
+    shortcuts: ['ctrl+k', 'cmd+k']
   }]
 };
 
@@ -205,6 +215,10 @@ Formatting.prototype.createButton = function(action, type) {
 
   // Add Event Listener to take action when clicking the button.
   button.addEventListener('click', this.handleButtonClicked.bind(this));
+  for (var i = 0; i < action.shortcuts.length; i++) {
+    this.editor.shortcutsManager.register(
+        action.shortcuts[i], this.handleKeyboardShortcut.bind(this));
+  }
   return button;
 };
 
@@ -215,10 +229,10 @@ Formatting.prototype.createButton = function(action, type) {
  */
 Formatting.prototype.handleButtonClicked = function(event) {
   if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
-    this.handleBlockFormatting(event);
+    this.handleBlockFormatterClicked(event);
     this.reloadBlockToolbarStatus();
   } else {
-    this.handleInlineFormatting(event);
+    this.handleInlineFormatterClicked(event);
     this.reloadInlineToolbarStatus();
   }
 };
@@ -286,6 +300,9 @@ Formatting.prototype.repositionBlockToolbar = function() {
 };
 
 
+/**
+ * Reloads the status of the block toolbar and selects the active action.
+ */
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getParagraphAtStart();
@@ -341,18 +358,29 @@ Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
 
 
 /**
- * Creates the actual operations needed to execute block formatting.
+ * Handles block formatter button clicked.
  * @param  {Event} event Click event.
  */
-Formatting.prototype.handleBlockFormatting = function(event) {
-  var clickedParagraphType = event.target.getAttribute('value');
+Formatting.prototype.handleBlockFormatterClicked = function(event) {
+  var clickedFormatter = event.target.getAttribute('value');
+  this.handleBlockFormatting(clickedFormatter);
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+
+/**
+ * Creates the actual operations needed to execute block formatting.
+ * @param  {string} Formatter to format the paragraph with.
+ */
+Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
   var paragraphs = selection.getSelectedParagraphs();
   var ops = [];
 
   for (var i = 0; i < paragraphs.length; i++) {
-    var toType = clickedParagraphType;
-    if (paragraphs[i].paragraphType === clickedParagraphType) {
+    var toType = clickedFormatter;
+    if (paragraphs[i].paragraphType === clickedFormatter) {
       toType = Paragraph.Types.Paragraph;
     }
 
@@ -438,6 +466,7 @@ Formatting.prototype.handleBlockFormatting = function(event) {
  */
 Formatting.prototype.format = function(paragraph, selection, format) {
   var ops = [], newDo, newUndo, newOp;
+
   var defaultDo = {
     op: 'updateParagraph',
     paragraph: paragraph.name,
@@ -566,15 +595,22 @@ Formatting.prototype.format = function(paragraph, selection, format) {
 
 
 /**
- * Creates the actual operations needed to execute inline formatting.
+ * Handles inline formatter buttons clicks.
  * @param  {Event} event Click event.
  */
-Formatting.prototype.handleInlineFormatting = function(event) {
-
-  // TODO(mkhatib): Highlight the appropriate formatter button when something
-  // formatted selected.
-
+Formatting.prototype.handleInlineFormatterClicked = function(event) {
   var clickedFormatter = event.target.getAttribute('value');
+  this.handleInlineFormatting(clickedFormatter);
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+
+/**
+ * Creates the actual operations needed to execute inline formatting.
+ * @param  {string} clickedFormatter formatter value string.
+ */
+Formatting.prototype.handleInlineFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
   var currentParagraph = selection.getParagraphAtStart();
   var format = {
@@ -583,12 +619,69 @@ Formatting.prototype.handleInlineFormatting = function(event) {
     to: selection.end.offset
   };
 
+  // If there's no selection no need to format.
+  if (selection.end.offset - selection.start.offset === 0) {
+    return;
+  }
+
   var ops = this.format(currentParagraph, selection, format);
   this.editor.article.transaction(ops);
 
   // Tell listeners that there was a change in the editor.
   this.editor.dispatchEvent(new Event('change'));
+};
 
-  event.preventDefault();
-  event.stopPropagation();
+
+/**
+ * Handles keyboard shortcut event.
+ * @param  {Event} event Keyboard event.
+ */
+Formatting.prototype.handleKeyboardShortcut = function(event) {
+  var shortcutId = this.editor.shortcutsManager.getShortcutId(event);
+
+  var inlineFormatter = this.getInlineFormatterForShortcut(shortcutId);
+  if (inlineFormatter) {
+    this.handleInlineFormatting(inlineFormatter.value);
+    return false;
+  }
+
+  var blockFormatter = this.getBlockFormatterForShortcut(shortcutId);
+  if (blockFormatter) {
+    this.handleBlockFormatting(blockFormatter.value);
+    return false;
+  }
+
+  return true;
+};
+
+
+/**
+ * Returns the matched inline formatter for the shortcut.
+ * @param  {string} shortcutId Shortcut ID to find the formatter for.
+ * @return {Object|null} Inline formatter for the shortcut.
+ */
+Formatting.prototype.getInlineFormatterForShortcut = function(shortcutId) {
+  var inlineFormatters = Formatting.Actions.Inline;
+  for (var i = 0; i < inlineFormatters.length; i++) {
+    if (inlineFormatters[i].shortcuts.indexOf(shortcutId) !== -1) {
+      return inlineFormatters[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns the matched block formatter for the shortcut.
+ * @param  {string} shortcutId Shortcut ID to find the formatter for.
+ * @return {Object|null} Block formatter for the shortcut.
+ */
+Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
+  var blockFormatters = Formatting.Actions.Block;
+  for (var i = 0; i < blockFormatters.length; i++) {
+    if (blockFormatters[i].shortcuts.indexOf(shortcutId) !== -1) {
+      return blockFormatters[i];
+    }
+  }
+  return null;
 };
