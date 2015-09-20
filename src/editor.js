@@ -5,6 +5,7 @@ var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
 var FormattingExtension = require('./extensions/formatting');
+var ShortcutsManager = require('./extensions/shortcutsManager');
 
 /**
  * Editor main.
@@ -20,9 +21,11 @@ var Editor = function(element, optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The extensions enabled in this editor.
-    extensions: [new FormattingExtension()]
+    extensions: [
+        // TODO(mkhatib): Handle different kind of shortcuts (e.g. formatting)
+        new FormattingExtension(this),
+    ]
   }, optParams);
-
 
   /**
    * Unique name to identify the editor.
@@ -47,6 +50,12 @@ var Editor = function(element, optParams) {
    * @type {Article}
    */
   this.article = null;
+
+  /**
+   * Shortcuts manager to handle keyboard shortcuts on the editor.
+   * @type {ShortcutsManager}
+   */
+  this.shortcutsManager = new ShortcutsManager(this);
 
   this.init();
 };
@@ -170,6 +179,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           do: {
             op: 'insertParagraph',
             section: selection.end.paragraph.section.name,
+            cursorOffset: 0,
             paragraph: uid,
             index: currentIndex - inBetweenParagraphs.length + 1
           },

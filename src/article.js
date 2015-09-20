@@ -245,7 +245,7 @@ Article.prototype.exec = function(operation, action) {
       paragraph.applyFormats(operation[action].formats);
     }
 
-    if (operation[action].cursorOffset === undefined) {
+    if (operation[action].cursorOffset !== undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({
           paragraph: paragraph,

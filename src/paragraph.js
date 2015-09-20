@@ -114,7 +114,6 @@ Paragraph.prototype.setText = function(text) {
   } else {
     this.dom.innerText = this.text;
   }
-  this.updateInnerDom_();
 };
 
 
@@ -173,6 +172,7 @@ Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
  */
 Paragraph.prototype.updateInnerDom_ = function () {
   if (!this.formats.length) {
+    this.setText(this.text);
     return;
   }
 
