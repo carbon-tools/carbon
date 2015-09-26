@@ -1195,9 +1195,6 @@ Formatting.Actions = {
     shortcuts: ['alt+cmd+5', 'alt+ctrl+5']
   }],
 
-  // TODO: Implement inline formatting. This is just placeholder
-  // to show the toolbar. The formatting functionality is still not
-  // implemeneted.
   Inline: [{
     label: 'B',
     value: 'strong',
@@ -1217,6 +1214,12 @@ Formatting.Actions = {
   }, {
     label: 'a',
     value: 'a',
+    attrs: {
+      href: {
+        required: true,
+        placeholder: 'What is the URL?'
+      }
+    },
     shortcuts: ['ctrl+k', 'cmd+k']
   }]
 };
@@ -1282,13 +1285,27 @@ Formatting.prototype.createBlockToolbar = function() {
  * @return {HTMLElement} Element that holds the list of created buttons.
  */
 Formatting.prototype.createToolbarButtons = function(actions, type) {
-  var ul = document.createElement('ul');
-  ul.className = 'editor-toolbar-buttons';
-
-  for (var i = 0; i < actions.length; i++) {
-    ul.appendChild(this.createButton(actions[i], type));
+  var i;
+  var container = document.createElement('div');
+  var buttonsList = document.createElement('ul');
+  var extraFieldsContainer = document.createElement('div');
+  buttonsList.className = 'editor-toolbar-buttons';
+  container.className = 'buttons-fields-container';
+  extraFieldsContainer.className = 'extra-fields-container';
+  for (i = 0; i < actions.length; i++) {
+    var fields = this.createExtraFields(actions[i], type);
+    if (fields) {
+      extraFieldsContainer.appendChild(fields);
+    }
   }
-  return ul;
+  container.appendChild(extraFieldsContainer);
+
+  for (i = 0; i < actions.length; i++) {
+    buttonsList.appendChild(this.createButton(actions[i], type));
+  }
+  container.appendChild(buttonsList);
+
+  return container;
 };
 
 
@@ -1315,16 +1332,95 @@ Formatting.prototype.createButton = function(action, type) {
 
 
 /**
+ * Creates extra fields for the action.
+ * @param  {Object} action Action to create the button for.
+ * @return {HTMLElement} div contianer containing extra fields.
+ */
+Formatting.prototype.createExtraFields = function(action) {
+  if (!action.attrs) {
+    return;
+  }
+
+  var fields = document.createElement('div');
+  fields.className = 'extra-fields ' + action.label;
+
+  for (var key in action.attrs) {
+    var attr = action.attrs[key];
+    var field = document.createElement('input');
+    field.placeholder = attr.placeholder;
+    field.setAttribute('name', key);
+    if (attr.required) {
+      field.setAttribute('required', attr.required);
+    }
+    fields.appendChild(field);
+
+    // Handle pressing enter.
+    field.addEventListener(
+        'keyup', this.handleInlineInputFieldKeyUp.bind(this));
+
+    // TODO(mkhatib): Maybe in future also apply format attributes on blur.
+    // field.addEventListener(
+    //     'blur', this.handleInlineInputFieldBlur.bind(this));
+  }
+
+  return fields;
+};
+
+
+/**
+ * Focuses on the field for attributes for the active action.
+ * @param  {HTMLElement} toolbar The toolbar element to focus the fields for.
+ * @param  {Object} action The action representing the object to focus.
+ */
+Formatting.prototype.focusOnExtraFieldsFor = function(toolbar, action) {
+  this.setToolbarActiveAction(toolbar, action);
+  var activeFields = toolbar.querySelector(
+      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
+  var firstInput = activeFields.querySelector('input');
+  firstInput.focus();
+};
+
+
+/**
+ * Applies a format with attributes from the active button and fields.
+ */
+Formatting.prototype.applyFormatWithAttrs = function() {
+  var activeButton = this.inlineToolbar.querySelector(
+      'button.' + Formatting.ACTIVE_ACTION_CLASS);
+  var activeFormatter = activeButton.value;
+  var activeFields = this.inlineToolbar.querySelector(
+      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
+
+  var attrs = {};
+  var inputs = activeFields.querySelectorAll('input');
+  for (var i = 0; i < inputs.length; i++) {
+    attrs[inputs[i].name] = inputs[i].value;
+  }
+  this.handleInlineFormatting(activeFormatter, attrs);
+};
+
+
+/**
+ * Handles clicking enter in the attributes fields to apply the format.
+ * @param  {Event} event Keyboard event.
+ */
+Formatting.prototype.handleInlineInputFieldKeyUp = function(event) {
+  // Enter.
+  if (event.keyCode === 13) {
+    this.applyFormatWithAttrs();
+  }
+};
+
+
+/**
  * Handles clicking a formatting bar action button.
  * @param  {Event} event Click event.
  */
 Formatting.prototype.handleButtonClicked = function(event) {
   if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
     this.handleBlockFormatterClicked(event);
-    this.reloadBlockToolbarStatus();
   } else {
     this.handleInlineFormatterClicked(event);
-    this.reloadInlineToolbarStatus();
   }
 };
 
@@ -1341,6 +1437,7 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
   } else {
     // Otherwise, show the inline toolbar.
     this.repositionInlineToolbar();
+    setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
   }
 };
 
@@ -1358,14 +1455,15 @@ Formatting.prototype.repositionInlineToolbar = function() {
       this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
 
   // Calculate the left edge of the inline toolbar.
-  var toolbarWidth = this.inlineToolbar.getClientRects()[0].width;
+  var clientRect = this.inlineToolbar.getClientRects()[0];
+  var toolbarHeight = clientRect.height;
+  var toolbarWidth = clientRect.width;
   var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
 
   // Offset the top bound with the scrolled amount of the page.
-  var top = bounds.top + window.pageYOffset;
+  var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
 
   this.setToolbarPosition(this.inlineToolbar, top, left);
-  this.reloadInlineToolbarStatus();
 };
 
 
@@ -1397,7 +1495,7 @@ Formatting.prototype.repositionBlockToolbar = function() {
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getParagraphAtStart();
-  var activeAction = paragraph.paragraphType;
+  var activeAction = this.getFormatterForValue(paragraph.paragraphType);
   this.setToolbarActiveAction(this.blockToolbar, activeAction);
 };
 
@@ -1408,9 +1506,16 @@ Formatting.prototype.reloadBlockToolbarStatus = function() {
 Formatting.prototype.reloadInlineToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getParagraphAtStart();
-  var activeAction = paragraph.getSelectedFormatter(selection);
-  activeAction = activeAction ? activeAction.type : null;
-  this.setToolbarActiveAction(this.inlineToolbar, activeAction);
+  var formatter = paragraph.getSelectedFormatter(selection);
+  var activeAction = null;
+  var attrs = null;
+  if (formatter) {
+    activeAction = this.getFormatterForValue(formatter.type);
+    attrs = formatter.attrs;
+  }
+
+  this.setToolbarActiveAction(
+      this.inlineToolbar, activeAction, attrs);
 };
 
 
@@ -1418,19 +1523,44 @@ Formatting.prototype.reloadInlineToolbarStatus = function() {
  * Reloads the status of the block toolbar buttons.
  * @param {HTMLElement} toolbar Toolbar to reload its status.
  */
-Formatting.prototype.setToolbarActiveAction = function(toolbar, active) {
-  // Reset the old activated button to deactivate it.
-  var oldActive = toolbar.querySelector('button.active');
-  if (oldActive) {
-    oldActive.className = '';
+Formatting.prototype.setToolbarActiveAction = function(
+    toolbar, activeAction, optAttrs) {
+  // Reset the old activated button and fields to deactivate it.
+  var oldActiveButton = toolbar.querySelector(
+      'button.' + Formatting.ACTIVE_ACTION_CLASS);
+  var oldActiveFields = toolbar.querySelector(
+      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
+  if (oldActiveButton) {
+    oldActiveButton.classList.remove(Formatting.ACTIVE_ACTION_CLASS);
+  }
+  if (oldActiveFields) {
+    oldActiveFields.classList.remove(Formatting.ACTIVE_ACTION_CLASS);
   }
 
-  if (active) {
+  if (activeAction) {
     // Activate the current paragraph block formatted button.
     var activeButton = toolbar.querySelector(
-        '[value=' + active + ']');
+        '[value=' + activeAction.value + ']');
     if (activeButton) {
-      activeButton.className = Formatting.ACTIVE_ACTION_CLASS;
+      activeButton.classList.add(Formatting.ACTIVE_ACTION_CLASS);
+    }
+
+    var activeFields = toolbar.querySelector(
+        '.extra-fields.' + activeAction.label);
+    if (activeFields) {
+      activeFields.classList.add(Formatting.ACTIVE_ACTION_CLASS);
+
+      var fields = activeFields.querySelectorAll('input');
+      var i;
+      if (optAttrs) {
+        for (i = 0; i < fields.length; i++) {
+          fields[i].value = optAttrs[fields[i].name];
+        }
+      } else {
+        for (i = 0; i < fields.length; i++) {
+          fields[i].value = '';
+        }
+      }
     }
   }
 };
@@ -1455,6 +1585,7 @@ Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
 Formatting.prototype.handleBlockFormatterClicked = function(event) {
   var clickedFormatter = event.target.getAttribute('value');
   this.handleBlockFormatting(clickedFormatter);
+  this.reloadBlockToolbarStatus();
   event.preventDefault();
   event.stopPropagation();
 };
@@ -1572,37 +1703,31 @@ Formatting.prototype.format = function(paragraph, selection, format) {
 
     for (var i = 0; i < existingFormats.length; i++) {
       var existingFormat = existingFormats[i];
-      // If the format is re-applied to the same range remove the format.
-      if (format.to === existingFormat.to &&
-          format.from === existingFormat.from) {
-
+      // If attrs were passed with the format just update the attributes.
+      if (format.attrs) {
         newDo = Utils.clone(defaultDo);
-        newDo.formats.push(existingFormat);
+        var doFormat = Utils.clone(existingFormat);
+        doFormat.attrs = format.attrs;
+        newDo.formats.push(doFormat);
 
-        newOp = {
-          do: newDo,
-          undo: newDo
-        };
-        ops.push(newOp);
+        newUndo = Utils.clone(defaultDo);
+        newUndo.formats.push(Utils.clone(existingFormat));
+      }
 
+      // If the format is re-applied to the same range remove the format.
+      else if (format.to === existingFormat.to &&
+          format.from === existingFormat.from) {
+        newDo = Utils.clone(defaultDo);
+        newDo.formats.push(Utils.clone(format));
+        newUndo = newDo;
       } else if (format.to === existingFormat.to) {
         newDo = Utils.clone(defaultDo);
         newDo.formats.push(format);
-
-        newOp = {
-          do: newDo,
-          undo: newDo
-        };
-        ops.push(newOp);
+        newUndo = newDo;
       } else if (format.from === existingFormat.from) {
         newDo = Utils.clone(defaultDo);
         newDo.formats.push(format);
-
-        newOp = {
-          do: newDo,
-          undo: newDo
-        };
-        ops.push(newOp);
+        newUndo = newDo;
       }
       // If the selected range is already formatted and is in the middle split
       // the old format to unformat the selected range.
@@ -1614,23 +1739,18 @@ Formatting.prototype.format = function(paragraph, selection, format) {
         newDo.formats.push({
           type: existingFormat.type,
           from: existingFormat.from,
-          to: format.from
+          to: format.from,
+          attrs: format.attrs
         });
         newDo.formats.push({
           type: existingFormat.type,
           from: format.to,
-          to: existingFormat.to
+          to: existingFormat.to,
+          attrs: format.attrs
         });
 
         newUndo = Utils.clone(newDo);
         newUndo.formats.reverse();
-
-        newOp = {
-          do: newDo,
-          undo: newUndo
-        };
-        ops.push(newOp);
-
       } else {
         newDo = Utils.clone(defaultDo);
         newDo.formats.push(existingFormat);
@@ -1642,12 +1762,6 @@ Formatting.prototype.format = function(paragraph, selection, format) {
 
         newUndo = Utils.clone(newDo);
         newUndo.formats.reverse();
-
-        newOp = {
-          do: newDo,
-          undo: newUndo
-        };
-        ops.push(newOp);
       }
     }
   } else {
@@ -1672,14 +1786,18 @@ Formatting.prototype.format = function(paragraph, selection, format) {
     newDo.formats.push(format);
 
     newUndo = Utils.clone(newDo);
+    // Remove attrs from the format in Undo to signal a non-update operation
+    // e.g. Remove this formatting.
+    delete newUndo.formats[newUndo.formats.length - 1].attrs;
     newUndo.formats.reverse();
-
-    newOp = {
-      do: newDo,
-      undo: newUndo
-    };
-    ops.push(newOp);
   }
+
+  newOp = {
+    do: newDo,
+    undo: newUndo
+  };
+  ops.push(newOp);
+
 
   return ops;
 };
@@ -1691,7 +1809,22 @@ Formatting.prototype.format = function(paragraph, selection, format) {
  */
 Formatting.prototype.handleInlineFormatterClicked = function(event) {
   var clickedFormatter = event.target.getAttribute('value');
-  this.handleInlineFormatting(clickedFormatter);
+  var action = this.getFormatterForValue(clickedFormatter);
+  if (!action.attrs) {
+    this.handleInlineFormatting(clickedFormatter);
+    this.reloadInlineToolbarStatus();
+  } else {
+    var selection = this.editor.article.selection;
+    var paragraph = selection.getParagraphAtStart();
+    var activeAction = paragraph.getSelectedFormatter(selection);
+
+    // If the formatter is already applied, remove the formatting.
+    if (activeAction && clickedFormatter === activeAction.type) {
+      this.handleInlineFormatting(clickedFormatter);
+    } else {
+      this.focusOnExtraFieldsFor(this.inlineToolbar, action);
+    }
+  }
   event.preventDefault();
   event.stopPropagation();
 };
@@ -1700,14 +1833,17 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
 /**
  * Creates the actual operations needed to execute inline formatting.
  * @param  {string} clickedFormatter formatter value string.
+ * @param {Array.<Object>} optAttrs Attributes to add to the formatting.
  */
-Formatting.prototype.handleInlineFormatting = function(clickedFormatter) {
+Formatting.prototype.handleInlineFormatting = function(
+    clickedFormatter, optAttrs) {
   var selection = this.editor.article.selection;
   var currentParagraph = selection.getParagraphAtStart();
   var format = {
     type: clickedFormatter,
     from: selection.start.offset,
-    to: selection.end.offset
+    to: selection.end.offset,
+    attrs: optAttrs
   };
 
   // If there's no selection no need to format.
@@ -1772,6 +1908,29 @@ Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
   for (var i = 0; i < blockFormatters.length; i++) {
     if (blockFormatters[i].shortcuts.indexOf(shortcutId) !== -1) {
       return blockFormatters[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns the action with the specified value;
+ * @param  {string} value The value to return action for.
+ * @return {Object} Action formatter object.
+ */
+Formatting.prototype.getFormatterForValue = function(value) {
+  var blockFormatters = Formatting.Actions.Block;
+  for (var i = 0; i < blockFormatters.length; i++) {
+    if (blockFormatters[i].value === value) {
+      return blockFormatters[i];
+    }
+  }
+
+  var inlineFormatters = Formatting.Actions.Inline;
+  for (i = 0; i < inlineFormatters.length; i++) {
+    if (inlineFormatters[i].value === value) {
+      return inlineFormatters[i];
     }
   }
   return null;
@@ -2110,6 +2269,9 @@ Paragraph.prototype.updateInnerDom_ = function () {
     }
     formatClose = this.formats[i].to;
     var formatEl = document.createElement(this.formats[i].type);
+    for (var attr in this.formats[i].attrs) {
+      formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
+    }
     formatEl.innerText = this.text.substring(formatOpen, formatClose);
     newDom.appendChild(formatEl);
   }
@@ -2199,8 +2361,13 @@ Paragraph.prototype.format = function(format, clear) {
     for (var i = 0; i < existingFormats.length; i++) {
       var existingFormat = existingFormats[i];
       var index = this.formats.indexOf(originalExistingFormats[i]);
+      // If attrs were passed with the format just update the attributes.
+      if (format.attrs) {
+        existingFormat.attrs = format.attrs;
+        this.formats[index] = existingFormat;
+      }
       // If the format is re-applied to the same range remove the format.
-      if (format.to === existingFormat.to &&
+      else if (format.to === existingFormat.to &&
           format.from === existingFormat.from) {
         this.formats.splice(index, 1);
       } else if (format.to === existingFormat.to || (
@@ -2227,7 +2394,6 @@ Paragraph.prototype.format = function(format, clear) {
         this.addNewFormatting({
             type: existingFormat.type, from: format.to, to: existingFormat.to });
       } else {
-        // this.updateFormatting(existingFormat, fromat);
         if (!clear) {
           existingFormat.from = Math.min(existingFormat.from, format.from);
           existingFormat.to = Math.max(existingFormat.to, format.to);

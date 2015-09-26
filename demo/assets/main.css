@@ -65,6 +65,38 @@ body {
   left: -99999px;
 }
 
+.editor-toolbar .extra-fields {
+  display: none;
+}
+
+.editor-toolbar .extra-fields.active {
+  display: block;
+  background-color: #2196F3;
+}
+
+.editor-toolbar .extra-fields input {
+  background-color: transparent;
+  border: none;
+  padding: 12px;
+  font-size: 0.7em;
+  color: #fff;
+  outline: none;
+}
+
+.editor-toolbar .extra-fields input::-webkit-input-placeholder {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.buttons-fields-container {
+  position: relative;
+}
+
+.extra-fields-container {
+  position: absolute;
+  top: -40px;
+  width: 100%;
+}
+
 .editor-toolbar-buttons {
   margin: 0;
   padding: 0;
@@ -79,12 +111,8 @@ body {
   border-width: 10px;
   border-style: solid;
   border-color: #FF5722 transparent transparent transparent;
-  top: -10px;
+  bottom: -20px;
   left: 45%;
-}
-
-.editor-inline-toolbar .editor-toolbar-buttons {
-  margin-top: -50px;
 }
 
 .editor-block-toolbar .editor-toolbar-buttons {

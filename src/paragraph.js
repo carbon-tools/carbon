@@ -188,6 +188,9 @@ Paragraph.prototype.updateInnerDom_ = function () {
     }
     formatClose = this.formats[i].to;
     var formatEl = document.createElement(this.formats[i].type);
+    for (var attr in this.formats[i].attrs) {
+      formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
+    }
     formatEl.innerText = this.text.substring(formatOpen, formatClose);
     newDom.appendChild(formatEl);
   }
@@ -277,8 +280,13 @@ Paragraph.prototype.format = function(format, clear) {
     for (var i = 0; i < existingFormats.length; i++) {
       var existingFormat = existingFormats[i];
       var index = this.formats.indexOf(originalExistingFormats[i]);
+      // If attrs were passed with the format just update the attributes.
+      if (format.attrs) {
+        existingFormat.attrs = format.attrs;
+        this.formats[index] = existingFormat;
+      }
       // If the format is re-applied to the same range remove the format.
-      if (format.to === existingFormat.to &&
+      else if (format.to === existingFormat.to &&
           format.from === existingFormat.from) {
         this.formats.splice(index, 1);
       } else if (format.to === existingFormat.to || (
@@ -305,7 +313,6 @@ Paragraph.prototype.format = function(format, clear) {
         this.addNewFormatting({
             type: existingFormat.type, from: format.to, to: existingFormat.to });
       } else {
-        // this.updateFormatting(existingFormat, fromat);
         if (!clear) {
           existingFormat.from = Math.min(existingFormat.from, format.from);
           existingFormat.to = Math.max(existingFormat.to, format.to);
