@@ -283,19 +283,21 @@ var Selection = (function() {
      */
     Selection.prototype.calculateStartOffsetFromWindowSelection_ = function (
         selection) {
-          // offset from node.
-        var startNode = selection.anchorNode;
-        var startNodeOffset = selection.anchorOffset;
+      // offset from node.
+      var startNode = selection.anchorNode;
+      var startNodeOffset = selection.anchorOffset;
+      var parentNode = startNode.parentNode;
 
-        if (startNode.getAttribute && startNode.getAttribute('name')) {
-          return startNodeOffset;
-        }
-
-        // Get the real paragraph.
-        var node = this.getStartParagraphFromWindowSelection_(selection);
-        startNodeOffset += this.calculatePreviousSiblingsOffset_(
-            node, startNode);
+      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
         return startNodeOffset;
+      }
+
+      // Get the real paragraph.
+      var node = this.getStartParagraphFromWindowSelection_(selection);
+      startNodeOffset += this.calculatePreviousSiblingsOffset_(
+          node, startNode);
+      return startNodeOffset;
     };
 
 
@@ -309,8 +311,9 @@ var Selection = (function() {
         selection) {
       var startNode = selection.focusNode;
       var startNodeOffset = selection.focusOffset;
-
-      if (startNode.getAttribute && startNode.getAttribute('name')) {
+      var parentNode = startNode.parentNode;
+      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
         return startNodeOffset;
       }
 

@@ -104,7 +104,16 @@ Section.prototype.insertParagraphAt = function(paragraph, index) {
 Section.prototype.removeParagraph = function(paragraph) {
   var index = this.paragraphs.indexOf(paragraph);
   var removedParagraph = this.paragraphs.splice(index, 1)[0];
-  this.dom.removeChild(removedParagraph.dom);
+  try {
+    this.dom.removeChild(removedParagraph.dom);
+  } catch (e) {
+    if (e.name === 'NotFoundError') {
+      console.warn('The browser might have already handle removing the DOM ' +
+        ' element (e.g. When handling cut).');
+    } else {
+      throw e;
+    }
+  }
   return removedParagraph;
 };
 
