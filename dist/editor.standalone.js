@@ -412,6 +412,7 @@ Editor.prototype.init = function() {
     }
   }
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.className += ' manshar-editor';
   this.element.setAttribute('contenteditable', true);
@@ -549,12 +550,19 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Update current paragraph internal text model.
     var oldValue = currentParagraph.text;
     var article = this.article;
-    var cursorOffsetDirection = event.keyCode === 8 ? -1 : 1;
+    var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
+    var cursorOffsetDirection = 1;
+    if (event.keyCode === 8) {
+      cursorOffsetDirection = -1;
+    } else if (event.keyCode === 46) {
+      cursorOffsetDirection = 0;
+    }
+
     setTimeout(function() {
       var newValue = currentParagraph.dom.innerText;
       var newOffset = selection.end.offset + cursorOffsetDirection;
 
-      if (cursorOffsetDirection !== -1) {
+      if (!isRemoveOp) {
         var insertedChar = newValue.charAt(Math.min(newOffset, newValue.length) - 1);
         ops.push({
           do: {
@@ -610,6 +618,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
  */
 Editor.prototype.getDeleteSelectionOps = function() {
   var ops = [];
+  var count;
   var selection = this.article.selection;
   var section = selection.getSectionAtStart();
   var inBetweenParagraphs = section.getParagraphsBetween(
@@ -683,26 +692,50 @@ Editor.prototype.getDeleteSelectionOps = function() {
 
     var firstParagraphOldText = selection.start.paragraph.text;
     var firstParagraphText = firstParagraphOldText.substring(
-        0, selection.start.offset);
+        selection.start.offset, firstParagraphOldText.length);
+
+    // remove chars from first paragraph.
+    // insert chars into first paragraph.
     ops.push({
       do: {
-        op: 'updateParagraph',
-        paragraph: selection.start.paragraph.name,
-        cursorOffset: firstParagraphText.length,
-        value: firstParagraphText + lastParagraphText,
-      },
-      undo: {
-        op: 'updateParagraph',
+        op: 'removeChars',
         paragraph: selection.start.paragraph.name,
         cursorOffset: selection.start.offset,
-        value: firstParagraphOldText
+        index: selection.start.offset,
+        count: firstParagraphText.length
+      },
+      undo: {
+        op: 'insertChars',
+        paragraph: selection.start.paragraph.name,
+        cursorOffset: selection.start.offset,
+        selectRange: firstParagraphText.length,
+        index: selection.start.offset,
+        value: firstParagraphText
+      }
+    });
+
+    count = lastParagraphOldText.length - lastParagraphText.length;
+    ops.push({
+      do: {
+        op: 'insertChars',
+        paragraph: selection.start.paragraph.name,
+        cursorOffset: selection.start.offset,
+        index: selection.start.offset,
+        value: lastParagraphText
+      },
+      undo: {
+        op: 'removeChars',
+        paragraph: selection.start.paragraph.name,
+        cursorOffset: selection.start.offset,
+        index: selection.start.offset,
+        count: count
       }
     });
   } else {
     var currentParagraph = selection.start.paragraph;
     var selectedText = currentParagraph.text.substring(
         selection.start.offset, selection.end.offset);
-    var count = selection.end.offset - selection.start.offset;
+    count = selection.end.offset - selection.start.offset;
     ops.push({
       do: {
         op: 'removeChars',
@@ -1087,6 +1120,21 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   }
   return ops;
 };
+
+
+/**
+ * Handles cut event for the editor.
+ */
+Editor.prototype.handleCut = function() {
+  var ops = this.getDeleteSelectionOps();
+  var article = this.article;
+  var dispatchEvent = this.dispatchEvent.bind(this);
+  setTimeout(function() {
+    article.transaction(ops);
+    dispatchEvent(new Event('change'));
+  }, 20);
+};
+
 
 },{"./article":1,"./extensions/formatting":3,"./extensions/shortcutsManager":4,"./paragraph":6,"./section":7,"./utils":9}],3:[function(require,module,exports){
 'use strict';
@@ -2644,7 +2692,16 @@ Section.prototype.insertParagraphAt = function(paragraph, index) {
 Section.prototype.removeParagraph = function(paragraph) {
   var index = this.paragraphs.indexOf(paragraph);
   var removedParagraph = this.paragraphs.splice(index, 1)[0];
-  this.dom.removeChild(removedParagraph.dom);
+  try {
+    this.dom.removeChild(removedParagraph.dom);
+  } catch (e) {
+    if (e.name === 'NotFoundError') {
+      console.warn('The browser might have already handle removing the DOM ' +
+        ' element (e.g. When handling cut).');
+    } else {
+      throw e;
+    }
+  }
   return removedParagraph;
 };
 
@@ -2968,19 +3025,21 @@ var Selection = (function() {
      */
     Selection.prototype.calculateStartOffsetFromWindowSelection_ = function (
         selection) {
-          // offset from node.
-        var startNode = selection.anchorNode;
-        var startNodeOffset = selection.anchorOffset;
+      // offset from node.
+      var startNode = selection.anchorNode;
+      var startNodeOffset = selection.anchorOffset;
+      var parentNode = startNode.parentNode;
 
-        if (startNode.getAttribute && startNode.getAttribute('name')) {
-          return startNodeOffset;
-        }
-
-        // Get the real paragraph.
-        var node = this.getStartParagraphFromWindowSelection_(selection);
-        startNodeOffset += this.calculatePreviousSiblingsOffset_(
-            node, startNode);
+      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
         return startNodeOffset;
+      }
+
+      // Get the real paragraph.
+      var node = this.getStartParagraphFromWindowSelection_(selection);
+      startNodeOffset += this.calculatePreviousSiblingsOffset_(
+          node, startNode);
+      return startNodeOffset;
     };
 
 
@@ -2994,8 +3053,9 @@ var Selection = (function() {
         selection) {
       var startNode = selection.focusNode;
       var startNodeOffset = selection.focusOffset;
-
-      if (startNode.getAttribute && startNode.getAttribute('name')) {
+      var parentNode = startNode.parentNode;
+      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
         return startNodeOffset;
       }
 
