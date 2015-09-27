@@ -674,21 +674,8 @@ Formatting.prototype.format = function(paragraph, selection, format) {
       }
     }
   } else {
-    var formattedRanges = paragraph.getFormattedRanges(format, false);
-
     // Clear all formats touching the range and apply the new format.
-    var unformatRanges = Utils.clone(formattedRanges);
-    for (var j = 0; j < unformatRanges.length; j++) {
-      if (unformatRanges[j].from < format.from &&
-          unformatRanges[j].to > format.from) {
-        unformatRanges[j].from = format.from;
-      }
-
-      if (unformatRanges[j].to > format.to &&
-          unformatRanges[j].from < format.to) {
-        unformatRanges[j].to = format.to;
-      }
-    }
+    var unformatRanges = paragraph.getFormatsForRange(format.from, format.to);
     newDo = Utils.clone(defaultDo);
     Array.prototype.push.apply(newDo.formats, unformatRanges);
     // Apply the requested format.

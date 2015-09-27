@@ -636,7 +636,8 @@ Editor.prototype.getDeleteSelectionOps = function() {
         op: 'updateParagraph',
         paragraph: inBetweenParagraphs[i].name,
         cursorOffset: inBetweenParagraphs[i].text.length,
-        value: inBetweenParagraphs[i].text
+        value: inBetweenParagraphs[i].text,
+        formats: inBetweenParagraphs[i].formats
       }
     });
     var paragraphIndex = section.paragraphs.indexOf(inBetweenParagraphs[i]);
@@ -661,8 +662,6 @@ Editor.prototype.getDeleteSelectionOps = function() {
     var lastParagraphIndex = section.paragraphs.indexOf(
         selection.end.paragraph);
 
-    // TODO(mkhatib): Figure out a way to handle this without discarding
-    // the formats of the text.
     ops.push({
       do: {
         op: 'updateParagraph',
@@ -674,7 +673,8 @@ Editor.prototype.getDeleteSelectionOps = function() {
         op: 'updateParagraph',
         paragraph: selection.end.paragraph.name,
         cursorOffset: selection.end.offset,
-        value: lastParagraphOldText
+        value: lastParagraphOldText,
+        formats: selection.end.paragraph.formats
       }
     });
     ops.push({
@@ -694,12 +694,30 @@ Editor.prototype.getDeleteSelectionOps = function() {
     var firstParagraphText = firstParagraphOldText.substring(
         selection.start.offset, firstParagraphOldText.length);
 
-    // remove chars from first paragraph.
-    // insert chars into first paragraph.
+    var startParagraph = selection.start.paragraph;
+    var startParagraphFormats = startParagraph.getFormatsForRange(
+        selection.start.offset, firstParagraphOldText.length);
+
+    ops.push({
+      do: {
+        op: 'updateParagraph',
+        paragraph: startParagraph.name,
+        cursorOffset: selection.start.offset,
+        selectRange: firstParagraphOldText.length - selection.start.offset,
+        formats: startParagraphFormats
+      },
+      undo: {
+        op: 'updateParagraph',
+        paragraph: startParagraph.name,
+        cursorOffset: selection.start.offset,
+        selectRange: firstParagraphOldText.length - selection.start.offset,
+        formats: startParagraphFormats
+      }
+    });
     ops.push({
       do: {
         op: 'removeChars',
-        paragraph: selection.start.paragraph.name,
+        paragraph: startParagraph.name,
         cursorOffset: selection.start.offset,
         index: selection.start.offset,
         count: firstParagraphText.length
@@ -714,28 +732,71 @@ Editor.prototype.getDeleteSelectionOps = function() {
       }
     });
 
-    count = lastParagraphOldText.length - lastParagraphText.length;
+    var lastCount = lastParagraphOldText.length - lastParagraphText.length;
     ops.push({
       do: {
         op: 'insertChars',
-        paragraph: selection.start.paragraph.name,
+        paragraph: startParagraph.name,
         cursorOffset: selection.start.offset,
         index: selection.start.offset,
         value: lastParagraphText
       },
       undo: {
         op: 'removeChars',
-        paragraph: selection.start.paragraph.name,
+        paragraph: startParagraph.name,
         cursorOffset: selection.start.offset,
         index: selection.start.offset,
-        count: count
+        count: lastCount
       }
     });
+
+    var endParagraphFormatting = selection.end.paragraph.getFormatsForRange(
+        selection.end.offset, lastParagraphOldText.length);
+    var formatShift = -lastCount + selection.start.offset;
+    for (var k = 0; k < endParagraphFormatting.length; k++) {
+      endParagraphFormatting[k].from += formatShift;
+      endParagraphFormatting[k].to += formatShift;
+    }
+
+    ops.push({
+      do: {
+        op: 'updateParagraph',
+        paragraph: startParagraph.name,
+        cursorOffset: firstParagraphOldText.length - firstParagraphText.length,
+        formats: endParagraphFormatting
+      },
+      undo: {
+        op: 'updateParagraph',
+        paragraph: startParagraph.name,
+        cursorOffset: firstParagraphOldText.length - firstParagraphText.length,
+        formats: endParagraphFormatting
+      }
+    });
+
+
   } else {
     var currentParagraph = selection.start.paragraph;
     var selectedText = currentParagraph.text.substring(
         selection.start.offset, selection.end.offset);
     count = selection.end.offset - selection.start.offset;
+    var currentParagraphFormats = currentParagraph.getFormatsForRange(
+        selection.start.offset, selection.end.offset);
+    ops.push({
+      do: {
+        op: 'updateParagraph',
+        paragraph: currentParagraph.name,
+        cursorOffset: selection.start.offset,
+        selectRange: count,
+        formats: currentParagraphFormats
+      },
+      undo: {
+        op: 'updateParagraph',
+        paragraph: currentParagraph.name,
+        cursorOffset: selection.start.offset,
+        selectRange: count,
+        formats: currentParagraphFormats
+      }
+    });
     ops.push({
       do: {
         op: 'removeChars',
@@ -772,8 +833,6 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
       currentParagraph);
   var afterCursorText = currentParagraph.text.substring(
       selection.end.offset, currentParagraph.text.length);
-  var beforeCursorText = currentParagraph.text.substring(
-      0, selection.start.offset);
   var uid = Utils.getUID();
   ops.push({
     do: {
@@ -788,33 +847,59 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
     }
   });
 
+  var afterCursorFormats = currentParagraph.getFormatsForRange(
+      selection.start.offset, currentParagraph.text.length);
+
   ops.push({
     do: {
       op: 'updateParagraph',
       paragraph: currentParagraph.name,
-      cursorOffset: beforeCursorText.length,
-      value: beforeCursorText,
+      cursorOffset: selection.start.offset,
+      formats: afterCursorFormats
     },
     undo: {
       op: 'updateParagraph',
       paragraph: currentParagraph.name,
-      cursorOffset: beforeCursorText.length,
-      value: currentParagraph.text
+      cursorOffset: selection.start.offset,
+      formats: afterCursorFormats
     }
   });
 
+  ops.push({
+    do: {
+      op: 'removeChars',
+      paragraph: currentParagraph.name,
+      cursorOffset: selection.start.offset,
+      index: selection.start.offset,
+      count: afterCursorText.length
+    },
+    undo: {
+      op: 'insertChars',
+      paragraph: currentParagraph.name,
+      cursorOffset: selection.end.offset,
+      value: afterCursorText,
+      index: selection.start.offset
+    }
+  });
+
+  var afterCursorShiftedFormats = Utils.clone(afterCursorFormats);
+  var formatShift = -selection.start.offset;
+  for (var k = 0; k < afterCursorShiftedFormats.length; k++) {
+    afterCursorShiftedFormats[k].from += formatShift;
+    afterCursorShiftedFormats[k].to += formatShift;
+  }
   ops.push({
     do: {
       op: 'updateParagraph',
       paragraph: uid,
       cursorOffset: 0,
       value: afterCursorText,
+      formats: afterCursorShiftedFormats
     },
     undo: {
       op: 'updateParagraph',
       paragraph: uid,
       cursorOffset: 0,
-      value: ''
     }
   });
 
@@ -848,7 +933,8 @@ Editor.prototype.getMergeParagraphsOps = function(
       op: 'updateParagraph',
       paragraph: secondP.name,
       cursorOffset: 0,
-      value: secondP.text
+      value: secondP.text,
+      formats: secondP.formats
     }
   });
 
@@ -867,16 +953,40 @@ Editor.prototype.getMergeParagraphsOps = function(
 
   ops.push({
     do: {
+      op: 'insertChars',
+      paragraph: firstP.name,
+      cursorOffset: offsetAfterOperation,
+      value: secondP.text,
+      index: offsetAfterOperation
+    },
+    undo: {
+      op: 'removeChars',
+      paragraph: firstP.name,
+      cursorOffset: offsetAfterOperation,
+      index: offsetAfterOperation,
+      count: secondP.text.length
+    }
+  });
+
+  var secondPFormatting = Utils.clone(secondP.formats);
+  var formatShift = firstP.text.length;
+  for (var k = 0; k < secondPFormatting.length; k++) {
+    secondPFormatting[k].from += formatShift;
+    secondPFormatting[k].to += formatShift;
+  }
+
+  ops.push({
+    do: {
       op: 'updateParagraph',
       paragraph: firstP.name,
       cursorOffset: offsetAfterOperation,
-      value: firstP.text + secondP.text,
+      formats: secondPFormatting
     },
     undo: {
       op: 'updateParagraph',
       paragraph: firstP.name,
       cursorOffset: offsetAfterOperation,
-      value: firstP.text
+      formats: secondPFormatting
     }
   });
 
@@ -1813,21 +1923,8 @@ Formatting.prototype.format = function(paragraph, selection, format) {
       }
     }
   } else {
-    var formattedRanges = paragraph.getFormattedRanges(format, false);
-
     // Clear all formats touching the range and apply the new format.
-    var unformatRanges = Utils.clone(formattedRanges);
-    for (var j = 0; j < unformatRanges.length; j++) {
-      if (unformatRanges[j].from < format.from &&
-          unformatRanges[j].to > format.from) {
-        unformatRanges[j].from = format.from;
-      }
-
-      if (unformatRanges[j].to > format.to &&
-          unformatRanges[j].from < format.to) {
-        unformatRanges[j].to = format.to;
-      }
-    }
+    var unformatRanges = paragraph.getFormatsForRange(format.from, format.to);
     newDo = Utils.clone(defaultDo);
     Array.prototype.push.apply(newDo.formats, unformatRanges);
     // Apply the requested format.
@@ -2283,13 +2380,23 @@ Paragraph.prototype.removeCharactersAt = function(index, count) {
  * @private
  */
 Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
+  var toRemove = [];
   for (var i = 0; i < this.formats.length; i++) {
+    // If the format is in the range being shifted, remove it.
+    if (startIndex <= this.formats[i].from &&
+        startIndex - shift >= this.formats[i].to) {
+      toRemove.push(i);
+    }
     if (this.formats[i].from >= startIndex) {
       this.formats[i].from += shift;
     }
-    if (this.formats[i].to >= startIndex) {
+    if (this.formats[i].to > startIndex) {
       this.formats[i].to += shift;
     }
+  }
+
+  for (i = 0; i < toRemove.length; i++) {
+    this.formats.splice(toRemove[i], 1);
   }
 };
 
@@ -2491,6 +2598,39 @@ Paragraph.prototype.normalizeFormats_ = function() {
   }
 
   this.formats = newFormats;
+};
+
+
+/**
+ * Returns formats representing the range given.
+ * @param  {number} from Where to start.
+ * @param  {number} to Where to end.
+ * @return {Array.<Object>} List of formats representing that range formats.
+ */
+Paragraph.prototype.getFormatsForRange = function(from, to) {
+  var finalFormats = [];
+  var rangeFormats = this.getFormattedRanges({
+    from: from,
+    to: to,
+    type: null
+  }, false);
+
+  rangeFormats = Utils.clone(rangeFormats);
+  for (var j = 0; j < rangeFormats.length; j++) {
+    if (rangeFormats[j].from < from && rangeFormats[j].to >= from) {
+      rangeFormats[j].from = from;
+    }
+
+    if (rangeFormats[j].to > to && rangeFormats[j].from <= to) {
+      rangeFormats[j].to = to;
+    }
+
+    if (rangeFormats[j].from < rangeFormats[j].to) {
+      finalFormats.push(rangeFormats[j]);
+    }
+  }
+
+  return finalFormats;
 };
 
 
@@ -3031,7 +3171,9 @@ var Selection = (function() {
       var parentNode = startNode.parentNode;
 
       if ((startNode.getAttribute && startNode.getAttribute('name')) ||
-          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
+          (startNode.nodeName === '#text' &&
+           parentNode.getAttribute('name') &&
+           parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
 
@@ -3055,12 +3197,14 @@ var Selection = (function() {
       var startNodeOffset = selection.focusOffset;
       var parentNode = startNode.parentNode;
       if ((startNode.getAttribute && startNode.getAttribute('name')) ||
-          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
+          (startNode.nodeName === '#text' &&
+           parentNode.getAttribute('name') &&
+           parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
 
       // Get the real paragraph.
-      var node = this.getStartParagraphFromWindowSelection_(selection);
+      var node = this.getEndParagraphFromWindowSelection_(selection);
       startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
       return startNodeOffset;
     };

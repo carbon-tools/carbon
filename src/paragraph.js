@@ -154,13 +154,23 @@ Paragraph.prototype.removeCharactersAt = function(index, count) {
  * @private
  */
 Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
+  var toRemove = [];
   for (var i = 0; i < this.formats.length; i++) {
+    // If the format is in the range being shifted, remove it.
+    if (startIndex <= this.formats[i].from &&
+        startIndex - shift >= this.formats[i].to) {
+      toRemove.push(i);
+    }
     if (this.formats[i].from >= startIndex) {
       this.formats[i].from += shift;
     }
-    if (this.formats[i].to >= startIndex) {
+    if (this.formats[i].to > startIndex) {
       this.formats[i].to += shift;
     }
+  }
+
+  for (i = 0; i < toRemove.length; i++) {
+    this.formats.splice(toRemove[i], 1);
   }
 };
 
@@ -362,6 +372,39 @@ Paragraph.prototype.normalizeFormats_ = function() {
   }
 
   this.formats = newFormats;
+};
+
+
+/**
+ * Returns formats representing the range given.
+ * @param  {number} from Where to start.
+ * @param  {number} to Where to end.
+ * @return {Array.<Object>} List of formats representing that range formats.
+ */
+Paragraph.prototype.getFormatsForRange = function(from, to) {
+  var finalFormats = [];
+  var rangeFormats = this.getFormattedRanges({
+    from: from,
+    to: to,
+    type: null
+  }, false);
+
+  rangeFormats = Utils.clone(rangeFormats);
+  for (var j = 0; j < rangeFormats.length; j++) {
+    if (rangeFormats[j].from < from && rangeFormats[j].to >= from) {
+      rangeFormats[j].from = from;
+    }
+
+    if (rangeFormats[j].to > to && rangeFormats[j].from <= to) {
+      rangeFormats[j].to = to;
+    }
+
+    if (rangeFormats[j].from < rangeFormats[j].to) {
+      finalFormats.push(rangeFormats[j]);
+    }
+  }
+
+  return finalFormats;
 };
 
 

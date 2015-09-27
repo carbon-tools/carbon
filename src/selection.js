@@ -289,7 +289,9 @@ var Selection = (function() {
       var parentNode = startNode.parentNode;
 
       if ((startNode.getAttribute && startNode.getAttribute('name')) ||
-          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
+          (startNode.nodeName === '#text' &&
+           parentNode.getAttribute('name') &&
+           parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
 
@@ -313,12 +315,14 @@ var Selection = (function() {
       var startNodeOffset = selection.focusOffset;
       var parentNode = startNode.parentNode;
       if ((startNode.getAttribute && startNode.getAttribute('name')) ||
-          (startNode.nodeName === '#text' && parentNode.getAttribute('name'))) {
+          (startNode.nodeName === '#text' &&
+           parentNode.getAttribute('name') &&
+           parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
 
       // Get the real paragraph.
-      var node = this.getStartParagraphFromWindowSelection_(selection);
+      var node = this.getEndParagraphFromWindowSelection_(selection);
       startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
       return startNodeOffset;
     };
