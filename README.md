@@ -41,6 +41,16 @@ We'll check out your contribution if you:
 We'll do our best to help you out with any contribution issues you may have.
 
 ## Development
+
+### Installation
+```bash
+# clone
+git clone --recursive git://github.com/manshar/editor.git
+
+# start coding with live reloading
+grunt serve
+```
+
 Run `grunt test` to run the tests and run `grunt serve` to build the project and open the demo page. Any changes will be built and you'd need to refresh the demo to see them. You can also run `grunt` to just build and watch files, you can use this when you want to write some tests and see them running as you change files.
 
 ## License
