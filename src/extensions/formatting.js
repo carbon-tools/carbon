@@ -339,14 +339,34 @@ Formatting.prototype.handleButtonClicked = function(event) {
  */
 Formatting.prototype.handleSelectionChangedEvent = function() {
   var wSelection = window.getSelection();
+  var selection = Selection.getInstance();
+  var startComp = selection.getComponentAtStart();
+  var endComp = selection.getComponentAtEnd();
+
+  this.setToolbarPosition(
+      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
+  this.setToolbarPosition(
+      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
 
   if (wSelection.isCollapsed) {
-    // If there's no selection, show the block toolbar.
-    this.repositionBlockToolbar();
+    if (startComp instanceof Paragraph) {
+      // If there's no selection, show the block toolbar.
+      this.repositionBlockToolbar();
+    } else {
+      // TODO(mkhatib): Show the toolbar for the specific component.
+    }
   } else {
-    // Otherwise, show the inline toolbar.
-    this.repositionInlineToolbar();
-    setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
+    if (startComp instanceof Paragraph &&
+        // Don't show the inline toolbar when multiple paragraphs are selected.
+        // TODO(mkhatib): Maybe allow this once we have support for multiple
+        // paragraphs formatting support.
+        startComp === endComp) {
+      // Otherwise, show the inline toolbar.
+      this.repositionInlineToolbar();
+      setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
+    } else {
+      // TODO(mkhatib): show toolbar for the specific component.
+    }
   }
 };
 
@@ -381,7 +401,7 @@ Formatting.prototype.repositionInlineToolbar = function() {
  */
 Formatting.prototype.repositionBlockToolbar = function() {
   var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
+  var paragraph = selection.getComponentAtStart();
   var bounds = paragraph.dom.getBoundingClientRect();
 
   // Hide inline formatting toolbar.
@@ -403,7 +423,7 @@ Formatting.prototype.repositionBlockToolbar = function() {
  */
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
+  var paragraph = selection.getComponentAtStart();
   var activeAction = this.getFormatterForValue(paragraph.paragraphType);
   this.setToolbarActiveAction(this.blockToolbar, activeAction);
 };
@@ -414,7 +434,7 @@ Formatting.prototype.reloadBlockToolbarStatus = function() {
  */
 Formatting.prototype.reloadInlineToolbarStatus = function() {
   var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
+  var paragraph = selection.getComponentAtStart();
   var formatter = paragraph.getSelectedFormatter(selection);
   var activeAction = null;
   var attrs = null;
@@ -506,7 +526,7 @@ Formatting.prototype.handleBlockFormatterClicked = function(event) {
  */
 Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
-  var paragraphs = selection.getSelectedParagraphs();
+  var paragraphs = selection.getSelectedComponents();
   var ops = [];
 
   for (var i = 0; i < paragraphs.length; i++) {
@@ -515,69 +535,13 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
       toType = Paragraph.Types.Paragraph;
     }
 
-    // Step 0: updateParagraph to remove content the old one.
-    var index = paragraphs[i].section.paragraphs.indexOf(paragraphs[i]) + i;
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: '',
-        cursorOffset: 0
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: paragraphs[i].text,
-        cursorOffset: selection.end.offset
-      }
-    });
-
-    // Step 1: deleteParagraph to remove current Paragraph.
-    ops.push({
-      do: {
-        op: 'deleteParagraph',
-        paragraph: paragraphs[i].name
-      },
-      undo: {
-        op: 'insertParagraph',
-        section: paragraphs[i].section.name,
-        index: index,
-        paragraph: paragraphs[i].name,
-        paragraphType: paragraphs[i].paragraphType
-      }
-    });
-
-    // Step 2: insertParagraph to Insert a new Paragraph in its place with the
+    var index = paragraphs[i].getIndexInSection() + i;
+    // Step 1: deleteComponent to remove current Paragraph.
+    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps());
+    // Step 2: insertComponent to Insert a new Paragraph in its place with the
     // new paragraph type. Make sure to keep the name of the paragraph.
-    ops.push({
-      do: {
-        op: 'insertParagraph',
-        section: paragraphs[i].section.name,
-        paragraph: paragraphs[i].name,
-        index: index,
-        paragraphType: toType
-      },
-      undo: {
-        op: 'deleteParagraph',
-        paragraph: paragraphs[i].name,
-      }
-    });
-
-    // Step 3: updateParagraph to update with the content of the old one.
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: paragraphs[i].text,
-        cursorOffset: selection.end.offset
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: '',
-        cursorOffset: 0
-      }
-    });
+    paragraphs[i].paragraphType = toType;
+    Utils.arrays.extend(ops, paragraphs[i].getInsertOps(index));
   }
 
   // Execute the transaction.
@@ -598,13 +562,10 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 Formatting.prototype.format = function(paragraph, selection, format) {
   var ops = [], newDo, newUndo, newOp;
 
-  var defaultDo = {
-    op: 'updateParagraph',
-    paragraph: paragraph.name,
-    cursorOffset: selection.start.offset,
-    selectRange: selection.end.offset - selection.start.offset,
-    formats: []
-  };
+  var tempOps = paragraph.getUpdateOps(
+      {formats: []}, selection.start.offset,
+      selection.end.offset - selection.start.offset);
+  var defaultDo = tempOps[0].do;
 
   // See the range already formatted in a similar type.
   var existingFormats = paragraph.getFormattedRanges(format, true);
@@ -677,7 +638,7 @@ Formatting.prototype.format = function(paragraph, selection, format) {
     // Clear all formats touching the range and apply the new format.
     var unformatRanges = paragraph.getFormatsForRange(format.from, format.to);
     newDo = Utils.clone(defaultDo);
-    Array.prototype.push.apply(newDo.formats, unformatRanges);
+    Utils.arrays.extend(newDo.formats, unformatRanges);
     // Apply the requested format.
     newDo.formats.push(format);
 
@@ -711,7 +672,7 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
     this.reloadInlineToolbarStatus();
   } else {
     var selection = this.editor.article.selection;
-    var paragraph = selection.getParagraphAtStart();
+    var paragraph = selection.getComponentAtStart();
     var activeAction = paragraph.getSelectedFormatter(selection);
 
     // If the formatter is already applied, remove the formatting.
@@ -734,7 +695,7 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
 Formatting.prototype.handleInlineFormatting = function(
     clickedFormatter, optAttrs) {
   var selection = this.editor.article.selection;
-  var currentParagraph = selection.getParagraphAtStart();
+  var currentParagraph = selection.getComponentAtStart();
   var format = {
     type: clickedFormatter,
     from: selection.start.offset,

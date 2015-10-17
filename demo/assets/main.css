@@ -59,6 +59,18 @@ body {
   color: #c0c0c0;
 }
 
+.manshar-editor figure {
+  margin: 2em 0;
+}
+
+.manshar-editor figure img {
+  border: 3px solid transparent;
+}
+
+.manshar-editor figure.editor-selected img {
+  border: 3px solid #FF5722;
+}
+
 .editor-toolbar {
   position: absolute;
   top: -99999px;

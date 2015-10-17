@@ -9,7 +9,7 @@ var Utils = require('./utils');
  * @param {Object} optParams Optional params to initialize the Section object.
  * Default:
  *   {
- *     paragraphs: [],
+ *     components: [],
  *     backgorund: {},
  *     name: Utils.getUID()
  *   }
@@ -17,8 +17,8 @@ var Utils = require('./utils');
 var Section = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
-    // The paragraphs that is in this section.
-    paragraphs: [],
+    // The components that is in this section.
+    components: [],
     // The background of this section.
     background: {},
     // Generate a UID as a reference for this section.
@@ -46,12 +46,15 @@ var Section = function(optParams) {
   this.dom.setAttribute('name', this.name);
 
   /**
-   * The section paragraphs.
-   * @type {Array.<Paragraph>}
+   * The section components.
+   * @type {Array.<Component>}
    */
-  this.paragraphs = [];
-  for (var i = 0; i < params.paragraphs.length; i++) {
-    this.insertParagraphAt(params.paragraphs[i], i);
+  this.components = [];
+  for (var i = 0; i < params.components.length; i++) {
+    this.insertComponentAt(params.components[i], i);
+
+    // AbstractComponent is abstract class - (Text)Component, Figure,
+    // YouTubeEmbed, TwitterEmbed and so on inherits from Component.
   }
 
 };
@@ -65,47 +68,47 @@ Section.TAG_NAME = 'section';
 
 
 /**
- * Inserts a paragraph in the section.
- * @param  {Paragraph} paragraph Paragraph to insert.
- * @param  {number} index Where to insert the paragraph.
- * @return {Paragraph} The inserted paragraph.
+ * Inserts a component in the section.
+ * @param  {Component} component Component to insert.
+ * @param  {number} index Where to insert the component.
+ * @return {Component} The inserted component.
  */
-Section.prototype.insertParagraphAt = function(paragraph, index) {
-  // Update paragraph section reference to point to this section.
-  paragraph.section = this;
+Section.prototype.insertComponentAt = function(component, index) {
+  // Update component section reference to point to this section.
+  component.section = this;
 
-  // Get current paragraph and its index in the section.
-  var nextParagraph = this.paragraphs[index];
+  // Get current component and its index in the section.
+  var nextComponent = this.components[index];
 
-  if (!nextParagraph) {
-    // If the last paragraph in the section append it to the section.
-    this.dom.appendChild(paragraph.dom);
+  if (!nextComponent) {
+    // If the last component in the section append it to the section.
+    this.dom.appendChild(component.dom);
   } else {
-    // Otherwise insert it before the next paragraph.
-    this.dom.insertBefore(paragraph.dom, nextParagraph.dom);
+    // Otherwise insert it before the next component.
+    this.dom.insertBefore(component.dom, nextComponent.dom);
   }
 
-  this.paragraphs.splice(index, 0, paragraph);
+  this.components.splice(index, 0, component);
 
-  // Set the cursor to the new paragraph.
+  // Set the cursor to the new component.
   Selection.getInstance().setCursor({
-    paragraph: paragraph,
+    component: component,
     offset: 0
   });
 
-  return paragraph;
+  return component;
 };
 
 /**
- * Removes a paragraph from a section.
- * @param  {Paragraph} paragraph To remove from section.
- * @return {Paragraph} Removed paragraph.
+ * Removes a component from a section.
+ * @param  {Component} component To remove from section.
+ * @return {Component} Removed component.
  */
-Section.prototype.removeParagraph = function(paragraph) {
-  var index = this.paragraphs.indexOf(paragraph);
-  var removedParagraph = this.paragraphs.splice(index, 1)[0];
+Section.prototype.removeComponent = function(component) {
+  var index = this.components.indexOf(component);
+  var removedComponent = this.components.splice(index, 1)[0];
   try {
-    this.dom.removeChild(removedParagraph.dom);
+    this.dom.removeChild(removedComponent.dom);
   } catch (e) {
     if (e.name === 'NotFoundError') {
       console.warn('The browser might have already handle removing the DOM ' +
@@ -114,24 +117,24 @@ Section.prototype.removeParagraph = function(paragraph) {
       throw e;
     }
   }
-  return removedParagraph;
+  return removedComponent;
 };
 
 
 /**
- * Returns paragraphs from a section between two paragraphs (exclusive).
- * @param  {Paragraph} startParagraph Starting paragraph.
- * @param  {Paragraph} endParagraph Ending paragraph.
+ * Returns components from a section between two components (exclusive).
+ * @param  {Component} startComponent Starting component.
+ * @param  {Component} endComponent Ending component.
  */
-Section.prototype.getParagraphsBetween = function(
-    startParagraph, endParagraph) {
-  var paragraphs = [];
-  var startIndex = this.paragraphs.indexOf(startParagraph) + 1;
-  var endIndex = this.paragraphs.indexOf(endParagraph);
+Section.prototype.getComponentsBetween = function(
+    startComponent, endComponent) {
+  var components = [];
+  var startIndex = this.components.indexOf(startComponent) + 1;
+  var endIndex = this.components.indexOf(endComponent);
   for (var i = startIndex; i < endIndex; i++) {
-    paragraphs.push(this.paragraphs[i]);
+    components.push(this.components[i]);
   }
-  return paragraphs;
+  return components;
 };
 
 
@@ -141,11 +144,11 @@ Section.prototype.getParagraphsBetween = function(
  */
 Section.prototype.getJSONModel = function() {
   var section = {
-    paragraphs: []
+    components: []
   };
 
-  for (var i = 0; i < this.paragraphs.length; i++) {
-    section.paragraphs.push(this.paragraphs[i].getJSONModel());
+  for (var i = 0; i < this.components.length; i++) {
+    section.components.push(this.components[i].getJSONModel());
   }
 
   return section;

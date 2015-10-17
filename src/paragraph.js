@@ -1,7 +1,7 @@
 'use strict';
 
 var Utils = require('./utils');
-
+var Component = require('./component');
 
 /**
  * Paragraph main.
@@ -11,6 +11,7 @@ var Utils = require('./utils');
  *     text: '',
  *     placeholderText: null,
  *     paragraphType: Paragraph.Types.Paragraph,
+ *     formats: [],
  *     name: Utils.getUID()
  *   }
  */
@@ -23,8 +24,12 @@ var Paragraph = function(optParams) {
     placeholderText: null,
     // Paragraph Type one of Paragraph.Types string.
     paragraphType: Paragraph.Types.Paragraph,
+    // List of inline formats for the paragraph.
+    formats: [],
     // Generate a UID as a reference for this paragraph.
-    name: Utils.getUID()
+    name: Utils.getUID(),
+
+    section: null
   }, optParams);
 
   /**
@@ -50,22 +55,15 @@ var Paragraph = function(optParams) {
    * Inline formats for the paragraph.
    * @type {Array.<Object>}
    */
-  this.formats = [];
-
-  this.metadata = {};
-  this.layout = {};
-
-  /**
-   * Section this paragraph belongs to.
-   * @type {Section}
-   */
-  this.section = null;
+  this.formats = params.formats;
 
   /**
    * Paragraph type.
    * @type {string}
    */
   this.paragraphType = params.paragraphType;
+
+  this.section = params.section;
 
   /**
    * DOM element tied to this object.
@@ -83,12 +81,15 @@ var Paragraph = function(optParams) {
   }
 
   this.setText(params.text);
+
+  if (this.formats) {
+    this.updateInnerDom_();
+  }
 };
+Paragraph.prototype = new Component();
 module.exports = Paragraph;
 
-// TODO(mkhatib): Maybe define each type as a new function
-// instead of putting all the logic for rendering all of these
-// under Paragraph.
+
 /**
  * Differet types of a paragraph.
  * @type {Enum}
@@ -219,30 +220,6 @@ Paragraph.prototype.updateInnerDom_ = function () {
  */
 Paragraph.prototype.isPlaceholder = function() {
   return !!this.placeholderText && !this.text.length;
-};
-
-
-/**
- * Get the next paragraph if any.
- * @return {Paragraph} Next sibling paragraph.
- */
-Paragraph.prototype.getNextParagraph = function() {
-  if (this.section) {
-    var i = this.section.paragraphs.indexOf(this);
-    return this.section.paragraphs[i + 1];
-  }
-};
-
-
-/**
- * Get the previous paragraph if any.
- * @return {Paragraph} Previous sibling paragraph.
- */
-Paragraph.prototype.getPreviousParagraph = function() {
-  if (this.section) {
-    var i = this.section.paragraphs.indexOf(this);
-    return this.section.paragraphs[i - 1];
-  }
 };
 
 
@@ -497,4 +474,152 @@ Paragraph.prototype.getJSONModel = function() {
   }
 
   return paragraph;
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the paragraph component.
+ *   For partial deletion pass optFrom and optTo.
+ * @param  {number=} optIndexOffset Optional offset to add to the index of the
+ * component for insertion point for the undo.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: 'Paragraph',
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        text: this.text,
+        placeholderText: this.placeholderText,
+        paragraphType: this.paragraphType,
+        formats: this.formats
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a paragarph.
+ * @param {number} index Index to insert the paragarph at.
+ * @return {Array.<Object>} Operations for inserting the paragraph.
+ */
+Paragraph.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'Paragraph',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        text: this.text,
+        formats: this.formats,
+        paragraphType: this.paragraphType
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting characters in a paragraph.
+ * @param {string} chars The characters to insert in a paragraph.
+ * @param  {number=} index Index to insert the characters at.
+ * @return {Array.<Object>} Operations for inserting characters in paragraph.
+ */
+Paragraph.prototype.getInsertCharsOps = function(chars, index) {
+  return [{
+    do: {
+      op: 'insertChars',
+      component: this.name,
+      cursorOffset: index + chars.length,
+      value: chars,
+      index: index
+    },
+    undo: {
+      op: 'removeChars',
+      component: this.name,
+      cursorOffset: index,
+      index: index,
+      count: chars.length
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute removing characters in a paragraph.
+ * @param {string} chars The characters to remove in a paragraph.
+ * @param  {number=} index Index to remove the characters starting at.
+ * @param {number=} optDirection The directions to remove chars at.
+ * @return {Array.<Object>} Operations for removing characters in paragraph.
+ */
+Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
+  return [{
+    do: {
+      op: 'removeChars',
+      component: this.name,
+      cursorOffset: index,
+      index: index,
+      count: chars.length
+    },
+    undo: {
+      op: 'insertChars',
+      component: this.name,
+      cursorOffset: index - (optDirection || 0),
+      value: chars,
+      index: index
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute updating a paragraph attributes.
+ * @param  {Object} attrs Attributes to update for the paragraph.
+ * @param  {number=} optCursorOffset Optional cursor offset.
+ * @param  {number=} optSelectRange Optional selecting range.
+ * @return {Array.<Object>} Operations for updating a paragraph attributes.
+ */
+Paragraph.prototype.getUpdateOps = function(
+    attrs, optCursorOffset, optSelectRange) {
+  return [{
+    do: {
+      op: 'updateComponent',
+      component: this.name,
+      cursorOffset: optCursorOffset,
+      selectRange: optSelectRange,
+      formats: attrs.formats
+    },
+    undo: {
+      op: 'updateComponent',
+      component: this.name,
+      cursorOffset: optCursorOffset,
+      selectRange: optSelectRange,
+      formats: attrs.formats
+    }
+  }];
+};
+
+
+/**
+ * Returns the length of the paragraph content.
+ * @return {number} Length of the paragraph content.
+ */
+Paragraph.prototype.getLength = function () {
+  return this.text.length;
 };

@@ -1,6 +1,7 @@
 'use strict';
 
 var Utils = {};
+Utils.arrays = {};
 module.exports = Utils;
 
 /**
@@ -8,6 +9,7 @@ module.exports = Utils;
  * @type {Object}
  */
 Utils.GLOBAL_REFERENCE = {};
+
 
 /**
  * Extends first object with second object and overrides its
@@ -33,6 +35,26 @@ Utils.extend = function(firstObj, secondObj) {
   }
 
   return tmpObj;
+};
+
+
+/**
+ * Extends first array with second array.
+ *
+ * Example:
+ * var a = [1, 2, 3];
+ * Utils.arrays.extend(a, [4, 5, 6]);
+ *   // a is now [1, 2, 3, 4, 5, 6]
+ * @param  {Array} firstArray
+ * @param  {Array} secondArray
+ * @return {Array} firstArray with second array elements added to it.
+ */
+Utils.arrays.extend = function(firstArray, secondArray) {
+  for (var i in secondArray) {
+    firstArray.push(secondArray[i]);
+  }
+
+  return firstArray;
 };
 
 
