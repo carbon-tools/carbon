@@ -3,6 +3,7 @@
 
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
+var Figure = require('./figure');
 var Utils = require('./utils');
 
 
@@ -70,9 +71,9 @@ Article.TAG_NAME = 'article';
  * @return {Section} The inserted section.
  */
 Article.prototype.insertSection = function(section) {
-  // Section should always have a paragraph when inserted into article.
-  if (!section.paragraphs || !section.paragraphs.length) {
-    section.insertParagraphAt(new Paragraph(), 0);
+  // Section should always have a component when inserted into article.
+  if (!section.components || !section.components.length) {
+    section.insertComponentAt(new Paragraph(), 0);
   }
 
   this.sections.push(section);
@@ -100,32 +101,26 @@ Article.prototype.updateSection = function(section) {
 
 
 /**
- * Inserts a new paragraph in article.
- * @param  {Paragraph} paragraph Paragraph object.
- * @return {Paragraph} The inserted paragraph.
+ * Inserts a new component in article.
+ * @param  {Component} component Component object.
+ * @return {Component} The inserted component.
  */
-Article.prototype.insertParagraph = function(paragraph) {
+Article.prototype.insertComponent = function(component) {
   var section = this.selection.getSectionAtEnd().
-      insertParagraph(paragraph);
+      insertComponent(component);
   return section;
 };
 
 
 /**
- * Removes a paragraph from article.
- * @param  {Paragraph} paragraph Paragraph to remove.
- * @return {Paragraph} Removed paragraph.
+ * Removes a component from article.
+ * @param  {Component} component Component to remove.
+ * @return {Component} Removed component.
  */
-Article.prototype.removeParagraph = function(paragraph) {
-  var index = this.sections.indexOf(paragraph);
-  this.paragraphs.splice(index, 1);
-  return paragraph;
-};
-
-
-// TODO: Implement.
-Article.prototype.updateParagraph = function(paragraph) {
-  return paragraph;
+Article.prototype.removeComponent = function(component) {
+  var index = this.sections.indexOf(component);
+  this.components.splice(index, 1);
+  return component;
 };
 
 
@@ -204,75 +199,77 @@ Article.prototype.undo = function() {
 Article.prototype.exec = function(operation, action) {
   var selection = this.selection;
   var op = operation[action].op;
-  var paragraph, paragraphName, value, index, count;
+  var component, componentName, value, index, count;
 
   if (op === 'insertChars') {
-    paragraphName = operation[action].paragraph;
+    componentName = operation[action].component;
     value = operation[action].value;
     index = operation[action].index;
-    paragraph = this.getParagraphByName(paragraphName);
-    paragraph.insertCharactersAt(value, index);
+    component = this.getComponentByName(componentName);
+    component.insertCharactersAt(value, index);
 
     if (operation[action].cursorOffset) {
       selection.setCursor({
-        paragraph: paragraph,
+        component: component,
         offset: operation[action].cursorOffset
       });
     }
   } else if (op === 'removeChars') {
-    paragraphName = operation[action].paragraph;
+    componentName = operation[action].component;
     index = operation[action].index;
     count = operation[action].count;
-    paragraph = this.getParagraphByName(paragraphName);
-    paragraph.removeCharactersAt(index, count);
+    component = this.getComponentByName(componentName);
+    component.removeCharactersAt(index, count);
 
     if (operation[action].cursorOffset) {
       selection.setCursor({
-        paragraph: paragraph,
+        component: component,
         offset: operation[action].cursorOffset
       });
     }
-  } else if (op === 'updateParagraph') {
-    paragraphName = operation[action].paragraph;
+  } else if (op === 'updateComponent') {
+    componentName = operation[action].component;
     value = operation[action].value;
-    paragraph = this.getParagraphByName(paragraphName);
+    component = this.getComponentByName(componentName);
 
     if (value !== undefined) {
-      paragraph.setText(value);
+      component.setText(value);
     }
 
     // If this is to update inline formatting.
     if (operation[action].formats) {
-      paragraph.applyFormats(operation[action].formats);
+      component.applyFormats(operation[action].formats);
     }
 
     if (operation[action].cursorOffset !== undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({
-          paragraph: paragraph,
+          component: component,
           offset: operation[action].cursorOffset
         });
       } else {
         selection.select({
-          paragraph: paragraph,
+          component: component,
           offset: operation[action].cursorOffset
         }, {
-          paragraph: paragraph,
+          component: component,
           offset: operation[action].cursorOffset + operation[action].selectRange
         });
       }
     }
-
-  } else if (op === 'deleteParagraph') {
-    paragraph = this.getParagraphByName(operation[action].paragraph);
-    paragraph.section.removeParagraph(paragraph);
-  } else if (op === 'insertParagraph') {
+  } else if (op === 'deleteComponent') {
+    component = this.getComponentByName(operation[action].component);
+    component.section.removeComponent(component);
+  } else if (op === 'insertComponent') {
     var section = this.getSectionByName(operation[action].section);
-    var pType = operation[action].paragraphType || Paragraph.Types.Paragraph;
-    section.insertParagraphAt(new Paragraph({
-      name: operation[action].paragraph,
-      paragraphType: pType
-    }), operation[action].index);
+    var options = Utils.extend({
+      name: operation[action].component,
+    }, operation[action].attrs || {});
+
+    var constructorName = operation[action].componentClass;
+    var ComponentClass = this.getComponentClassByName(constructorName);
+    component = new ComponentClass(options);
+    section.insertComponentAt(component, operation[action].index);
   }
 };
 
@@ -292,29 +289,218 @@ Article.prototype.getSectionByName = function(name) {
 
 
 /**
- * Returns the paragraph that has the specific name.
- * @param  {string} name Name of the paragraph.
- * @return {Paragraph} Paragraph with the passed name.
+ * Returns the component that has the specific name.
+ * @param  {string} name Name of the component.
+ * @return {Component} Component with the passed name.
  */
-Article.prototype.getParagraphByName = function(name) {
+Article.prototype.getComponentByName = function(name) {
   for (var i = 0; i < this.sections.length; i++) {
-    for (var j = 0; j < this.sections[i].paragraphs.length; j++) {
-      if (this.sections[i].paragraphs[j].name === name) {
-        return this.sections[i].paragraphs[j];
+    for (var j = 0; j < this.sections[i].components.length; j++) {
+      if (this.sections[i].components[j].name === name) {
+        return this.sections[i].components[j];
       }
     }
   }
 };
 
-},{"./paragraph":6,"./selection":8,"./utils":9}],2:[function(require,module,exports){
+
+/**
+ * Returns the component class function for the string passed.
+ * @param  {string} name Name of the function.
+ * @return {Function} Class function for the component.
+ */
+Article.prototype.getComponentClassByName = function (name) {
+  switch (name) {
+    case 'Paragraph': return Paragraph;
+    case 'Figure': return Figure;
+  }
+};
+
+},{"./figure":8,"./paragraph":10,"./selection":12,"./utils":13}],2:[function(require,module,exports){
+'use strict';
+
+var Utils = require('./utils');
+var Errors = require('./errors');
+
+
+/**
+ * Component main.
+ * @param {Object} optParams Optional params to initialize the Component object.
+ * Default:
+ *   {
+ *     ComponentType: Component.Types.Component,
+ *     name: Utils.getUID()
+ *   }
+ */
+var Component = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    // Generate a UID as a reference for this Component.
+    name: Utils.getUID()
+  }, optParams);
+
+  /**
+   * Name to reference this Component.
+   * @type {string}
+   */
+  this.name = params.name;
+  Utils.setReference(this.name, this);
+
+  /**
+   * Section this Component belongs to.
+   * @type {Section}
+   */
+  this.section = null;
+
+};
+module.exports = Component;
+
+
+/**
+ * Registers regular experessions to handle if matched in the editor.
+ * @param  {ComponentFactory} componentFactory The component factory to register
+ * the regex with.
+ */
+Component.registerRegexes = function(componentFactory) {
+  // jshint unused: false
+  throw Errors.NotImplementedError(
+      this.constructor.name + '.registerRegexes is not implmeneted.');
+};
+
+
+/**
+ * Get the next Component if any.
+ * @return {Component} Next sibling Component.
+ */
+Component.prototype.getNextComponent = function() {
+  if (this.section) {
+    var i = this.section.components.indexOf(this);
+    return this.section.components[i + 1];
+  }
+};
+
+
+/**
+ * Get the previous Component if any.
+ * @return {Component} Previous sibling Component.
+ */
+Component.prototype.getPreviousComponent = function() {
+  if (this.section) {
+    var i = this.section.components.indexOf(this);
+    return this.section.components[i - 1];
+  }
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this Component.
+ */
+Component.prototype.getJSONModel = function() {
+  var Component = {
+    name: this.name,
+    text: this.text,
+    ComponentType: this.ComponentType
+  };
+
+  if (this.formats) {
+    Component.formats = this.formats;
+  }
+
+  return Component;
+};
+
+
+/**
+ * Returns the index of the component in the section.
+ * @return {number} Index of the component in the section.
+ */
+Component.prototype.getIndexInSection = function() {
+  return this.section.components.indexOf(this);
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ */
+Component.prototype.getDeleteOps = function(optIndexOffset) {
+  // jshint unused:false
+  throw Errors.NotImplementedError('Component Must Implement getDeleteOps');
+};
+
+
+/**
+ * Returns the operations to execute inserting a component.
+ * @param {number} index Index to insert the component at.
+ * on undoing operation for re-inserting.
+ */
+Component.prototype.getInsertOps = function (index) {
+  // jshint unused:false
+  throw Errors.NotImplementedError('Component Must Implement getDeleteOps');
+};
+
+
+/**
+ * Returns the operations to execute inserting characters in a component.
+ * @param {string} chars The characters to insert in a component.
+ * @param  {number=} index Index to insert the characters at.
+ */
+Component.prototype.getInsertCharsOps = function(chars, index) {
+  // jshint unused:false
+  throw Errors.NotImplementedError(
+      'Component Must Implement getInsertCharsOps');
+};
+
+
+/**
+ * Returns the operations to execute removing characters in a component.
+ * @param {string} chars The characters to remove in a component.
+ * @param {number} index Index to remove the characters starting at.
+ * @param {number=} optDirection The directions to remove chars at.
+ */
+Component.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
+  // jshint unused:false
+  throw Errors.NotImplementedError(
+      'Component Must Implement getRemoveCharsOps');
+};
+
+
+/**
+ * Returns the operations to execute updating a component attributes.
+ * @param  {Object} attrs Attributes to update for the component.
+ * @param  {number=} optCursorOffset Optional cursor offset.
+ * @param  {number=} optSelectRange Optional selecting range.
+ */
+Component.prototype.getUpdateOps = function(
+    attrs, optCursorOffset, optSelectRange) {
+  // jshint unused:false
+  throw Errors.NotImplementedError(
+      'Component does not Implement getUpdateOps');
+};
+
+
+/**
+ * Returns the length of the component content.
+ * @return {number} Length of the component content.
+ */
+Component.prototype.getLength = function () {
+  return 0;
+};
+
+},{"./errors":4,"./utils":13}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
 var Paragraph = require('./paragraph');
+var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
+var ComponentFactory = require('./extensions/componentFactory');
+
 
 /**
  * Editor main.
@@ -325,14 +511,22 @@ var ShortcutsManager = require('./extensions/shortcutsManager');
  *     extensions: [new FormattingExtension()]
  *   }
  */
-var Editor = function(element, optParams) {
+var Editor = function (element, optParams) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    article: new Article({
+      sections: [new Section({
+        components: [new Paragraph({
+          placeholder: 'Editor',
+          paragraphType: Paragraph.Types.MainHeader
+        })]
+      })]
+    }),
     // The extensions enabled in this editor.
     extensions: [
         // TODO(mkhatib): Handle different kind of shortcuts (e.g. formatting)
-        new FormattingExtension(this),
+        new FormattingExtension(this)
     ]
   }, optParams);
 
@@ -358,13 +552,21 @@ var Editor = function(element, optParams) {
    * Main article model.
    * @type {Article}
    */
-  this.article = null;
+  this.article = params.article;
 
   /**
    * Shortcuts manager to handle keyboard shortcuts on the editor.
    * @type {ShortcutsManager}
    */
   this.shortcutsManager = new ShortcutsManager(this);
+
+  /**
+   * Registers, matches and create components based on registered regex.
+   * @type {ComponentFactory}
+   */
+  this.componentFactory = new ComponentFactory({
+    componentsClasses: [Figure]
+  });
 
   this.init();
 };
@@ -376,31 +578,6 @@ module.exports = Editor;
  * Initialize the editor article model and event listeners.
  */
 Editor.prototype.init = function() {
-  // This is just to render and test the initial dom creation.
-  // This will probably change dramatically as we go forward.
-  // TODO(mkhatib): Drop these.
-
-  var section = new Section({
-    paragraphs: [
-      new Paragraph({
-        placeholderText: 'Manshar Editor Demo',
-        paragraphType: Paragraph.Types.MainHeader
-      }),
-      new Paragraph({
-        placeholderText: 'This is just a demo.',
-        paragraphType: Paragraph.Types.ThirdHeader
-      }),
-      new Paragraph({
-        placeholderText: 'Play around and see the internal model of the' +
-          ' article being displayed to the right. The Editor is still under'+
-          ' development.'
-      })
-    ]
-  });
-
-  this.article = new Article({
-    sections: [section]
-  });
   this.article.selection.initSelectionListener(this.element);
 
   if (this.extensions) {
@@ -419,7 +596,7 @@ Editor.prototype.init = function() {
   this.element.appendChild(this.article.dom);
 
   this.article.selection.setCursor({
-    paragraph: section.paragraphs[0],
+    component: this.article.sections[0].components[0],
     offset: 0
   });
 };
@@ -430,10 +607,10 @@ Editor.prototype.init = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
-  var selection = this.article.selection;
+  var selection = this.article.selection, newP;
   var preventDefault = false;
   var ops = [];
-  var inBetweenParagraphs = [];
+  var inBetweenComponents = [];
 
   if (Utils.isUndo(event)) {
     this.article.undo();
@@ -447,9 +624,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   // i.e. Enter, characters, space, backspace...etc
   else if (selection.isRange() && Utils.willTypeCharacter(event)) {
     var section = selection.getSectionAtStart();
-    inBetweenParagraphs = section.getParagraphsBetween(
-        selection.start.paragraph, selection.end.paragraph);
-    ops.push.apply(ops, this.getDeleteSelectionOps());
+    inBetweenComponents = section.getComponentsBetween(
+        selection.getComponentAtStart(), selection.getComponentAtEnd());
+    Utils.arrays.extend(ops, this.getDeleteSelectionOps());
 
     this.article.transaction(ops);
     ops = [];
@@ -463,79 +640,149 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   }
 
   var offsetAfterOperation;
-  var currentParagraph = selection.getParagraphAtEnd();
-  var currentIndex = currentParagraph.section.paragraphs.indexOf(
-      currentParagraph);
-  var nextParagraph = currentParagraph.getNextParagraph();
-  var prevParagraph = currentParagraph.getPreviousParagraph();
+  var currentComponent = selection.getComponentAtEnd();
+  var currentIndex = currentComponent.section.components.indexOf(
+      currentComponent);
+  var nextComponent = currentComponent.getNextComponent();
+  var prevComponent = currentComponent.getPreviousComponent();
 
   switch (event.keyCode) {
     // Enter.
     case 13:
-      var uid = Utils.getUID();
-      if (!selection.isCursorAtEnding()) {
-        ops.push.apply(ops, this.getSplitParagraphOps(
-            -inBetweenParagraphs.length));
-
-      } else if (nextParagraph && nextParagraph.isPlaceholder()) {
+      // TODO(mkhatib): I don't like that we keep checking if the component is
+      // an instanceof Paragraph. Maybe find a better way to manage this.
+      if (!selection.isCursorAtEnding() &&
+          currentComponent instanceof Paragraph) {
+        Utils.arrays.extend(ops, this.getSplitParagraphOps(
+            -inBetweenComponents.length));
+      } else if (nextComponent instanceof Paragraph &&
+          nextComponent.isPlaceholder()) {
         // If the next paragraph is a placeholder, just move the cursor to it
         // and don't insert a new paragraph.
         selection.setCursor({
-          paragraph: nextParagraph,
+          component: nextComponent,
           offset: 0
         });
       } else {
-        ops.push({
-          do: {
-            op: 'insertParagraph',
-            section: selection.end.paragraph.section.name,
-            cursorOffset: 0,
-            paragraph: uid,
-            index: currentIndex - inBetweenParagraphs.length + 1
-          },
-          undo: {
-            op: 'deleteParagraph',
-            paragraph: uid
-          }
-        });
+        var factoryMethod;
+        if (currentComponent instanceof Paragraph) {
+          factoryMethod = this.componentFactory.match(
+              currentComponent.text);
+        }
+
+        if (factoryMethod) {
+          var atIndex = currentIndex - inBetweenComponents.length;
+
+          // Delete current paragraph with its text.
+          Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
+          var component = factoryMethod(currentComponent.text);
+          component.section = selection.getSectionAtEnd();
+          // Add the new component created from the text.
+          Utils.arrays.extend(ops, component.getInsertOps(atIndex));
+        }
+
+        newP = new Paragraph({section: selection.getSectionAtEnd()});
+        Utils.arrays.extend(
+            ops, newP.getInsertOps(
+                currentIndex - inBetweenComponents.length + 1));
       }
+
       this.article.transaction(ops);
       preventDefault = true;
       break;
 
     // Backspace.
     case 8:
-      // If the cursor at the beginning of paragraph. Merge Paragraphs.
-      if (selection.isCursorAtBeginning() && prevParagraph) {
-        offsetAfterOperation = prevParagraph.text.length;
+      if (!(currentComponent instanceof Paragraph)) {
+        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+            -inBetweenComponents.length));
+        if (prevComponent) {
+          this.article.transaction(ops);
+          selection.setCursor({
+            component: prevComponent,
+            offset: prevComponent.getLength()
+          });
+        } else if (nextComponent) {
+          this.article.transaction(ops);
+          selection.setCursor({
+            component: nextComponent,
+            offset: 0
+          });
+        } else {
+          newP = new Paragraph({section: selection.getSectionAtEnd()});
+          Utils.arrays.extend(
+              ops, newP.getInsertOps(
+                  currentIndex - inBetweenComponents.length));
+          this.article.transaction(ops);
+        }
+        preventDefault = true;
+      } else if (selection.isCursorAtBeginning() && prevComponent) {
+        offsetAfterOperation = 0;
+        // If the cursor at the beginning of paragraph. Merge Paragraphs if the
+        // previous component is a paragraph.
+        if (prevComponent instanceof Paragraph) {
+          offsetAfterOperation = prevComponent.text.length;
 
-        ops.push.apply(ops, this.getMergeParagraphsOps(
-            prevParagraph, currentParagraph, -inBetweenParagraphs.length));
-        this.article.transaction(ops);
+          Utils.arrays.extend(ops, this.getMergeParagraphsOps(
+              prevComponent, currentComponent, -inBetweenComponents.length));
+          this.article.transaction(ops);
+        }
 
         selection.setCursor({
-          paragraph: prevParagraph,
+          component: prevComponent,
           offset: offsetAfterOperation
         });
+
         preventDefault = true;
       }
       break;
 
     // Delete.
     case 46:
-      // If cursor at the end of the paragraph. Merge Paragraphs.
-      if (selection.isCursorAtEnding() && nextParagraph) {
-        offsetAfterOperation = currentParagraph.text.length;
+      if (!(currentComponent instanceof Paragraph)) {
+        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+            -inBetweenComponents.length));
+        if (prevComponent) {
+          this.article.transaction(ops);
+          selection.setCursor({
+            component: prevComponent,
+            offset: prevComponent.getLength()
+          });
+        } else if (nextComponent) {
+          this.article.transaction(ops);
+          selection.setCursor({
+            component: nextComponent,
+            offset: 0
+          });
+        } else {
+          newP = new Paragraph({section: selection.getSectionAtEnd()});
+          Utils.arrays.extend(
+              ops, newP.getInsertOps(
+                  currentIndex - inBetweenComponents.length));
+          this.article.transaction(ops);
+        }
+        preventDefault = true;
+      } else if (selection.isCursorAtEnding() && nextComponent) {
+        // If cursor at the end of the paragraph. Merge Paragraphs if the
+        // next component is a paragraph.
+        if (nextComponent instanceof Paragraph) {
+          offsetAfterOperation = currentComponent.text.length;
 
-        ops.push.apply(ops, this.getMergeParagraphsOps(
-            currentParagraph, nextParagraph, -inBetweenParagraphs.length));
+          Utils.arrays.extend(ops, this.getMergeParagraphsOps(
+              currentComponent, nextComponent, -inBetweenComponents.length));
 
-        this.article.transaction(ops);
+          this.article.transaction(ops);
 
-        selection.setCursor({
-          paragraph: currentParagraph,
-          offset: offsetAfterOperation
-        });
+          selection.setCursor({
+            component: currentComponent,
+            offset: offsetAfterOperation
+          });
+        } else {
+          selection.setCursor({
+            component: nextComponent,
+            offset: 0
+          });
+        }
         preventDefault = true;
       }
       break;
@@ -546,9 +793,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   if (preventDefault) {
     event.preventDefault();
     event.stopPropagation();
-  } else if (currentParagraph && Utils.willTypeCharacter(event)) {
+  } else if (currentComponent && Utils.willTypeCharacter(event)) {
     // Update current paragraph internal text model.
-    var oldValue = currentParagraph.text;
+    var oldValue = currentComponent.text;
     var article = this.article;
     var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
     var cursorOffsetDirection = 1;
@@ -559,45 +806,18 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     }
 
     setTimeout(function() {
-      var newValue = currentParagraph.dom.innerText;
+      var newValue = currentComponent.dom.innerText;
       var newOffset = selection.end.offset + cursorOffsetDirection;
 
       if (!isRemoveOp) {
-        var insertedChar = newValue.charAt(Math.min(newOffset, newValue.length) - 1);
-        ops.push({
-          do: {
-            op: 'insertChars',
-            paragraph: currentParagraph.name,
-            cursorOffset: newOffset,
-            value: insertedChar,
-            index: selection.end.offset
-          },
-          undo: {
-            op: 'removeChars',
-            paragraph: currentParagraph.name,
-            cursorOffset: selection.end.offset,
-            index: selection.end.offset,
-            count: 1
-          }
-        });
+        var insertedChar = newValue.charAt(
+            Math.min(newOffset, newValue.length) - 1);
+        Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
+            insertedChar, selection.end.offset));
       } else if (oldValue) {
         var deletedChar = oldValue.charAt(newOffset);
-        ops.push({
-          do: {
-            op: 'removeChars',
-            paragraph: currentParagraph.name,
-            cursorOffset: newOffset,
-            index: newOffset,
-            count: 1
-          },
-          undo: {
-            op: 'insertChars',
-            paragraph: currentParagraph.name,
-            cursorOffset: selection.end.offset,
-            value: deletedChar,
-            index: newOffset
-          }
-        });
+        Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+            deletedChar, newOffset, cursorOffsetDirection));
       }
 
       article.transaction(ops);
@@ -621,136 +841,43 @@ Editor.prototype.getDeleteSelectionOps = function() {
   var count;
   var selection = this.article.selection;
   var section = selection.getSectionAtStart();
-  var inBetweenParagraphs = section.getParagraphsBetween(
-      selection.start.paragraph, selection.end.paragraph);
+  var inBetweenComponents = section.getComponentsBetween(
+      selection.getComponentAtStart(), selection.getComponentAtEnd());
 
-  for (var i = 0; i < inBetweenParagraphs.length; i++) {
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: inBetweenParagraphs[i].name,
-        cursorOffset: 0,
-        value: '',
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: inBetweenParagraphs[i].name,
-        cursorOffset: inBetweenParagraphs[i].text.length,
-        value: inBetweenParagraphs[i].text,
-        formats: inBetweenParagraphs[i].formats
-      }
-    });
-    var paragraphIndex = section.paragraphs.indexOf(inBetweenParagraphs[i]);
-    ops.push({
-      do: {
-        op: 'deleteParagraph',
-        paragraph: inBetweenParagraphs[i].name
-      },
-      undo: {
-        op: 'insertParagraph',
-        section: inBetweenParagraphs[i].section.name,
-        paragraph: inBetweenParagraphs[i].name,
-        index: paragraphIndex - i
-      }
-    });
+  for (var i = 0; i < inBetweenComponents.length; i++) {
+    Utils.arrays.extend(ops, inBetweenComponents[i].getDeleteOps(-i));
   }
 
-  if (selection.end.paragraph !== selection.start.paragraph) {
-    var lastParagraphOldText = selection.end.paragraph.text;
+  if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
+    var lastParagraphOldText = selection.getComponentAtEnd().text;
     var lastParagraphText = lastParagraphOldText.substring(
         selection.end.offset, lastParagraphOldText.length);
-    var lastParagraphIndex = section.paragraphs.indexOf(
-        selection.end.paragraph);
 
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: selection.end.paragraph.name,
-        cursorOffset: 0,
-        value: '',
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: selection.end.paragraph.name,
-        cursorOffset: selection.end.offset,
-        value: lastParagraphOldText,
-        formats: selection.end.paragraph.formats
-      }
-    });
-    ops.push({
-      do: {
-        op: 'deleteParagraph',
-        paragraph: selection.end.paragraph.name
-      },
-      undo: {
-        op: 'insertParagraph',
-        section: selection.end.paragraph.section.name,
-        paragraph: selection.end.paragraph.name,
-        index: lastParagraphIndex - inBetweenParagraphs.length
-      }
-    });
+    var lastComponent = selection.getComponentAtEnd();
+    Utils.arrays.extend(ops, lastComponent.getDeleteOps(
+        -inBetweenComponents.length));
 
-    var firstParagraphOldText = selection.start.paragraph.text;
+    var firstParagraphOldText = selection.getComponentAtStart().text;
     var firstParagraphText = firstParagraphOldText.substring(
         selection.start.offset, firstParagraphOldText.length);
 
-    var startParagraph = selection.start.paragraph;
+    var startParagraph = selection.getComponentAtStart();
     var startParagraphFormats = startParagraph.getFormatsForRange(
         selection.start.offset, firstParagraphOldText.length);
 
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: startParagraph.name,
-        cursorOffset: selection.start.offset,
-        selectRange: firstParagraphOldText.length - selection.start.offset,
-        formats: startParagraphFormats
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: startParagraph.name,
-        cursorOffset: selection.start.offset,
-        selectRange: firstParagraphOldText.length - selection.start.offset,
-        formats: startParagraphFormats
-      }
-    });
-    ops.push({
-      do: {
-        op: 'removeChars',
-        paragraph: startParagraph.name,
-        cursorOffset: selection.start.offset,
-        index: selection.start.offset,
-        count: firstParagraphText.length
-      },
-      undo: {
-        op: 'insertChars',
-        paragraph: selection.start.paragraph.name,
-        cursorOffset: selection.start.offset,
-        selectRange: firstParagraphText.length,
-        index: selection.start.offset,
-        value: firstParagraphText
-      }
-    });
+    var selectRange = firstParagraphOldText.length - selection.start.offset;
+    Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+      formats: startParagraphFormats
+    }, selection.start.offset, selectRange));
+
+    Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
+        firstParagraphText, selection.start.offset));
 
     var lastCount = lastParagraphOldText.length - lastParagraphText.length;
-    ops.push({
-      do: {
-        op: 'insertChars',
-        paragraph: startParagraph.name,
-        cursorOffset: selection.start.offset,
-        index: selection.start.offset,
-        value: lastParagraphText
-      },
-      undo: {
-        op: 'removeChars',
-        paragraph: startParagraph.name,
-        cursorOffset: selection.start.offset,
-        index: selection.start.offset,
-        count: lastCount
-      }
-    });
+    Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
+        lastParagraphText, selection.start.offset));
 
-    var endParagraphFormatting = selection.end.paragraph.getFormatsForRange(
+    var endParagraphFormatting = selection.getComponentAtEnd().getFormatsForRange(
         selection.end.offset, lastParagraphOldText.length);
     var formatShift = -lastCount + selection.start.offset;
     for (var k = 0; k < endParagraphFormatting.length; k++) {
@@ -758,62 +885,23 @@ Editor.prototype.getDeleteSelectionOps = function() {
       endParagraphFormatting[k].to += formatShift;
     }
 
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: startParagraph.name,
-        cursorOffset: firstParagraphOldText.length - firstParagraphText.length,
-        formats: endParagraphFormatting
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: startParagraph.name,
-        cursorOffset: firstParagraphOldText.length - firstParagraphText.length,
-        formats: endParagraphFormatting
-      }
-    });
-
-
+    Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+      formats: endParagraphFormatting
+    }, firstParagraphOldText.length - firstParagraphText.length));
   } else {
-    var currentParagraph = selection.start.paragraph;
-    var selectedText = currentParagraph.text.substring(
+    var currentComponent = selection.getComponentAtStart();
+    var selectedText = currentComponent.text.substring(
         selection.start.offset, selection.end.offset);
     count = selection.end.offset - selection.start.offset;
-    var currentParagraphFormats = currentParagraph.getFormatsForRange(
+    var currentComponentFormats = currentComponent.getFormatsForRange(
         selection.start.offset, selection.end.offset);
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: currentParagraph.name,
-        cursorOffset: selection.start.offset,
-        selectRange: count,
-        formats: currentParagraphFormats
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: currentParagraph.name,
-        cursorOffset: selection.start.offset,
-        selectRange: count,
-        formats: currentParagraphFormats
-      }
-    });
-    ops.push({
-      do: {
-        op: 'removeChars',
-        paragraph: currentParagraph.name,
-        cursorOffset: selection.start.offset,
-        index: selection.start.offset,
-        count: count
-      },
-      undo: {
-        op: 'insertChars',
-        paragraph: currentParagraph.name,
-        cursorOffset: selection.start.offset,
-        selectRange: count,
-        index: selection.start.offset,
-        value: selectedText
-      }
-    });
+
+    Utils.arrays.extend(ops, currentComponent.getUpdateOps({
+      formats: currentComponentFormats
+    }, selection.start.offset, count));
+
+    Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+        selectedText, selection.start.offset));
   }
 
   return ops;
@@ -828,59 +916,21 @@ Editor.prototype.getDeleteSelectionOps = function() {
 Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   var ops = [];
   var selection = this.article.selection;
-  var currentParagraph = selection.getParagraphAtEnd();
-  var currentIndex = currentParagraph.section.paragraphs.indexOf(
-      currentParagraph);
-  var afterCursorText = currentParagraph.text.substring(
-      selection.end.offset, currentParagraph.text.length);
-  var uid = Utils.getUID();
-  ops.push({
-    do: {
-      op: 'insertParagraph',
-      section: selection.end.paragraph.section.name,
-      paragraph: uid,
-      index: currentIndex + 1 + indexOffset
-    },
-    undo: {
-      op: 'deleteParagraph',
-      paragraph: uid
-    }
-  });
+  var currentComponent = selection.getComponentAtEnd();
+  var currentIndex = currentComponent.section.components.indexOf(
+      currentComponent);
+  var afterCursorText = currentComponent.text.substring(
+      selection.end.offset, currentComponent.text.length);
 
-  var afterCursorFormats = currentParagraph.getFormatsForRange(
-      selection.start.offset, currentParagraph.text.length);
+  var afterCursorFormats = currentComponent.getFormatsForRange(
+      selection.start.offset, currentComponent.text.length);
 
-  ops.push({
-    do: {
-      op: 'updateParagraph',
-      paragraph: currentParagraph.name,
-      cursorOffset: selection.start.offset,
-      formats: afterCursorFormats
-    },
-    undo: {
-      op: 'updateParagraph',
-      paragraph: currentParagraph.name,
-      cursorOffset: selection.start.offset,
-      formats: afterCursorFormats
-    }
-  });
+  Utils.arrays.extend(ops, currentComponent.getUpdateOps({
+    formats: afterCursorFormats
+  }, selection.start.offset));
 
-  ops.push({
-    do: {
-      op: 'removeChars',
-      paragraph: currentParagraph.name,
-      cursorOffset: selection.start.offset,
-      index: selection.start.offset,
-      count: afterCursorText.length
-    },
-    undo: {
-      op: 'insertChars',
-      paragraph: currentParagraph.name,
-      cursorOffset: selection.end.offset,
-      value: afterCursorText,
-      index: selection.start.offset
-    }
-  });
+  Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+      afterCursorText, selection.start.offset));
 
   var afterCursorShiftedFormats = Utils.clone(afterCursorFormats);
   var formatShift = -selection.start.offset;
@@ -888,20 +938,14 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
     afterCursorShiftedFormats[k].from += formatShift;
     afterCursorShiftedFormats[k].to += formatShift;
   }
-  ops.push({
-    do: {
-      op: 'updateParagraph',
-      paragraph: uid,
-      cursorOffset: 0,
-      value: afterCursorText,
+
+  var newP = new Paragraph({
+      section: selection.getSectionAtEnd(),
+      text: afterCursorText,
       formats: afterCursorShiftedFormats
-    },
-    undo: {
-      op: 'updateParagraph',
-      paragraph: uid,
-      cursorOffset: 0,
-    }
   });
+  Utils.arrays.extend(
+      ops, newP.getInsertOps(currentIndex + indexOffset + 1));
 
   return ops;
 };
@@ -919,54 +963,12 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
 Editor.prototype.getMergeParagraphsOps = function(
     firstP, secondP, indexOffset) {
   var ops = [];
-  var secondPIndex = secondP.section.paragraphs.indexOf(secondP);
   var offsetAfterOperation = firstP.text.length;
 
-  ops.push({
-    do: {
-      op: 'updateParagraph',
-      paragraph: secondP.name,
-      cursorOffset: 0,
-      value: '',
-    },
-    undo: {
-      op: 'updateParagraph',
-      paragraph: secondP.name,
-      cursorOffset: 0,
-      value: secondP.text,
-      formats: secondP.formats
-    }
-  });
+  Utils.arrays.extend(ops, secondP.getDeleteOps(-indexOffset));
 
-  ops.push({
-    do: {
-      op: 'deleteParagraph',
-      paragraph: secondP.name
-    },
-    undo: {
-      op: 'insertParagraph',
-      section: secondP.section.name,
-      paragraph: secondP.name,
-      index: secondPIndex + indexOffset
-    }
-  });
-
-  ops.push({
-    do: {
-      op: 'insertChars',
-      paragraph: firstP.name,
-      cursorOffset: offsetAfterOperation,
-      value: secondP.text,
-      index: offsetAfterOperation
-    },
-    undo: {
-      op: 'removeChars',
-      paragraph: firstP.name,
-      cursorOffset: offsetAfterOperation,
-      index: offsetAfterOperation,
-      count: secondP.text.length
-    }
-  });
+  Utils.arrays.extend(ops, firstP.getInsertCharsOps(
+      secondP.text, offsetAfterOperation));
 
   var secondPFormatting = Utils.clone(secondP.formats);
   var formatShift = firstP.text.length;
@@ -975,20 +977,9 @@ Editor.prototype.getMergeParagraphsOps = function(
     secondPFormatting[k].to += formatShift;
   }
 
-  ops.push({
-    do: {
-      op: 'updateParagraph',
-      paragraph: firstP.name,
-      cursorOffset: offsetAfterOperation,
-      formats: secondPFormatting
-    },
-    undo: {
-      op: 'updateParagraph',
-      paragraph: firstP.name,
-      cursorOffset: offsetAfterOperation,
-      formats: secondPFormatting
-    }
-  });
+  Utils.arrays.extend(ops, firstP.getUpdateOps({
+    formats: secondPFormatting
+  }, offsetAfterOperation));
 
   return ops;
 };
@@ -1003,7 +994,8 @@ Editor.prototype.handlePaste = function(event) {
   if (window.clipboardData && window.clipboardData.getData) { // IE
     pastedContent = window.clipboardData.getData('Text');
   } else if (event.clipboardData && event.clipboardData.getData) {
-    pastedContent = event.clipboardData.getData('text/html');
+    pastedContent = event.clipboardData.getData('text/html') ||
+        event.clipboardData.getData('text/plain');
   }
 
   var tempEl = document.createElement('div');
@@ -1039,14 +1031,14 @@ Editor.prototype.getJSONModel = function() {
  */
 Editor.prototype.processPastedContent = function(element, indexOffset) {
   var ops = [];
-  var text, uid, paragraphType, appendOperations;
+  var text, paragraphType, appendOperations;
   var textPasted = element.innerText;
   var children = element.childNodes;
-
+  var component;
   var selection = this.article.selection;
-  var currentParagraph = selection.start.paragraph;
+  var currentComponent = selection.getComponentAtStart();
   var section = selection.getSectionAtStart();
-  var startParagraphIndex = section.paragraphs.indexOf(currentParagraph);
+  var startParagraphIndex = section.components.indexOf(currentComponent);
   var currentIndex = indexOffset || startParagraphIndex;
   var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
@@ -1093,33 +1085,18 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   if (!children || !children.length || isInlinePaste(children)) {
 
     // Text before and after pasting.
-    var textStart = currentParagraph.text.substring(0, selection.start.offset);
+    var textStart = currentComponent.text.substring(0, selection.start.offset);
 
-    // Calculate cursor offset before and after pasting.
-    var offsetAfterOperation = (textStart + textPasted).length;
+    // Calculate cursor offset before pasting.
     var offsetBeforeOperation = textStart.length;
 
-    ops.push({
-      do: {
-        op: 'insertChars',
-        paragraph: currentParagraph.name,
-        cursorOffset: offsetAfterOperation,
-        value: textPasted,
-        index: offsetBeforeOperation
-      },
-      undo: {
-        op: 'removeChars',
-        paragraph: currentParagraph.name,
-        cursorOffset: offsetBeforeOperation,
-        index: offsetBeforeOperation,
-        count: textPasted.length
-      }
-    });
+    Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
+        textPasted, offsetBeforeOperation));
   } else {
     // When pasting multi-line split the current paragraph if pasting
     // mid-paragraph.
     if (!selection.isCursorAtEnding()) {
-      ops.push.apply(ops, this.getSplitParagraphOps(
+      Utils.arrays.extend(ops, this.getSplitParagraphOps(
           currentIndex));
     }
     currentIndex++;
@@ -1135,9 +1112,32 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         case 'embed':
         case 'br':
         case 'hr':
-        case 'img':
-        case 'figure':
           continue;
+        case 'figure':
+          var allImgs = el.getElementsByTagName('img');
+          if (!allImgs || !allImgs.length) {
+            continue;
+          }
+          var imgOps = [];
+          for (var j = 0; j < allImgs.length; j++) {
+            component = new Figure({
+              src: allImgs[j].getAttribute('src')
+            });
+            component.section = selection.getSectionAtEnd();
+            Utils.arrays.extend(
+                imgOps, component.getInsertOps(currentIndex++));
+          }
+
+          // TODO(mkhatib): Images are copied twice. Investigate.
+          appendOperations = imgOps;
+          break;
+        case 'img':
+          component = new Figure({
+            src: el.getAttribute('src')
+          });
+          component.section = selection.getSectionAtEnd();
+          appendOperations = component.getInsertOps(currentIndex++);
+          break;
         // All the following will just insert a normal paragraph for now.
         // TODO(mkhatib): When the editor supports more paragraph types
         // fix this to allow pasting lists and other types.
@@ -1165,8 +1165,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         case 'pre':
           paragraphType = Paragraph.Types.Code;
           break;
-
-
         default:
           // To preserve inline styling.
           if (hasOnlyInlineChildNodes(children[i])) {
@@ -1193,38 +1191,18 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       }
 
       if (appendOperations) {
-        Array.prototype.push.apply(ops, appendOperations);
+        Utils.arrays.extend(ops, appendOperations);
       } else {
         // Add an operation to insert new paragraph and update its text.
-        uid = Utils.getUID();
         text = el[getTextProp(el)];
-        ops.push({
-          do: {
-            op: 'insertParagraph',
-            section: section.name,
-            paragraph: uid,
-            index: currentIndex++,
+
+        var newP = new Paragraph({
+            section: section,
+            text: text,
             paragraphType: paragraphType
-          },
-          undo: {
-            op: 'deleteParagraph',
-            paragraph: uid,
-          }
         });
-        ops.push({
-          do: {
-            op: 'updateParagraph',
-            paragraph: uid,
-            cursorOffset: text.length,
-            value: text
-          },
-          undo: {
-            op: 'updateParagraph',
-            paragraph: uid,
-            cursorOffset: 0,
-            value: ''
-          }
-        });
+        Utils.arrays.extend(
+            ops, newP.getInsertOps(currentIndex++));
       }
     }
   }
@@ -1246,7 +1224,114 @@ Editor.prototype.handleCut = function() {
 };
 
 
-},{"./article":1,"./extensions/formatting":3,"./extensions/shortcutsManager":4,"./paragraph":6,"./section":7,"./utils":9}],3:[function(require,module,exports){
+},{"./article":1,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":7,"./figure":8,"./paragraph":10,"./section":11,"./utils":13}],4:[function(require,module,exports){
+'use strict';
+
+var Errors = {};
+module.exports = Errors;
+
+
+/**
+ * An error to use when methods are not implemented.
+ * @param {string} message Message for the exception.
+ */
+Errors.NotImplementedError = function (message) {
+  this.name = 'NotImplementedError';
+  this.message = (message || '');
+};
+Errors.NotImplementedError.prototype = Error.prototype;
+
+
+/**
+ * An error to use when registeration is already done.
+ * @param {string} message Message for the exception.
+ */
+Errors.AlreadyRegisteredError = function (message) {
+  this.name = 'AlreadyRegisteredError';
+  this.message = (message || '');
+};
+Errors.AlreadyRegisteredError.prototype = Error.prototype;
+
+},{}],5:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var Errors = require('../errors');
+
+
+/**
+ * ComponentFactory A factory to allow components to register regex matches
+ * to be notified when a match is found in the editor.
+ * @param {Object} optParams Optional params to initialize ComponentFactory.
+ */
+var ComponentFactory = function (optParams) {
+  var params = Utils.extend({
+    componentsClasses: []
+  }, optParams);
+
+  /**
+   * The components classes that would need to register their regexs.
+   * @type {Array.<Function>}
+   */
+  this.componentsClasses = params.componentsClasses;
+
+  /**
+   * The registery for the regexes and its factory methods (callbacks).
+   * @type {Object}
+   */
+  this.regexToFactories = {};
+
+  this.init();
+};
+module.exports = ComponentFactory;
+
+
+/**
+ * Initializes the component factory by calling the components registerRegexes
+ * methods passing the instance of the factory.
+ */
+ComponentFactory.prototype.init = function() {
+  for (var i = 0; i < this.componentsClasses.length; i++) {
+    var ComponentClass = this.componentsClasses[i];
+    ComponentClass.registerRegexes(this);
+  }
+};
+
+
+/**
+ * Registers a regex with the factory.
+ * @param  {string} regex String regular expression to register for.
+ * @param  {Function} factoryMethod Callback factory method for handling match.
+ * @param  {boolean=} optForce Forcing registering even when its already
+ * registered.
+ */
+ComponentFactory.prototype.registerRegex = function(
+    regex, factoryMethod, optForce) {
+  if (this.regexToFactories[regex] && !optForce) {
+    throw Errors.AlreadyRegisteredError(
+        'This Regex "' + regex + '" has already been registered.');
+  }
+
+  this.regexToFactories[regex] = factoryMethod;
+};
+
+
+/**
+ * Check if the string match any registered regex and return its factory method.
+ * @param {string} str String to match against.
+ * @return {Function} Factory method for creating the matched component.
+ */
+ComponentFactory.prototype.match = function(str) {
+  for (var regexStr in this.regexToFactories) {
+    var regex = new RegExp(regexStr);
+    var matches = regex.exec(str);
+    if (matches) {
+      return this.regexToFactories[regexStr];
+    }
+  }
+};
+
+},{"../errors":4,"../utils":13}],6:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -1588,14 +1673,34 @@ Formatting.prototype.handleButtonClicked = function(event) {
  */
 Formatting.prototype.handleSelectionChangedEvent = function() {
   var wSelection = window.getSelection();
+  var selection = Selection.getInstance();
+  var startComp = selection.getComponentAtStart();
+  var endComp = selection.getComponentAtEnd();
+
+  this.setToolbarPosition(
+      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
+  this.setToolbarPosition(
+      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
 
   if (wSelection.isCollapsed) {
-    // If there's no selection, show the block toolbar.
-    this.repositionBlockToolbar();
+    if (startComp instanceof Paragraph) {
+      // If there's no selection, show the block toolbar.
+      this.repositionBlockToolbar();
+    } else {
+      // TODO(mkhatib): Show the toolbar for the specific component.
+    }
   } else {
-    // Otherwise, show the inline toolbar.
-    this.repositionInlineToolbar();
-    setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
+    if (startComp instanceof Paragraph &&
+        // Don't show the inline toolbar when multiple paragraphs are selected.
+        // TODO(mkhatib): Maybe allow this once we have support for multiple
+        // paragraphs formatting support.
+        startComp === endComp) {
+      // Otherwise, show the inline toolbar.
+      this.repositionInlineToolbar();
+      setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
+    } else {
+      // TODO(mkhatib): show toolbar for the specific component.
+    }
   }
 };
 
@@ -1630,7 +1735,7 @@ Formatting.prototype.repositionInlineToolbar = function() {
  */
 Formatting.prototype.repositionBlockToolbar = function() {
   var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
+  var paragraph = selection.getComponentAtStart();
   var bounds = paragraph.dom.getBoundingClientRect();
 
   // Hide inline formatting toolbar.
@@ -1652,7 +1757,7 @@ Formatting.prototype.repositionBlockToolbar = function() {
  */
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
+  var paragraph = selection.getComponentAtStart();
   var activeAction = this.getFormatterForValue(paragraph.paragraphType);
   this.setToolbarActiveAction(this.blockToolbar, activeAction);
 };
@@ -1663,7 +1768,7 @@ Formatting.prototype.reloadBlockToolbarStatus = function() {
  */
 Formatting.prototype.reloadInlineToolbarStatus = function() {
   var selection = this.editor.article.selection;
-  var paragraph = selection.getParagraphAtStart();
+  var paragraph = selection.getComponentAtStart();
   var formatter = paragraph.getSelectedFormatter(selection);
   var activeAction = null;
   var attrs = null;
@@ -1755,7 +1860,7 @@ Formatting.prototype.handleBlockFormatterClicked = function(event) {
  */
 Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
-  var paragraphs = selection.getSelectedParagraphs();
+  var paragraphs = selection.getSelectedComponents();
   var ops = [];
 
   for (var i = 0; i < paragraphs.length; i++) {
@@ -1764,69 +1869,13 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
       toType = Paragraph.Types.Paragraph;
     }
 
-    // Step 0: updateParagraph to remove content the old one.
-    var index = paragraphs[i].section.paragraphs.indexOf(paragraphs[i]) + i;
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: '',
-        cursorOffset: 0
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: paragraphs[i].text,
-        cursorOffset: selection.end.offset
-      }
-    });
-
-    // Step 1: deleteParagraph to remove current Paragraph.
-    ops.push({
-      do: {
-        op: 'deleteParagraph',
-        paragraph: paragraphs[i].name
-      },
-      undo: {
-        op: 'insertParagraph',
-        section: paragraphs[i].section.name,
-        index: index,
-        paragraph: paragraphs[i].name,
-        paragraphType: paragraphs[i].paragraphType
-      }
-    });
-
-    // Step 2: insertParagraph to Insert a new Paragraph in its place with the
+    var index = paragraphs[i].getIndexInSection() + i;
+    // Step 1: deleteComponent to remove current Paragraph.
+    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps());
+    // Step 2: insertComponent to Insert a new Paragraph in its place with the
     // new paragraph type. Make sure to keep the name of the paragraph.
-    ops.push({
-      do: {
-        op: 'insertParagraph',
-        section: paragraphs[i].section.name,
-        paragraph: paragraphs[i].name,
-        index: index,
-        paragraphType: toType
-      },
-      undo: {
-        op: 'deleteParagraph',
-        paragraph: paragraphs[i].name,
-      }
-    });
-
-    // Step 3: updateParagraph to update with the content of the old one.
-    ops.push({
-      do: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: paragraphs[i].text,
-        cursorOffset: selection.end.offset
-      },
-      undo: {
-        op: 'updateParagraph',
-        paragraph: paragraphs[i].name,
-        value: '',
-        cursorOffset: 0
-      }
-    });
+    paragraphs[i].paragraphType = toType;
+    Utils.arrays.extend(ops, paragraphs[i].getInsertOps(index));
   }
 
   // Execute the transaction.
@@ -1847,13 +1896,10 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 Formatting.prototype.format = function(paragraph, selection, format) {
   var ops = [], newDo, newUndo, newOp;
 
-  var defaultDo = {
-    op: 'updateParagraph',
-    paragraph: paragraph.name,
-    cursorOffset: selection.start.offset,
-    selectRange: selection.end.offset - selection.start.offset,
-    formats: []
-  };
+  var tempOps = paragraph.getUpdateOps(
+      {formats: []}, selection.start.offset,
+      selection.end.offset - selection.start.offset);
+  var defaultDo = tempOps[0].do;
 
   // See the range already formatted in a similar type.
   var existingFormats = paragraph.getFormattedRanges(format, true);
@@ -1926,7 +1972,7 @@ Formatting.prototype.format = function(paragraph, selection, format) {
     // Clear all formats touching the range and apply the new format.
     var unformatRanges = paragraph.getFormatsForRange(format.from, format.to);
     newDo = Utils.clone(defaultDo);
-    Array.prototype.push.apply(newDo.formats, unformatRanges);
+    Utils.arrays.extend(newDo.formats, unformatRanges);
     // Apply the requested format.
     newDo.formats.push(format);
 
@@ -1960,7 +2006,7 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
     this.reloadInlineToolbarStatus();
   } else {
     var selection = this.editor.article.selection;
-    var paragraph = selection.getParagraphAtStart();
+    var paragraph = selection.getComponentAtStart();
     var activeAction = paragraph.getSelectedFormatter(selection);
 
     // If the formatter is already applied, remove the formatting.
@@ -1983,7 +2029,7 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
 Formatting.prototype.handleInlineFormatting = function(
     clickedFormatter, optAttrs) {
   var selection = this.editor.article.selection;
-  var currentParagraph = selection.getParagraphAtStart();
+  var currentParagraph = selection.getComponentAtStart();
   var format = {
     type: clickedFormatter,
     from: selection.start.offset,
@@ -2081,7 +2127,7 @@ Formatting.prototype.getFormatterForValue = function(value) {
   return null;
 };
 
-},{"../paragraph":6,"../selection":8,"../utils":9}],4:[function(require,module,exports){
+},{"../paragraph":10,"../selection":12,"../utils":13}],7:[function(require,module,exports){
 'use strict';
 
 
@@ -2213,21 +2259,247 @@ ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
   this.registery[shortcutId] = handler;
 };
 
-},{}],5:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
+'use strict';
+
+var Utils = require('./utils');
+var Selection = require('./selection');
+var Component = require('./component');
+
+/**
+ * Figure main.
+ * @param {Object} optParams Optional params to initialize the Figure object.
+ * Default:
+ *   {
+ *     src: '',
+ *     caption: null,
+ *     width: '100%'
+ *     name: Utils.getUID()
+ *   }
+ */
+var Figure = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    src: '',
+    caption: null,
+    width: '100%',
+    // Generate a UID as a reference for this Figure.
+    name: Utils.getUID()
+  }, optParams);
+
+  /**
+   * Name to reference this Figure.
+   * @type {string}
+   */
+  this.name = params.name;
+  Utils.setReference(this.name, this);
+
+  /**
+   * Internal model text in this Figure.
+   * @type {string}
+   */
+  this.src = params.src;
+
+  this.width = params.width;
+
+  /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.caption = params.caption;
+
+  /**
+   * DOM element tied to this object.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
+  this.dom.setAttribute('contenteditable', false);
+  this.dom.setAttribute('name', this.name);
+  this.dom.addEventListener('click', this.handleClick.bind(this));
+
+  this.captionDom = document.createElement(Figure.CAPTION_TAG_NAME);
+  this.captionDom.setAttribute('contenteditable', true);
+
+  this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
+
+  if (this.caption) {
+    this.captionDom.innerText = this.caption;
+    this.dom.appendChild(this.captionDom);
+  }
+
+  if (this.src) {
+    this.imgDom.setAttribute('src', this.src);
+    if (this.width) {
+      this.imgDom.setAttribute('width', this.width);
+    }
+    this.dom.appendChild(this.imgDom);
+  }
+};
+Figure.prototype = new Component();
+module.exports = Figure;
+
+
+/**
+ * Figure component container element tag name.
+ * @type {string}
+ */
+Figure.CONTAINER_TAG_NAME = 'figure';
+
+
+/**
+ * Image element tag name.
+ * @type {string}
+ */
+Figure.IMAGE_TAG_NAME = 'img';
+
+
+/**
+ * Caption element tag name.
+ * @type {string}
+ */
+Figure.CAPTION_TAG_NAME = 'figcaption';
+
+
+/**
+ * Regex strings list that for matching image URLs.
+ * @type {Array.<string>}
+ */
+Figure.IMAGE_URL_REGEXS = [
+    'https?://(.*)\.(jpg|png|gif|jpeg)$'
+];
+
+
+/**
+ * Registers regular experessions to create image from if matched.
+ * @param  {ComponentFactory} componentFactory The component factory to register
+ * the regex with.
+ */
+Figure.registerRegexes = function(componentFactory) {
+  for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
+    componentFactory.registerRegex(
+        Figure.IMAGE_URL_REGEXS[i],
+        Figure.createFigureFromLink);
+  }
+};
+
+
+/**
+ * Creates a figure component from a link.
+ * @param  {string} link Image URL.
+ * @return {Figure} Figure component created from the link.
+ */
+Figure.createFigureFromLink = function (link) {
+  return new Figure({src: link});
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this Figure.
+ */
+Figure.prototype.getJSONModel = function() {
+  var image = {
+    name: this.name,
+    src: this.src,
+    caption: this.caption
+  };
+
+  return image;
+};
+
+
+/**
+ * Handles clicking on the figure component to update the selection.
+ */
+Figure.prototype.handleClick = function () {
+  var selection = Selection.getInstance();
+  selection.setCursor({
+    component: this,
+    offset: 0
+  });
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the image component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+Figure.prototype.getDeleteOps = function (optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: 'Figure',
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        src: this.src,
+        caption: this.caption,
+        width: this.width
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a figure.
+ * @param {number} index Index to insert the figure at.
+ * @return {Array.<Object>} Operations for inserting the figure.
+ */
+Figure.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'Figure',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        src: this.src,
+        width: this.width,
+        caption: this.caption
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the length of the figure content.
+ * @return {number} Length of the figure content.
+ */
+Figure.prototype.getLength = function () {
+  return 1;
+};
+
+},{"./component":2,"./selection":12,"./utils":13}],9:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
 module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
+module.exports.Figure = require('./figure');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 module.exports.Formatting = require('./extensions/formatting');
 
-},{"./article":1,"./editor":2,"./extensions/formatting":3,"./paragraph":6,"./section":7,"./selection":8}],6:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/formatting":6,"./figure":8,"./paragraph":10,"./section":11,"./selection":12}],10:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
-
+var Component = require('./component');
 
 /**
  * Paragraph main.
@@ -2237,6 +2509,7 @@ var Utils = require('./utils');
  *     text: '',
  *     placeholderText: null,
  *     paragraphType: Paragraph.Types.Paragraph,
+ *     formats: [],
  *     name: Utils.getUID()
  *   }
  */
@@ -2249,8 +2522,12 @@ var Paragraph = function(optParams) {
     placeholderText: null,
     // Paragraph Type one of Paragraph.Types string.
     paragraphType: Paragraph.Types.Paragraph,
+    // List of inline formats for the paragraph.
+    formats: [],
     // Generate a UID as a reference for this paragraph.
-    name: Utils.getUID()
+    name: Utils.getUID(),
+
+    section: null
   }, optParams);
 
   /**
@@ -2276,22 +2553,15 @@ var Paragraph = function(optParams) {
    * Inline formats for the paragraph.
    * @type {Array.<Object>}
    */
-  this.formats = [];
-
-  this.metadata = {};
-  this.layout = {};
-
-  /**
-   * Section this paragraph belongs to.
-   * @type {Section}
-   */
-  this.section = null;
+  this.formats = params.formats;
 
   /**
    * Paragraph type.
    * @type {string}
    */
   this.paragraphType = params.paragraphType;
+
+  this.section = params.section;
 
   /**
    * DOM element tied to this object.
@@ -2309,12 +2579,15 @@ var Paragraph = function(optParams) {
   }
 
   this.setText(params.text);
+
+  if (this.formats) {
+    this.updateInnerDom_();
+  }
 };
+Paragraph.prototype = new Component();
 module.exports = Paragraph;
 
-// TODO(mkhatib): Maybe define each type as a new function
-// instead of putting all the logic for rendering all of these
-// under Paragraph.
+
 /**
  * Differet types of a paragraph.
  * @type {Enum}
@@ -2445,30 +2718,6 @@ Paragraph.prototype.updateInnerDom_ = function () {
  */
 Paragraph.prototype.isPlaceholder = function() {
   return !!this.placeholderText && !this.text.length;
-};
-
-
-/**
- * Get the next paragraph if any.
- * @return {Paragraph} Next sibling paragraph.
- */
-Paragraph.prototype.getNextParagraph = function() {
-  if (this.section) {
-    var i = this.section.paragraphs.indexOf(this);
-    return this.section.paragraphs[i + 1];
-  }
-};
-
-
-/**
- * Get the previous paragraph if any.
- * @return {Paragraph} Previous sibling paragraph.
- */
-Paragraph.prototype.getPreviousParagraph = function() {
-  if (this.section) {
-    var i = this.section.paragraphs.indexOf(this);
-    return this.section.paragraphs[i - 1];
-  }
 };
 
 
@@ -2725,7 +2974,155 @@ Paragraph.prototype.getJSONModel = function() {
   return paragraph;
 };
 
-},{"./utils":9}],7:[function(require,module,exports){
+
+/**
+ * Returns the operations to execute a deletion of the paragraph component.
+ *   For partial deletion pass optFrom and optTo.
+ * @param  {number=} optIndexOffset Optional offset to add to the index of the
+ * component for insertion point for the undo.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: 'Paragraph',
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        text: this.text,
+        placeholderText: this.placeholderText,
+        paragraphType: this.paragraphType,
+        formats: this.formats
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a paragarph.
+ * @param {number} index Index to insert the paragarph at.
+ * @return {Array.<Object>} Operations for inserting the paragraph.
+ */
+Paragraph.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'Paragraph',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        text: this.text,
+        formats: this.formats,
+        paragraphType: this.paragraphType
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting characters in a paragraph.
+ * @param {string} chars The characters to insert in a paragraph.
+ * @param  {number=} index Index to insert the characters at.
+ * @return {Array.<Object>} Operations for inserting characters in paragraph.
+ */
+Paragraph.prototype.getInsertCharsOps = function(chars, index) {
+  return [{
+    do: {
+      op: 'insertChars',
+      component: this.name,
+      cursorOffset: index + chars.length,
+      value: chars,
+      index: index
+    },
+    undo: {
+      op: 'removeChars',
+      component: this.name,
+      cursorOffset: index,
+      index: index,
+      count: chars.length
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute removing characters in a paragraph.
+ * @param {string} chars The characters to remove in a paragraph.
+ * @param  {number=} index Index to remove the characters starting at.
+ * @param {number=} optDirection The directions to remove chars at.
+ * @return {Array.<Object>} Operations for removing characters in paragraph.
+ */
+Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
+  return [{
+    do: {
+      op: 'removeChars',
+      component: this.name,
+      cursorOffset: index,
+      index: index,
+      count: chars.length
+    },
+    undo: {
+      op: 'insertChars',
+      component: this.name,
+      cursorOffset: index - (optDirection || 0),
+      value: chars,
+      index: index
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute updating a paragraph attributes.
+ * @param  {Object} attrs Attributes to update for the paragraph.
+ * @param  {number=} optCursorOffset Optional cursor offset.
+ * @param  {number=} optSelectRange Optional selecting range.
+ * @return {Array.<Object>} Operations for updating a paragraph attributes.
+ */
+Paragraph.prototype.getUpdateOps = function(
+    attrs, optCursorOffset, optSelectRange) {
+  return [{
+    do: {
+      op: 'updateComponent',
+      component: this.name,
+      cursorOffset: optCursorOffset,
+      selectRange: optSelectRange,
+      formats: attrs.formats
+    },
+    undo: {
+      op: 'updateComponent',
+      component: this.name,
+      cursorOffset: optCursorOffset,
+      selectRange: optSelectRange,
+      formats: attrs.formats
+    }
+  }];
+};
+
+
+/**
+ * Returns the length of the paragraph content.
+ * @return {number} Length of the paragraph content.
+ */
+Paragraph.prototype.getLength = function () {
+  return this.text.length;
+};
+
+},{"./component":2,"./utils":13}],11:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -2737,7 +3134,7 @@ var Utils = require('./utils');
  * @param {Object} optParams Optional params to initialize the Section object.
  * Default:
  *   {
- *     paragraphs: [],
+ *     components: [],
  *     backgorund: {},
  *     name: Utils.getUID()
  *   }
@@ -2745,8 +3142,8 @@ var Utils = require('./utils');
 var Section = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
-    // The paragraphs that is in this section.
-    paragraphs: [],
+    // The components that is in this section.
+    components: [],
     // The background of this section.
     background: {},
     // Generate a UID as a reference for this section.
@@ -2774,12 +3171,15 @@ var Section = function(optParams) {
   this.dom.setAttribute('name', this.name);
 
   /**
-   * The section paragraphs.
-   * @type {Array.<Paragraph>}
+   * The section components.
+   * @type {Array.<Component>}
    */
-  this.paragraphs = [];
-  for (var i = 0; i < params.paragraphs.length; i++) {
-    this.insertParagraphAt(params.paragraphs[i], i);
+  this.components = [];
+  for (var i = 0; i < params.components.length; i++) {
+    this.insertComponentAt(params.components[i], i);
+
+    // AbstractComponent is abstract class - (Text)Component, Figure,
+    // YouTubeEmbed, TwitterEmbed and so on inherits from Component.
   }
 
 };
@@ -2793,47 +3193,47 @@ Section.TAG_NAME = 'section';
 
 
 /**
- * Inserts a paragraph in the section.
- * @param  {Paragraph} paragraph Paragraph to insert.
- * @param  {number} index Where to insert the paragraph.
- * @return {Paragraph} The inserted paragraph.
+ * Inserts a component in the section.
+ * @param  {Component} component Component to insert.
+ * @param  {number} index Where to insert the component.
+ * @return {Component} The inserted component.
  */
-Section.prototype.insertParagraphAt = function(paragraph, index) {
-  // Update paragraph section reference to point to this section.
-  paragraph.section = this;
+Section.prototype.insertComponentAt = function(component, index) {
+  // Update component section reference to point to this section.
+  component.section = this;
 
-  // Get current paragraph and its index in the section.
-  var nextParagraph = this.paragraphs[index];
+  // Get current component and its index in the section.
+  var nextComponent = this.components[index];
 
-  if (!nextParagraph) {
-    // If the last paragraph in the section append it to the section.
-    this.dom.appendChild(paragraph.dom);
+  if (!nextComponent) {
+    // If the last component in the section append it to the section.
+    this.dom.appendChild(component.dom);
   } else {
-    // Otherwise insert it before the next paragraph.
-    this.dom.insertBefore(paragraph.dom, nextParagraph.dom);
+    // Otherwise insert it before the next component.
+    this.dom.insertBefore(component.dom, nextComponent.dom);
   }
 
-  this.paragraphs.splice(index, 0, paragraph);
+  this.components.splice(index, 0, component);
 
-  // Set the cursor to the new paragraph.
+  // Set the cursor to the new component.
   Selection.getInstance().setCursor({
-    paragraph: paragraph,
+    component: component,
     offset: 0
   });
 
-  return paragraph;
+  return component;
 };
 
 /**
- * Removes a paragraph from a section.
- * @param  {Paragraph} paragraph To remove from section.
- * @return {Paragraph} Removed paragraph.
+ * Removes a component from a section.
+ * @param  {Component} component To remove from section.
+ * @return {Component} Removed component.
  */
-Section.prototype.removeParagraph = function(paragraph) {
-  var index = this.paragraphs.indexOf(paragraph);
-  var removedParagraph = this.paragraphs.splice(index, 1)[0];
+Section.prototype.removeComponent = function(component) {
+  var index = this.components.indexOf(component);
+  var removedComponent = this.components.splice(index, 1)[0];
   try {
-    this.dom.removeChild(removedParagraph.dom);
+    this.dom.removeChild(removedComponent.dom);
   } catch (e) {
     if (e.name === 'NotFoundError') {
       console.warn('The browser might have already handle removing the DOM ' +
@@ -2842,24 +3242,24 @@ Section.prototype.removeParagraph = function(paragraph) {
       throw e;
     }
   }
-  return removedParagraph;
+  return removedComponent;
 };
 
 
 /**
- * Returns paragraphs from a section between two paragraphs (exclusive).
- * @param  {Paragraph} startParagraph Starting paragraph.
- * @param  {Paragraph} endParagraph Ending paragraph.
+ * Returns components from a section between two components (exclusive).
+ * @param  {Component} startComponent Starting component.
+ * @param  {Component} endComponent Ending component.
  */
-Section.prototype.getParagraphsBetween = function(
-    startParagraph, endParagraph) {
-  var paragraphs = [];
-  var startIndex = this.paragraphs.indexOf(startParagraph) + 1;
-  var endIndex = this.paragraphs.indexOf(endParagraph);
+Section.prototype.getComponentsBetween = function(
+    startComponent, endComponent) {
+  var components = [];
+  var startIndex = this.components.indexOf(startComponent) + 1;
+  var endIndex = this.components.indexOf(endComponent);
   for (var i = startIndex; i < endIndex; i++) {
-    paragraphs.push(this.paragraphs[i]);
+    components.push(this.components[i]);
   }
-  return paragraphs;
+  return components;
 };
 
 
@@ -2869,17 +3269,17 @@ Section.prototype.getParagraphsBetween = function(
  */
 Section.prototype.getJSONModel = function() {
   var section = {
-    paragraphs: []
+    components: []
   };
 
-  for (var i = 0; i < this.paragraphs.length; i++) {
-    section.paragraphs.push(this.paragraphs[i].getJSONModel());
+  for (var i = 0; i < this.components.length; i++) {
+    section.components.push(this.components[i].getJSONModel());
   }
 
   return section;
 };
 
-},{"./selection":8,"./utils":9}],8:[function(require,module,exports){
+},{"./selection":12,"./utils":13}],12:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -2890,6 +3290,7 @@ var Utils = require('./utils');
  */
 var Selection = (function() {
 
+    var SELECTED_CLASS = 'editor-selected';
 
     /** Singletone Constructor. */
     var Selection = function() {
@@ -2899,7 +3300,7 @@ var Selection = (function() {
        * @type {Object}
        */
       this.start = {
-        paragraph: null,
+        component: null,
         offset: null
       };
 
@@ -2908,7 +3309,7 @@ var Selection = (function() {
        * @type {Object}
        */
       this.end = {
-        paragraph: null,
+        component: null,
         offset: null
       };
     };
@@ -2928,53 +3329,53 @@ var Selection = (function() {
      */
     Selection.prototype.reset = function() {
       this.start = {
-        paragraph: null,
+        component: null,
         offset: null
       };
 
       this.end = {
-        paragraph: null,
+        component: null,
         offset: null
       };
     };
 
     /**
-     * Returns the paragraph object at the start of the selection.
-     * @return {Paragraph} The paragraph object at the start of selection.
+     * Returns the component object at the start of the selection.
+     * @return {Component} The component object at the start of selection.
      */
-    Selection.prototype.getParagraphAtStart = function() {
+    Selection.prototype.getComponentAtStart = function() {
       if (this.start) {
-        return this.start.paragraph;
+        return this.start.component;
       }
     };
 
 
     /**
-     * Returns the paragraph object at the end of the selection.
-     * @return {Paragraph} The paragraph object at the end of selection.
+     * Returns the component object at the end of the selection.
+     * @return {Component} The component object at the end of selection.
      */
-    Selection.prototype.getParagraphAtEnd = function() {
+    Selection.prototype.getComponentAtEnd = function() {
       if (this.end) {
-        return this.end.paragraph;
+        return this.end.component;
       }
     };
 
 
     /**
-     * Returns the list of paragraphs in the selection.
-     * @return {Array.<Paragraph>} List of paragraphs selected.
+     * Returns the list of components in the selection.
+     * @return {Array.<Component>} List of components selected.
      */
-    Selection.prototype.getSelectedParagraphs = function() {
-      var startParagraph = this.start.paragraph;
-      var endParagraph = this.end.paragraph;
-      var inBetweenParagraphs = this.getSectionAtStart().getParagraphsBetween(
-          startParagraph, endParagraph);
-      var selectedParagraphs = [startParagraph];
-      Array.prototype.push.apply(selectedParagraphs, inBetweenParagraphs);
-      if (startParagraph !== endParagraph) {
-        selectedParagraphs.push(endParagraph);
+    Selection.prototype.getSelectedComponents = function() {
+      var startComponent = this.start.component;
+      var endComponent = this.end.component;
+      var inBetweenComponents = this.getSectionAtStart().getComponentsBetween(
+          startComponent, endComponent);
+      var selectedComponents = [startComponent];
+      Utils.arrays.extend(selectedComponents, inBetweenComponents);
+      if (startComponent !== endComponent) {
+        selectedComponents.push(endComponent);
       }
-      return selectedParagraphs;
+      return selectedComponents;
     };
 
 
@@ -2983,8 +3384,8 @@ var Selection = (function() {
      * @return {Section} The section object at the start of selection.
      */
     Selection.prototype.getSectionAtStart = function() {
-      if (this.getParagraphAtStart()) {
-        return this.getParagraphAtStart().section;
+      if (this.getComponentAtStart()) {
+        return this.getComponentAtStart().section;
       }
     };
 
@@ -2994,26 +3395,26 @@ var Selection = (function() {
      * @return {Section} The section object at the end of selection.
      */
     Selection.prototype.getSectionAtEnd = function() {
-      if (this.getParagraphAtEnd()) {
-        return this.getParagraphAtEnd().section;
+      if (this.getComponentAtEnd()) {
+        return this.getComponentAtEnd().section;
       }
     };
 
 
     /**
      * Selects a range.
-     * @param {Object} start An object with `paragraph` and `offset`.
-     * @param {Object} end An object with `paragraph` and `offset`.
+     * @param {Object} start An object with `component` and `offset`.
+     * @param {Object} end An object with `component` and `offset`.
      */
     Selection.prototype.select = function(start, end) {
       // Update start and end points to the cursor value.
       this.start = {
-        paragraph: start.paragraph,
+        component: start.component,
         offset: start.offset
       };
 
       this.end = {
-        paragraph: end.paragraph,
+        component: end.component,
         offset: end.offset
       };
 
@@ -3024,19 +3425,28 @@ var Selection = (function() {
 
     /**
      * Sets the cursor on the selection.
-     * @param {Object} cursor An object with `paragraph` and `offset`.
+     * @param {Object} cursor An object with `component` and `offset`.
      */
     Selection.prototype.setCursor = function(cursor) {
+      // Remove selected class from the already selected component.
+      if (this.start.component) {
+        this.start.component.dom.classList.remove(SELECTED_CLASS);
+      }
+
       // Update start and end points to the cursor value.
       this.start = {
-        paragraph: cursor.paragraph,
+        component: cursor.component,
         offset: cursor.offset
       };
 
       this.end = {
-        paragraph: cursor.paragraph,
+        component: cursor.component,
         offset: cursor.offset
       };
+
+      if (this.start.component) {
+        this.start.component.dom.classList.add(SELECTED_CLASS);
+      }
 
       // Reflect the update to the cursor to the browser selection.
       this.updateWindowSelectionFromModel();
@@ -3069,25 +3479,25 @@ var Selection = (function() {
      */
     Selection.prototype.updateWindowSelectionFromModel = function() {
       var range = document.createRange();
-      var startNode = this.start.paragraph.dom;
+      var startNode = this.start.component.dom;
       var startOffset = this.start.offset;
-      var endNode = this.end.paragraph.dom;
+      var endNode = this.end.component.dom;
       var endOffset = this.end.offset;
 
       // Select the #text node instead of the parent element.
       if (this.start.offset > 0) {
         startNode = this.getTextNodeAtOffset_(
-            this.start.paragraph.dom, startOffset);
+            this.start.component.dom, startOffset);
 
         // TODO(mkhatib): FIGURE OUT WHY start.offset sometimes larger than
         // the current length of the content. This is a hack to fix not finding
         // the startNode when this happens.
         if (!startNode) {
           startNode = this.getTextNodeAtOffset_(
-              this.start.paragraph.dom, startOffset - 1);
+              this.start.component.dom, startOffset - 1);
         }
         var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
-            this.start.paragraph.dom, // Paragraph node
+            this.start.component.dom, // Component node
             startNode); // Start node to calculate new offset from
         startOffset = this.start.offset - startPrevSiblingsOffset;
       }
@@ -3098,20 +3508,20 @@ var Selection = (function() {
         range.setStart(startNode, startOffset - 1);
       }
 
-      endNode = this.end.paragraph.dom;
+      endNode = this.end.component.dom;
       // Select the #text node instead of the parent element.
       if (this.end.offset > 0) {
         endNode = this.getTextNodeAtOffset_(
-            this.end.paragraph.dom, endOffset);
+            this.end.component.dom, endOffset);
         // TODO(mkhatib): FIGURE OUT WHY end.offset sometimes larger than
         // the current length of the content. This is a hack to fix not finding
         // the endNode when this happens.
         if (!endNode) {
           endNode = this.getTextNodeAtOffset_(
-              this.end.paragraph.dom, endOffset - 1);
+              this.end.component.dom, endOffset - 1);
         }
         var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
-            this.end.paragraph.dom, // Paragraph node
+            this.end.component.dom, // Component node
             endNode); // Start node to calculate new offset from
         endOffset = this.end.offset - endPrevSiblingsOffset;
       }
@@ -3123,6 +3533,9 @@ var Selection = (function() {
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
+
+      var event = new Event(Selection.Events.SELECTION_CHANGED);
+      this.dispatchEvent(event);
     };
 
 
@@ -3159,7 +3572,7 @@ var Selection = (function() {
 
     /**
      * Calculates start offset from the window selection. Relative to the parent
-     * paragaraph currently selected.
+     * paragraph currently selected.
      * @param  {Selection} selection Current selection.
      * @return {number} Start offset relative to parent.
      */
@@ -3177,8 +3590,8 @@ var Selection = (function() {
         return startNodeOffset;
       }
 
-      // Get the real paragraph.
-      var node = this.getStartParagraphFromWindowSelection_(selection);
+      // Get the real component.
+      var node = this.getStartComponentFromWindowSelection_(selection);
       startNodeOffset += this.calculatePreviousSiblingsOffset_(
           node, startNode);
       return startNodeOffset;
@@ -3203,8 +3616,8 @@ var Selection = (function() {
         return startNodeOffset;
       }
 
-      // Get the real paragraph.
-      var node = this.getEndParagraphFromWindowSelection_(selection);
+      // Get the real component.
+      var node = this.getEndComponentFromWindowSelection_(selection);
       startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
       return startNodeOffset;
     };
@@ -3212,7 +3625,7 @@ var Selection = (function() {
 
     /**
      * Calculates previous siblings offsets sum until a node.
-     * @param  {HTMLElement} parent Parent paragraph element.
+     * @param  {HTMLElement} parent Parent component element.
      * @param  {HTMLElement} node Node to stop at.
      * @return {number} Offset of the previous siblings.
      */
@@ -3252,11 +3665,11 @@ var Selection = (function() {
 
 
     /**
-     * Retruns the start paragraph from window selection.
+     * Retruns the start component from window selection.
      * @param  {Selection} selection Current selection.
-     * @return {HTMLElement} Start paragraph html element.
+     * @return {HTMLElement} Start component html element.
      */
-    Selection.prototype.getStartParagraphFromWindowSelection_ = function (
+    Selection.prototype.getStartComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.anchorNode;
         while (!node.getAttribute ||
@@ -3268,11 +3681,11 @@ var Selection = (function() {
 
 
     /**
-     * Retruns the end paragraph from window selection.
+     * Retruns the end component from window selection.
      * @param  {Selection} selection Current selection.
-     * @return {HTMLElement} End paragraph html element.
+     * @return {HTMLElement} End component html element.
      */
-    Selection.prototype.getEndParagraphFromWindowSelection_ = function (
+    Selection.prototype.getEndComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.focusNode;
         while (!node.getAttribute ||
@@ -3290,28 +3703,38 @@ var Selection = (function() {
     Selection.prototype.updateSelectionFromWindow = function() {
       var selection = window.getSelection();
 
+      // Remove selected class from the already selected component.
+      if (this.start.component) {
+        this.start.component.dom.classList.remove(SELECTED_CLASS);
+      }
+
       // Update the selection start point.
-      var startNode = this.getStartParagraphFromWindowSelection_(selection);
+      var startNode = this.getStartComponentFromWindowSelection_(selection);
       var start = {
-        paragraph: Utils.getReference(startNode.getAttribute('name')),
+        component: Utils.getReference(startNode.getAttribute('name')),
         offset: this.calculateStartOffsetFromWindowSelection_(selection)
       };
 
       // Update the selection end point.
-      var endNode = this.getEndParagraphFromWindowSelection_(selection);
+      var endNode = this.getEndComponentFromWindowSelection_(selection);
       var end = {
-        paragraph: Utils.getReference(endNode.getAttribute('name')),
+        component: Utils.getReference(endNode.getAttribute('name')),
         offset: this.calculateEndOffsetFromWindowSelection_(selection)
       };
 
-      var endIndex = end.paragraph.section.paragraphs.indexOf(end.paragraph);
-      var startIndex = start.paragraph.section.paragraphs.indexOf(
-          start.paragraph);
-      var reversedSelection = ((end.paragraph === start.paragraph &&
+      var endIndex = end.component.section.components.indexOf(end.component);
+      var startIndex = start.component.section.components.indexOf(
+          start.component);
+      var reversedSelection = ((end.component === start.component &&
           end.offset < start.offset) || startIndex > endIndex);
 
       this.end = reversedSelection ? start : end;
       this.start = reversedSelection ? end : start;
+
+      // Remove selected class from the already selected component.
+      if (this.start.component === this.end.component) {
+        this.start.component.dom.classList.add(SELECTED_CLASS);
+      }
 
       var event = new Event(Selection.Events.SELECTION_CHANGED);
       this.dispatchEvent(event);
@@ -3319,8 +3742,8 @@ var Selection = (function() {
 
 
     /**
-     * Whether the cursor is at beginning of a paragraph.
-     * @return {boolean} True if the cursor at the beginning of paragraph.
+     * Whether the cursor is at beginning of a component.
+     * @return {boolean} True if the cursor at the beginning of component.
      */
     Selection.prototype.isCursorAtBeginning = function() {
       return this.start.offset === 0 && this.end.offset === 0;
@@ -3328,12 +3751,12 @@ var Selection = (function() {
 
 
     /**
-     * Whether the cursor is at ending of a paragraph.
-     * @return {boolean} True if the cursor at the ending of paragraph.
+     * Whether the cursor is at ending of a component.
+     * @return {boolean} True if the cursor at the ending of component.
      */
     Selection.prototype.isCursorAtEnding = function() {
-      return (this.start.offset === this.start.paragraph.text.length &&
-              this.end.offset === this.end.paragraph.text.length);
+      return (this.start.offset === this.start.component.getLength() &&
+              this.end.offset === this.end.component.getLength());
     };
 
 
@@ -3342,7 +3765,7 @@ var Selection = (function() {
      * @return {boolean} True if a range is selected.
      */
     Selection.prototype.isRange = function() {
-      return (this.start.paragraph != this.end.paragraph ||
+      return (this.start.component != this.end.component ||
               this.start.offset != this.end.offset);
     };
 
@@ -3382,10 +3805,11 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./utils":9}],9:[function(require,module,exports){
+},{"./utils":13}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
+Utils.arrays = {};
 module.exports = Utils;
 
 /**
@@ -3393,6 +3817,7 @@ module.exports = Utils;
  * @type {Object}
  */
 Utils.GLOBAL_REFERENCE = {};
+
 
 /**
  * Extends first object with second object and overrides its
@@ -3418,6 +3843,26 @@ Utils.extend = function(firstObj, secondObj) {
   }
 
   return tmpObj;
+};
+
+
+/**
+ * Extends first array with second array.
+ *
+ * Example:
+ * var a = [1, 2, 3];
+ * Utils.arrays.extend(a, [4, 5, 6]);
+ *   // a is now [1, 2, 3, 4, 5, 6]
+ * @param  {Array} firstArray
+ * @param  {Array} secondArray
+ * @return {Array} firstArray with second array elements added to it.
+ */
+Utils.arrays.extend = function(firstArray, secondArray) {
+  for (var i in secondArray) {
+    firstArray.push(secondArray[i]);
+  }
+
+  return firstArray;
 };
 
 
@@ -3630,5 +4075,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[5])(5)
+},{}]},{},[9])(9)
 });

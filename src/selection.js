@@ -8,6 +8,7 @@ var Utils = require('./utils');
  */
 var Selection = (function() {
 
+    var SELECTED_CLASS = 'editor-selected';
 
     /** Singletone Constructor. */
     var Selection = function() {
@@ -17,7 +18,7 @@ var Selection = (function() {
        * @type {Object}
        */
       this.start = {
-        paragraph: null,
+        component: null,
         offset: null
       };
 
@@ -26,7 +27,7 @@ var Selection = (function() {
        * @type {Object}
        */
       this.end = {
-        paragraph: null,
+        component: null,
         offset: null
       };
     };
@@ -46,53 +47,53 @@ var Selection = (function() {
      */
     Selection.prototype.reset = function() {
       this.start = {
-        paragraph: null,
+        component: null,
         offset: null
       };
 
       this.end = {
-        paragraph: null,
+        component: null,
         offset: null
       };
     };
 
     /**
-     * Returns the paragraph object at the start of the selection.
-     * @return {Paragraph} The paragraph object at the start of selection.
+     * Returns the component object at the start of the selection.
+     * @return {Component} The component object at the start of selection.
      */
-    Selection.prototype.getParagraphAtStart = function() {
+    Selection.prototype.getComponentAtStart = function() {
       if (this.start) {
-        return this.start.paragraph;
+        return this.start.component;
       }
     };
 
 
     /**
-     * Returns the paragraph object at the end of the selection.
-     * @return {Paragraph} The paragraph object at the end of selection.
+     * Returns the component object at the end of the selection.
+     * @return {Component} The component object at the end of selection.
      */
-    Selection.prototype.getParagraphAtEnd = function() {
+    Selection.prototype.getComponentAtEnd = function() {
       if (this.end) {
-        return this.end.paragraph;
+        return this.end.component;
       }
     };
 
 
     /**
-     * Returns the list of paragraphs in the selection.
-     * @return {Array.<Paragraph>} List of paragraphs selected.
+     * Returns the list of components in the selection.
+     * @return {Array.<Component>} List of components selected.
      */
-    Selection.prototype.getSelectedParagraphs = function() {
-      var startParagraph = this.start.paragraph;
-      var endParagraph = this.end.paragraph;
-      var inBetweenParagraphs = this.getSectionAtStart().getParagraphsBetween(
-          startParagraph, endParagraph);
-      var selectedParagraphs = [startParagraph];
-      Array.prototype.push.apply(selectedParagraphs, inBetweenParagraphs);
-      if (startParagraph !== endParagraph) {
-        selectedParagraphs.push(endParagraph);
+    Selection.prototype.getSelectedComponents = function() {
+      var startComponent = this.start.component;
+      var endComponent = this.end.component;
+      var inBetweenComponents = this.getSectionAtStart().getComponentsBetween(
+          startComponent, endComponent);
+      var selectedComponents = [startComponent];
+      Utils.arrays.extend(selectedComponents, inBetweenComponents);
+      if (startComponent !== endComponent) {
+        selectedComponents.push(endComponent);
       }
-      return selectedParagraphs;
+      return selectedComponents;
     };
 
 
@@ -101,8 +102,8 @@ var Selection = (function() {
      * @return {Section} The section object at the start of selection.
      */
     Selection.prototype.getSectionAtStart = function() {
-      if (this.getParagraphAtStart()) {
-        return this.getParagraphAtStart().section;
+      if (this.getComponentAtStart()) {
+        return this.getComponentAtStart().section;
       }
     };
 
@@ -112,26 +113,26 @@ var Selection = (function() {
      * @return {Section} The section object at the end of selection.
      */
     Selection.prototype.getSectionAtEnd = function() {
-      if (this.getParagraphAtEnd()) {
-        return this.getParagraphAtEnd().section;
+      if (this.getComponentAtEnd()) {
+        return this.getComponentAtEnd().section;
       }
     };
 
 
     /**
      * Selects a range.
-     * @param {Object} start An object with `paragraph` and `offset`.
-     * @param {Object} end An object with `paragraph` and `offset`.
+     * @param {Object} start An object with `component` and `offset`.
+     * @param {Object} end An object with `component` and `offset`.
      */
     Selection.prototype.select = function(start, end) {
       // Update start and end points to the cursor value.
       this.start = {
-        paragraph: start.paragraph,
+        component: start.component,
         offset: start.offset
       };
 
       this.end = {
-        paragraph: end.paragraph,
+        component: end.component,
         offset: end.offset
       };
 
@@ -142,19 +143,28 @@ var Selection = (function() {
 
     /**
      * Sets the cursor on the selection.
-     * @param {Object} cursor An object with `paragraph` and `offset`.
+     * @param {Object} cursor An object with `component` and `offset`.
      */
     Selection.prototype.setCursor = function(cursor) {
+      // Remove selected class from the already selected component.
+      if (this.start.component) {
+        this.start.component.dom.classList.remove(SELECTED_CLASS);
+      }
+
       // Update start and end points to the cursor value.
       this.start = {
-        paragraph: cursor.paragraph,
+        component: cursor.component,
         offset: cursor.offset
       };
 
       this.end = {
-        paragraph: cursor.paragraph,
+        component: cursor.component,
         offset: cursor.offset
       };
+
+      if (this.start.component) {
+        this.start.component.dom.classList.add(SELECTED_CLASS);
+      }
 
       // Reflect the update to the cursor to the browser selection.
       this.updateWindowSelectionFromModel();
@@ -187,25 +197,25 @@ var Selection = (function() {
      */
     Selection.prototype.updateWindowSelectionFromModel = function() {
       var range = document.createRange();
-      var startNode = this.start.paragraph.dom;
+      var startNode = this.start.component.dom;
       var startOffset = this.start.offset;
-      var endNode = this.end.paragraph.dom;
+      var endNode = this.end.component.dom;
       var endOffset = this.end.offset;
 
       // Select the #text node instead of the parent element.
       if (this.start.offset > 0) {
         startNode = this.getTextNodeAtOffset_(
-            this.start.paragraph.dom, startOffset);
+            this.start.component.dom, startOffset);
 
         // TODO(mkhatib): FIGURE OUT WHY start.offset sometimes larger than
         // the current length of the content. This is a hack to fix not finding
         // the startNode when this happens.
         if (!startNode) {
           startNode = this.getTextNodeAtOffset_(
-              this.start.paragraph.dom, startOffset - 1);
+              this.start.component.dom, startOffset - 1);
         }
         var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
-            this.start.paragraph.dom, // Paragraph node
+            this.start.component.dom, // Component node
             startNode); // Start node to calculate new offset from
         startOffset = this.start.offset - startPrevSiblingsOffset;
       }
@@ -216,20 +226,20 @@ var Selection = (function() {
         range.setStart(startNode, startOffset - 1);
       }
 
-      endNode = this.end.paragraph.dom;
+      endNode = this.end.component.dom;
       // Select the #text node instead of the parent element.
       if (this.end.offset > 0) {
         endNode = this.getTextNodeAtOffset_(
-            this.end.paragraph.dom, endOffset);
+            this.end.component.dom, endOffset);
         // TODO(mkhatib): FIGURE OUT WHY end.offset sometimes larger than
         // the current length of the content. This is a hack to fix not finding
         // the endNode when this happens.
         if (!endNode) {
           endNode = this.getTextNodeAtOffset_(
-              this.end.paragraph.dom, endOffset - 1);
+              this.end.component.dom, endOffset - 1);
         }
         var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
-            this.end.paragraph.dom, // Paragraph node
+            this.end.component.dom, // Component node
             endNode); // Start node to calculate new offset from
         endOffset = this.end.offset - endPrevSiblingsOffset;
       }
@@ -241,6 +251,9 @@ var Selection = (function() {
       var selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
+
+      var event = new Event(Selection.Events.SELECTION_CHANGED);
+      this.dispatchEvent(event);
     };
 
 
@@ -277,7 +290,7 @@ var Selection = (function() {
 
     /**
      * Calculates start offset from the window selection. Relative to the parent
-     * paragaraph currently selected.
+     * paragraph currently selected.
      * @param  {Selection} selection Current selection.
      * @return {number} Start offset relative to parent.
      */
@@ -295,8 +308,8 @@ var Selection = (function() {
         return startNodeOffset;
       }
 
-      // Get the real paragraph.
-      var node = this.getStartParagraphFromWindowSelection_(selection);
+      // Get the real component.
+      var node = this.getStartComponentFromWindowSelection_(selection);
       startNodeOffset += this.calculatePreviousSiblingsOffset_(
           node, startNode);
       return startNodeOffset;
@@ -321,8 +334,8 @@ var Selection = (function() {
         return startNodeOffset;
       }
 
-      // Get the real paragraph.
-      var node = this.getEndParagraphFromWindowSelection_(selection);
+      // Get the real component.
+      var node = this.getEndComponentFromWindowSelection_(selection);
       startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
       return startNodeOffset;
     };
@@ -330,7 +343,7 @@ var Selection = (function() {
 
     /**
      * Calculates previous siblings offsets sum until a node.
-     * @param  {HTMLElement} parent Parent paragraph element.
+     * @param  {HTMLElement} parent Parent component element.
      * @param  {HTMLElement} node Node to stop at.
      * @return {number} Offset of the previous siblings.
      */
@@ -370,11 +383,11 @@ var Selection = (function() {
 
 
     /**
-     * Retruns the start paragraph from window selection.
+     * Retruns the start component from window selection.
      * @param  {Selection} selection Current selection.
-     * @return {HTMLElement} Start paragraph html element.
+     * @return {HTMLElement} Start component html element.
      */
-    Selection.prototype.getStartParagraphFromWindowSelection_ = function (
+    Selection.prototype.getStartComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.anchorNode;
         while (!node.getAttribute ||
@@ -386,11 +399,11 @@ var Selection = (function() {
 
 
     /**
-     * Retruns the end paragraph from window selection.
+     * Retruns the end component from window selection.
      * @param  {Selection} selection Current selection.
-     * @return {HTMLElement} End paragraph html element.
+     * @return {HTMLElement} End component html element.
      */
-    Selection.prototype.getEndParagraphFromWindowSelection_ = function (
+    Selection.prototype.getEndComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.focusNode;
         while (!node.getAttribute ||
@@ -408,28 +421,38 @@ var Selection = (function() {
     Selection.prototype.updateSelectionFromWindow = function() {
       var selection = window.getSelection();
 
+      // Remove selected class from the already selected component.
+      if (this.start.component) {
+        this.start.component.dom.classList.remove(SELECTED_CLASS);
+      }
+
       // Update the selection start point.
-      var startNode = this.getStartParagraphFromWindowSelection_(selection);
+      var startNode = this.getStartComponentFromWindowSelection_(selection);
       var start = {
-        paragraph: Utils.getReference(startNode.getAttribute('name')),
+        component: Utils.getReference(startNode.getAttribute('name')),
         offset: this.calculateStartOffsetFromWindowSelection_(selection)
       };
 
       // Update the selection end point.
-      var endNode = this.getEndParagraphFromWindowSelection_(selection);
+      var endNode = this.getEndComponentFromWindowSelection_(selection);
       var end = {
-        paragraph: Utils.getReference(endNode.getAttribute('name')),
+        component: Utils.getReference(endNode.getAttribute('name')),
         offset: this.calculateEndOffsetFromWindowSelection_(selection)
       };
 
-      var endIndex = end.paragraph.section.paragraphs.indexOf(end.paragraph);
-      var startIndex = start.paragraph.section.paragraphs.indexOf(
-          start.paragraph);
-      var reversedSelection = ((end.paragraph === start.paragraph &&
+      var endIndex = end.component.section.components.indexOf(end.component);
+      var startIndex = start.component.section.components.indexOf(
+          start.component);
+      var reversedSelection = ((end.component === start.component &&
           end.offset < start.offset) || startIndex > endIndex);
 
       this.end = reversedSelection ? start : end;
       this.start = reversedSelection ? end : start;
+
+      // Remove selected class from the already selected component.
+      if (this.start.component === this.end.component) {
+        this.start.component.dom.classList.add(SELECTED_CLASS);
+      }
 
       var event = new Event(Selection.Events.SELECTION_CHANGED);
       this.dispatchEvent(event);
@@ -437,8 +460,8 @@ var Selection = (function() {
 
 
     /**
-     * Whether the cursor is at beginning of a paragraph.
-     * @return {boolean} True if the cursor at the beginning of paragraph.
+     * Whether the cursor is at beginning of a component.
+     * @return {boolean} True if the cursor at the beginning of component.
      */
     Selection.prototype.isCursorAtBeginning = function() {
       return this.start.offset === 0 && this.end.offset === 0;
@@ -446,12 +469,12 @@ var Selection = (function() {
 
 
     /**
-     * Whether the cursor is at ending of a paragraph.
-     * @return {boolean} True if the cursor at the ending of paragraph.
+     * Whether the cursor is at ending of a component.
+     * @return {boolean} True if the cursor at the ending of component.
      */
     Selection.prototype.isCursorAtEnding = function() {
-      return (this.start.offset === this.start.paragraph.text.length &&
-              this.end.offset === this.end.paragraph.text.length);
+      return (this.start.offset === this.start.component.getLength() &&
+              this.end.offset === this.end.component.getLength());
     };
 
 
@@ -460,7 +483,7 @@ var Selection = (function() {
      * @return {boolean} True if a range is selected.
      */
     Selection.prototype.isRange = function() {
-      return (this.start.paragraph != this.end.paragraph ||
+      return (this.start.component != this.end.component ||
               this.start.offset != this.end.offset);
     };
 

@@ -26,7 +26,73 @@
 
     <script src="editor.standalone.js"></script>
     <script>
-      var editor = new manshar.Editor(document.getElementById('editor'));
+      var demoArticle = new manshar.Article({
+        sections: [new manshar.Section({
+          components: [
+            new manshar.Figure({
+              src: 'assets/images/editor-logo.png',
+              width: '182px'
+            }),
+            new manshar.Paragraph({
+              placeholderText: 'Manshar Editor Demo',
+              text: 'Welcome to Editor',
+              paragraphType: manshar.Paragraph.Types.MainHeader
+            }),
+            new manshar.Paragraph({
+              placeholderText: 'This is just a demo.',
+              text: 'A rich and beautiful editor in the browser',
+              paragraphType: manshar.Paragraph.Types.ThirdHeader
+            }),
+            new manshar.Paragraph({
+              text: 'Play around and see the internal model of the' +
+                ' article being displayed to the right. The Editor is still under'+
+                ' development.'
+            }),
+            new manshar.Paragraph({
+              text: 'Inline and Block Formatting',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Paragraph({
+              text: 'You can format the article with inline and block' +
+                ' formatting and add hyperlinks.'
+            }),
+            new manshar.Paragraph({
+              text: 'Images',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Figure({
+              src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
+            }),
+            new manshar.Paragraph({
+              text: 'You can also insert images by ' +
+                'pasting an image URL in a new line and hitting enter.'
+            }),
+            new manshar.Paragraph({
+              text: 'Undo-Redo Manager',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Paragraph({
+              text: 'The editor also includes a built-in undo-redo' +
+                ' manager so you can work freely without loosing edits.'
+            }),
+            new manshar.Figure({
+              src: 'https://octodex.github.com/images/mummytocat.gif'
+            }),
+            new manshar.Paragraph({
+              text: 'Images are taken from OctoDex',
+              formats: [
+                {type: 'i', from: 0, to: 22},
+                {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 22, to: 29}
+              ]
+            }),
+          ]
+        })]
+      });
+
+      var editor = new manshar.Editor(
+          document.getElementById('editor'),
+          {article: demoArticle});
+
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {
         // console.log(event);

@@ -2,6 +2,7 @@
 
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
+var Figure = require('./figure');
 var Utils = require('./utils');
 
 
@@ -69,9 +70,9 @@ Article.TAG_NAME = 'article';
  * @return {Section} The inserted section.
  */
 Article.prototype.insertSection = function(section) {
-  // Section should always have a paragraph when inserted into article.
-  if (!section.paragraphs || !section.paragraphs.length) {
-    section.insertParagraphAt(new Paragraph(), 0);
+  // Section should always have a component when inserted into article.
+  if (!section.components || !section.components.length) {
+    section.insertComponentAt(new Paragraph(), 0);
   }
 
   this.sections.push(section);
@@ -99,32 +100,26 @@ Article.prototype.updateSection = function(section) {
 
 
 /**
- * Inserts a new paragraph in article.
- * @param  {Paragraph} paragraph Paragraph object.
- * @return {Paragraph} The inserted paragraph.
+ * Inserts a new component in article.
+ * @param  {Component} component Component object.
+ * @return {Component} The inserted component.
  */
-Article.prototype.insertParagraph = function(paragraph) {
+Article.prototype.insertComponent = function(component) {
   var section = this.selection.getSectionAtEnd().
-      insertParagraph(paragraph);
+      insertComponent(component);
   return section;
 };
 
 
 /**
- * Removes a paragraph from article.
- * @param  {Paragraph} paragraph Paragraph to remove.
- * @return {Paragraph} Removed paragraph.
+ * Removes a component from article.
+ * @param  {Component} component Component to remove.
+ * @return {Component} Removed component.
  */
-Article.prototype.removeParagraph = function(paragraph) {
-  var index = this.sections.indexOf(paragraph);
-  this.paragraphs.splice(index, 1);
-  return paragraph;
-};
-
-
-// TODO: Implement.
-Article.prototype.updateParagraph = function(paragraph) {
-  return paragraph;
+Article.prototype.removeComponent = function(component) {
+  var index = this.sections.indexOf(component);
+  this.components.splice(index, 1);
+  return component;
 };
 
 
@@ -203,75 +198,77 @@ Article.prototype.undo = function() {
 Article.prototype.exec = function(operation, action) {
   var selection = this.selection;
   var op = operation[action].op;
-  var paragraph, paragraphName, value, index, count;
+  var component, componentName, value, index, count;
 
   if (op === 'insertChars') {
-    paragraphName = operation[action].paragraph;
+    componentName = operation[action].component;
     value = operation[action].value;
     index = operation[action].index;
-    paragraph = this.getParagraphByName(paragraphName);
-    paragraph.insertCharactersAt(value, index);
+    component = this.getComponentByName(componentName);
+    component.insertCharactersAt(value, index);
 
     if (operation[action].cursorOffset) {
       selection.setCursor({
-        paragraph: paragraph,
+        component: component,
         offset: operation[action].cursorOffset
       });
     }
   } else if (op === 'removeChars') {
-    paragraphName = operation[action].paragraph;
+    componentName = operation[action].component;
     index = operation[action].index;
     count = operation[action].count;
-    paragraph = this.getParagraphByName(paragraphName);
-    paragraph.removeCharactersAt(index, count);
+    component = this.getComponentByName(componentName);
+    component.removeCharactersAt(index, count);
 
     if (operation[action].cursorOffset) {
       selection.setCursor({
-        paragraph: paragraph,
+        component: component,
         offset: operation[action].cursorOffset
       });
     }
-  } else if (op === 'updateParagraph') {
-    paragraphName = operation[action].paragraph;
+  } else if (op === 'updateComponent') {
+    componentName = operation[action].component;
     value = operation[action].value;
-    paragraph = this.getParagraphByName(paragraphName);
+    component = this.getComponentByName(componentName);
 
     if (value !== undefined) {
-      paragraph.setText(value);
+      component.setText(value);
     }
 
     // If this is to update inline formatting.
     if (operation[action].formats) {
-      paragraph.applyFormats(operation[action].formats);
+      component.applyFormats(operation[action].formats);
     }
 
     if (operation[action].cursorOffset !== undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({
-          paragraph: paragraph,
+          component: component,
           offset: operation[action].cursorOffset
         });
       } else {
         selection.select({
-          paragraph: paragraph,
+          component: component,
           offset: operation[action].cursorOffset
         }, {
-          paragraph: paragraph,
+          component: component,
           offset: operation[action].cursorOffset + operation[action].selectRange
         });
       }
     }
-
-  } else if (op === 'deleteParagraph') {
-    paragraph = this.getParagraphByName(operation[action].paragraph);
-    paragraph.section.removeParagraph(paragraph);
-  } else if (op === 'insertParagraph') {
+  } else if (op === 'deleteComponent') {
+    component = this.getComponentByName(operation[action].component);
+    component.section.removeComponent(component);
+  } else if (op === 'insertComponent') {
     var section = this.getSectionByName(operation[action].section);
-    var pType = operation[action].paragraphType || Paragraph.Types.Paragraph;
-    section.insertParagraphAt(new Paragraph({
-      name: operation[action].paragraph,
-      paragraphType: pType
-    }), operation[action].index);
+    var options = Utils.extend({
+      name: operation[action].component,
+    }, operation[action].attrs || {});
+
+    var constructorName = operation[action].componentClass;
+    var ComponentClass = this.getComponentClassByName(constructorName);
+    component = new ComponentClass(options);
+    section.insertComponentAt(component, operation[action].index);
   }
 };
 
@@ -291,16 +288,29 @@ Article.prototype.getSectionByName = function(name) {
 
 
 /**
- * Returns the paragraph that has the specific name.
- * @param  {string} name Name of the paragraph.
- * @return {Paragraph} Paragraph with the passed name.
+ * Returns the component that has the specific name.
+ * @param  {string} name Name of the component.
+ * @return {Component} Component with the passed name.
  */
-Article.prototype.getParagraphByName = function(name) {
+Article.prototype.getComponentByName = function(name) {
   for (var i = 0; i < this.sections.length; i++) {
-    for (var j = 0; j < this.sections[i].paragraphs.length; j++) {
-      if (this.sections[i].paragraphs[j].name === name) {
-        return this.sections[i].paragraphs[j];
+    for (var j = 0; j < this.sections[i].components.length; j++) {
+      if (this.sections[i].components[j].name === name) {
+        return this.sections[i].components[j];
       }
     }
+  }
+};
+
+
+/**
+ * Returns the component class function for the string passed.
+ * @param  {string} name Name of the function.
+ * @return {Function} Class function for the component.
+ */
+Article.prototype.getComponentClassByName = function (name) {
+  switch (name) {
+    case 'Paragraph': return Paragraph;
+    case 'Figure': return Figure;
   }
 };
