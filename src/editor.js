@@ -539,7 +539,7 @@ Editor.prototype.getJSONModel = function() {
  */
 Editor.prototype.processPastedContent = function(element, indexOffset) {
   var ops = [];
-  var text, paragraphType, appendOperations;
+  var text, paragraphType, appendOperations, newP;
   var textPasted = element.innerText;
   var children = element.childNodes;
   var component;
@@ -551,7 +551,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
   var INLINE_ELEMENTS = 'B BR BIG I SMALL ABBR ACRONYM CITE EM STRONG A BDO'+
-      ' SPAN SUB SUP #text'.split(' ');
+      ' STRIKE S SPAN SUB SUP #text META'.split(' ');
 
   function hasOnlyInlineChildNodes(elem) {
     var children = elem.childNodes;
@@ -600,6 +600,17 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
     Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
         textPasted, offsetBeforeOperation));
+  } else if (hasOnlyInlineChildNodes(element)) {
+    text = element[getTextProp(element)];
+
+    newP = new Paragraph({
+        section: section,
+        text: text,
+        paragraphType: paragraphType,
+        formats: FormattingExtension.generateFormatsForNode(element)
+    });
+    Utils.arrays.extend(
+        ops, newP.getInsertOps(currentIndex++));
   } else {
     // When pasting multi-line split the current paragraph if pasting
     // mid-paragraph.
@@ -626,25 +637,24 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           if (!allImgs || !allImgs.length) {
             continue;
           }
-          var imgOps = [];
           for (var j = 0; j < allImgs.length; j++) {
             component = new Figure({
               src: allImgs[j].getAttribute('src')
             });
             component.section = selection.getSectionAtEnd();
             Utils.arrays.extend(
-                imgOps, component.getInsertOps(currentIndex++));
+                ops, component.getInsertOps(currentIndex++));
           }
-
-          // TODO(mkhatib): Images are copied twice. Investigate.
-          appendOperations = imgOps;
+          paragraphType = null;
           break;
         case 'img':
           component = new Figure({
             src: el.getAttribute('src')
           });
           component.section = selection.getSectionAtEnd();
-          appendOperations = component.getInsertOps(currentIndex++);
+          Utils.arrays.extend(
+              ops, component.getInsertOps(currentIndex++));
+          paragraphType = null;
           break;
         // All the following will just insert a normal paragraph for now.
         // TODO(mkhatib): When the editor supports more paragraph types
@@ -700,14 +710,15 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 
       if (appendOperations) {
         Utils.arrays.extend(ops, appendOperations);
-      } else {
+      } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
         text = el[getTextProp(el)];
 
-        var newP = new Paragraph({
+        newP = new Paragraph({
             section: section,
             text: text,
-            paragraphType: paragraphType
+            paragraphType: paragraphType,
+            formats: FormattingExtension.generateFormatsForNode(el)
         });
         Utils.arrays.extend(
             ops, newP.getInsertOps(currentIndex++));
