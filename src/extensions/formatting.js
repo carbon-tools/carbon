@@ -107,18 +107,22 @@ Formatting.Actions = {
   Inline: [{
     label: 'B',
     value: 'strong',
+    tagNames: ['strong', 'b'],
     shortcuts: ['ctrl+b', 'cmd+b']
   }, {
     label: 'I',
     value: 'em',
+    tagNames: ['em', 'i'],
     shortcuts: ['ctrl+i', 'cmd+i']
   }, {
     label: 'U',
     value: 'u',
+    tagNames: ['u'],
     shortcuts: ['ctrl+u', 'cmd+u']
   }, {
     label: 'S',
     value: 's',
+    tagNames: ['strike', 's'],
     shortcuts: ['ctrl+s', 'cmd+s']
   }, {
     label: 'a',
@@ -129,6 +133,7 @@ Formatting.Actions = {
         placeholder: 'What is the URL?'
       }
     },
+    tagNames: ['a'],
     shortcuts: ['ctrl+k', 'cmd+k']
   }]
 };
@@ -791,4 +796,52 @@ Formatting.prototype.getFormatterForValue = function(value) {
     }
   }
   return null;
+};
+
+
+/**
+ * Returns the action with the specified tag name;
+ * @param  {string} tagName Tag name to find a matched action.
+ * @return {Object} Action formatter object.
+ */
+Formatting.getActionForTagName = function(tagName) {
+  tagName = tagName && tagName.toLowerCase();
+  var inlineFormatters = Formatting.Actions.Inline;
+  for (var i = 0; i < inlineFormatters.length; i++) {
+    if (inlineFormatters[i].tagNames.indexOf(tagName) !== -1) {
+      return inlineFormatters[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns a formats array that represents the inline formats for the node.
+ * @param  {Element} node HTML Element to return the formats for.
+ * @return {Array.<Object>} Formats array.
+ */
+Formatting.generateFormatsForNode = function(node) {
+  var formats = [];
+  var offset = 0;
+  var children = node.childNodes;
+  for (var i = 0; i < children.length; i++) {
+    var inlineEl = children[i];
+    var action = Formatting.getActionForTagName(inlineEl.tagName);
+    if (action) {
+      var attrs = {};
+      for (var attr in action.attrs) {
+        attrs[attr] = inlineEl.getAttribute(attr);
+      }
+      formats.push({
+        type: action.value,
+        from: offset,
+        to: offset + inlineEl.innerText.length,
+        attrs: attrs
+      });
+    }
+    offset += inlineEl.textContent.length;
+  }
+
+  return formats;
 };

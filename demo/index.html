@@ -54,7 +54,14 @@
             }),
             new manshar.Paragraph({
               text: 'You can format the article with inline and block' +
-                ' formatting and add hyperlinks.'
+                ' formatting like bolding, italic, strike, underline and hyperlinks.',
+              formats: [
+                {type: 'strong', from: 65, to: 72},
+                {type: 'em', from: 74, to: 80},
+                {type: 's', from: 82, to: 88},
+                {type: 'u', from: 90, to: 99},
+                {type: 'a', attrs: {href: 'https://github.com/manshar/editor'}, from: 104, to: 114}
+              ]
             }),
             new manshar.Paragraph({
               text: 'Images',
@@ -73,7 +80,7 @@
             }),
             new manshar.Paragraph({
               text: 'The editor also includes a built-in undo-redo' +
-                ' manager so you can work freely without loosing edits.'
+                ' manager so you can work freely without losing edits.'
             }),
             new manshar.Figure({
               src: 'https://octodex.github.com/images/mummytocat.gif'
