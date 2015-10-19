@@ -86,6 +86,17 @@
               src: 'https://octodex.github.com/images/mummytocat.gif'
             }),
             new manshar.Paragraph({
+              text: 'Embedding YouTube Videos',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Paragraph({
+              text: 'The editor will also recognize YouTube links pasted in a' +
+                ' new line after you hit enter and insert a YouTube player.'
+            }),
+            manshar.YouTubeComponent.createYouTubeComponentFromLink(
+              'https://www.youtube.com/watch?v=JGhoLcsr8GA'
+            ),
+            new manshar.Paragraph({
               text: 'Images are taken from OctoDex',
               formats: [
                 {type: 'i', from: 0, to: 22},
