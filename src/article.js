@@ -3,6 +3,7 @@
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var Figure = require('./figure');
+var YouTubeComponent = require('./extensions/youtubeComponent');
 var Utils = require('./utils');
 
 
@@ -312,5 +313,6 @@ Article.prototype.getComponentClassByName = function (name) {
   switch (name) {
     case 'Paragraph': return Paragraph;
     case 'Figure': return Figure;
+    case 'YouTubeComponent': return YouTubeComponent;
   }
 };

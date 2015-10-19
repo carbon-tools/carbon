@@ -4,6 +4,7 @@
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var Figure = require('./figure');
+var YouTubeComponent = require('./extensions/youtubeComponent');
 var Utils = require('./utils');
 
 
@@ -313,10 +314,11 @@ Article.prototype.getComponentClassByName = function (name) {
   switch (name) {
     case 'Paragraph': return Paragraph;
     case 'Figure': return Figure;
+    case 'YouTubeComponent': return YouTubeComponent;
   }
 };
 
-},{"./figure":8,"./paragraph":10,"./selection":12,"./utils":13}],2:[function(require,module,exports){
+},{"./extensions/youtubeComponent":8,"./figure":9,"./paragraph":11,"./selection":13,"./utils":14}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -489,7 +491,7 @@ Component.prototype.getLength = function () {
   return 0;
 };
 
-},{"./errors":4,"./utils":13}],3:[function(require,module,exports){
+},{"./errors":4,"./utils":14}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -500,6 +502,7 @@ var Utils = require('./utils');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
+var YouTubeComponent = require('./extensions/youtubeComponent');
 
 
 /**
@@ -565,7 +568,7 @@ var Editor = function (element, optParams) {
    * @type {ComponentFactory}
    */
   this.componentFactory = new ComponentFactory({
-    componentsClasses: [Figure]
+    componentsClasses: [Figure, YouTubeComponent]
   });
 
   this.init();
@@ -1235,7 +1238,7 @@ Editor.prototype.handleCut = function() {
 };
 
 
-},{"./article":1,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":7,"./figure":8,"./paragraph":10,"./section":11,"./utils":13}],4:[function(require,module,exports){
+},{"./article":1,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":7,"./extensions/youtubeComponent":8,"./figure":9,"./paragraph":11,"./section":12,"./utils":14}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1342,7 +1345,7 @@ ComponentFactory.prototype.match = function(str) {
   }
 };
 
-},{"../errors":4,"../utils":13}],6:[function(require,module,exports){
+},{"../errors":4,"../utils":14}],6:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -2191,7 +2194,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":10,"../selection":12,"../utils":13}],7:[function(require,module,exports){
+},{"../paragraph":11,"../selection":13,"../utils":14}],7:[function(require,module,exports){
 'use strict';
 
 
@@ -2324,6 +2327,287 @@ ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
 };
 
 },{}],8:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var Selection = require('../selection');
+var Component = require('../component');
+
+/**
+ * YouTubeComponent main.
+ * @param {Object} optParams Optional params to initialize the object.
+ * Default:
+ *   {
+ *     src: '',
+ *     caption: null,
+ *     width: '100%',
+ *     height: '360px',
+ *     name: Utils.getUID()
+ *   }
+ */
+var YouTubeComponent = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    src: '',
+    caption: null,
+    width: '100%',
+
+    // TODO(mkhatib): Implement and auto-height mode where it can calculate
+    // the best ratio for the player.
+    height: '360px',
+    // Generate a UID as a reference for this YouTubeComponent.
+    name: Utils.getUID()
+  }, optParams);
+
+  /**
+   * Name to reference this YouTubeComponent.
+   * @type {string}
+   */
+  this.name = params.name;
+  Utils.setReference(this.name, this);
+
+  /**
+   * Internal model text in this YouTubeComponent.
+   * @type {string}
+   */
+  this.src = params.src;
+
+  this.width = params.width;
+  this.height = params.height;
+
+  /**
+   * Placeholder text to show if the YouTubeComponent is empty.
+   * @type {string}
+   */
+  this.caption = params.caption;
+
+  /**
+   * DOM element tied to this object.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(YouTubeComponent.CONTAINER_TAG_NAME);
+  this.dom.setAttribute('contenteditable', false);
+  this.dom.setAttribute('name', this.name);
+
+  this.overlayDom = document.createElement(
+      YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
+  this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
+  this.dom.appendChild(this.overlayDom);
+  this.overlayDom.addEventListener('click', this.handleClick.bind(this));
+
+  this.captionDom = document.createElement(YouTubeComponent.CAPTION_TAG_NAME);
+  this.captionDom.setAttribute('contenteditable', true);
+
+  this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
+
+  if (this.caption) {
+    this.captionDom.innerText = this.caption;
+    this.dom.appendChild(this.captionDom);
+  }
+
+  if (this.src) {
+    this.videoDom.setAttribute('src', this.src);
+    this.videoDom.setAttribute('frameborder', 0);
+    this.videoDom.setAttribute('allowfullscreen', true);
+    if (this.width) {
+      this.videoDom.setAttribute('width', this.width);
+    }
+    if (this.height) {
+      this.videoDom.setAttribute('height', this.height);
+    }
+    this.dom.appendChild(this.videoDom);
+  }
+};
+YouTubeComponent.prototype = new Component();
+module.exports = YouTubeComponent;
+
+
+/**
+ * YouTubeComponent component container element tag name.
+ * @type {string}
+ */
+YouTubeComponent.CONTAINER_TAG_NAME = 'figure';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+YouTubeComponent.VIDEO_OVERLAY_TAG_NAME = 'div';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+YouTubeComponent.VIDEO_TAG_NAME = 'iframe';
+
+
+/**
+ * Caption element tag name.
+ * @type {string}
+ */
+YouTubeComponent.CAPTION_TAG_NAME = 'figcaption';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME = 'video-overlay';
+
+
+/**
+ * Regex strings list that for matching YouTube URLs.
+ * @type {Array.<string>}
+ */
+YouTubeComponent.YOUTUBE_URL_REGEXS = [
+    '(?:https?://(?:www\.)?youtube\.com\/(?:[^\/]+/.+/|' +
+    '(?:v|e(?:mbed)?)/|.*[?&]v=)|' +
+    'youtu\.be/)([^"&?/ ]{11})'
+];
+
+
+/**
+ * Registers regular experessions to create YouTube component from if matched.
+ * @param  {ComponentFactory} componentFactory The component factory to register
+ * the regex with.
+ */
+YouTubeComponent.registerRegexes = function(componentFactory) {
+  for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
+    componentFactory.registerRegex(
+        YouTubeComponent.YOUTUBE_URL_REGEXS[i],
+        YouTubeComponent.createYouTubeComponentFromLink);
+  }
+};
+
+
+/**
+ * Creates a YouTube video component from a link.
+ * @param  {string} link YouTube video URL.
+ * @return {YouTubeComponent} YouTubeComponent component created from the link.
+ */
+YouTubeComponent.createYouTubeComponentFromLink = function (link) {
+  var src = link;
+  for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
+    var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
+    var matches = regex.exec(link);
+    if (matches) {
+      src = YouTubeComponent.createEmbedSrcFromId(matches[1]);
+      break;
+    }
+  }
+  return new YouTubeComponent({src: src});
+};
+
+
+/**
+ * Returns the embed src URL for the id.
+ * @param  {string} id YouTube video ID.
+ * @return {string} Embed src URL.
+ */
+YouTubeComponent.createEmbedSrcFromId = function (id) {
+  return 'https://www.youtube.com/embed/' + id +
+    '?rel=0&amp;showinfo=0&amp;iv_load_policy=3';
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this YouTubeComponent.
+ */
+YouTubeComponent.prototype.getJSONModel = function() {
+  var video = {
+    name: this.name,
+    src: this.src,
+    caption: this.caption
+  };
+
+  return video;
+};
+
+
+/**
+ * Handles clicking on the youtube component to update the selection.
+ */
+YouTubeComponent.prototype.handleClick = function () {
+  var selection = Selection.getInstance();
+  selection.setCursor({
+    component: this,
+    offset: 0
+  });
+
+  // TODO(mkhatib): Unselect the component when the video plays to allow the
+  // user to select it again and delete it.
+  return false;
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the YouTube component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+YouTubeComponent.prototype.getDeleteOps = function (optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: 'YouTubeComponent',
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        src: this.src,
+        caption: this.caption,
+        width: this.width
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a youtube component.
+ * @param {number} index Index to insert the youtube component at.
+ * @return {Array.<Object>} Operations for inserting the youtube component.
+ */
+YouTubeComponent.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'YouTubeComponent',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        src: this.src,
+        width: this.width,
+        caption: this.caption
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the length of the youtube component content.
+ * @return {number} Length of the youtube component content.
+ */
+YouTubeComponent.prototype.getLength = function () {
+  return 1;
+};
+
+},{"../component":2,"../selection":13,"../utils":14}],9:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -2548,18 +2832,19 @@ Figure.prototype.getLength = function () {
   return 1;
 };
 
-},{"./component":2,"./selection":12,"./utils":13}],9:[function(require,module,exports){
+},{"./component":2,"./selection":13,"./utils":14}],10:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
 module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
 module.exports.Figure = require('./figure');
+module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 module.exports.Formatting = require('./extensions/formatting');
 
-},{"./article":1,"./editor":3,"./extensions/formatting":6,"./figure":8,"./paragraph":10,"./section":11,"./selection":12}],10:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/formatting":6,"./extensions/youtubeComponent":8,"./figure":9,"./paragraph":11,"./section":12,"./selection":13}],11:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -3186,7 +3471,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./utils":13}],11:[function(require,module,exports){
+},{"./component":2,"./utils":14}],12:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -3343,7 +3628,7 @@ Section.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./selection":12,"./utils":13}],12:[function(require,module,exports){
+},{"./selection":13,"./utils":14}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -3869,7 +4154,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./utils":13}],13:[function(require,module,exports){
+},{"./utils":14}],14:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -4139,5 +4424,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[9])(9)
+},{}]},{},[10])(10)
 });

@@ -8,6 +8,7 @@ var Utils = require('./utils');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
+var YouTubeComponent = require('./extensions/youtubeComponent');
 
 
 /**
@@ -73,7 +74,7 @@ var Editor = function (element, optParams) {
    * @type {ComponentFactory}
    */
   this.componentFactory = new ComponentFactory({
-    componentsClasses: [Figure]
+    componentsClasses: [Figure, YouTubeComponent]
   });
 
   this.init();
