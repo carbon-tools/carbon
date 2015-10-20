@@ -24,6 +24,7 @@ var Editor = function (element, optParams) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    rtl: false,
     article: new Article({
       sections: [new Section({
         components: [new Paragraph({
@@ -44,6 +45,12 @@ var Editor = function (element, optParams) {
    * @type {string}
    */
   this.name = Utils.getUID();
+
+  /**
+   * Indicates if the editor is for an RTL article.
+   * @type {boolean}
+   */
+  this.rtl = params.rtl;
 
   /**
    * Extensions enabled in the editor.

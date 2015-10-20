@@ -415,8 +415,12 @@ Formatting.prototype.repositionBlockToolbar = function() {
 
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset;
-
-  this.setToolbarPosition(this.blockToolbar, top, bounds.left);
+  var start = bounds.left;
+  if (this.editor.rtl) {
+    var toolbarBounds = this.blockToolbar.getBoundingClientRect();
+    start = bounds.right - toolbarBounds.width;
+  }
+  this.setToolbarPosition(this.blockToolbar, top, start);
 
   // Update the active buttons on block toolbar.
   this.reloadBlockToolbarStatus(this.blockToolbar);

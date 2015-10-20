@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Editor demo</title>
+    <link rel="stylesheet" href="./assets/normalize.css" />
+    <link rel="stylesheet" href="./assets/main.css" />
+    <link href="libs/json-tree/css/jsontree.css" rel="stylesheet">
+    <script src="libs/json-tree/jsontree.js"></script>
+  </head>
+  <body>
+
+    <div id="container">
+      <div id="editor" style="direction: rtl;">
+      </div>
+      <!--
+        Print side by side the internal model to illustrate how Manshar Editor
+        store and updates the model.
+
+        TODO(mkhatib):
+        Possibly also allow editing the model and reflecting that as DOM
+        changes in the editor.
+       -->
+      <pre id="model-viewer">
+      </pre>
+    </div>
+
+    <script src="editor.standalone.js"></script>
+    <script>
+      var demoArticle = new manshar.Article({
+        sections: [new manshar.Section({
+          components: [
+            new manshar.Figure({
+              src: 'assets/images/editor-logo.png',
+              width: '182px'
+            }),
+            new manshar.Paragraph({
+              placeholderText: 'Manshar Editor Demo',
+              text: 'مرحباً بك في المحرر',
+              paragraphType: manshar.Paragraph.Types.MainHeader
+            }),
+            new manshar.Paragraph({
+              placeholderText: 'This is just a demo.',
+              text: 'محرر مقالات في المتصفح',
+              paragraphType: manshar.Paragraph.Types.ThirdHeader
+            }),
+            new manshar.Paragraph({
+              text: 'بُني المحرر مع نموذج داخلي للمقال، النموذج معروض في الحزء الأيمن' +
+                ' من الصفحة. المحرر ما زال قيد التطوير.'
+            }),
+            new manshar.Paragraph({
+              text: 'تنسيق الفقرات والنص',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Paragraph({
+              text: 'يمكنك تنسيق الفقرات والنص مثل خط غامق، مائل، مشطوب، مخطط أو إضافة روابط.',
+              formats: [
+                {type: 'strong', from: 33, to: 37},
+                {type: 'em', from: 39, to: 44},
+                {type: 's', from: 45, to: 50},
+                {type: 'u', from: 52, to: 56},
+                {type: 'a', attrs: {href: 'https://github.com/manshar/editor'}, from: 65, to: 72}
+              ]
+            }),
+            new manshar.Paragraph({
+              text: 'صور',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Figure({
+              src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
+            }),
+            new manshar.Paragraph({
+              text: 'يمكنك أيضاً ادخال صور عن طريق لصق الرابط في سطر جديد والضغط على إنتر.'
+            }),
+            new manshar.Paragraph({
+              text: 'إلغاء وإعادة مع تاريخ التعديلات',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Paragraph({
+              text: 'المحرر يتتبع جميع التغييرات ويحتوي على خاصية إلغاى وإعادة عمل الفعل.'
+            }),
+            new manshar.Figure({
+              src: 'https://octodex.github.com/images/mummytocat.gif'
+            }),
+            new manshar.Paragraph({
+              text: 'فيديوهات يوتيوب',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.Paragraph({
+              text: 'المحرر سوف يلاحظ عندما تلصق رابط من يوتيوب وسدخل فيديو بدل الرابط عند الضغط إنتر.'
+            }),
+            manshar.YouTubeComponent.createYouTubeComponentFromLink(
+              'https://www.youtube.com/watch?v=JGhoLcsr8GA'
+            ),
+            new manshar.Paragraph({
+              text: 'مصدر الصور من أكتوديكس',
+              formats: [
+                {type: 'em', from: 0, to: 13},
+                {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 14, to: 22}
+              ]
+            }),
+          ]
+        })]
+      });
+
+      var editor = new manshar.Editor(
+          document.getElementById('editor'),
+          {rtl: true, article: demoArticle});
+
+      var model = document.getElementById('model-viewer');
+      editor.addEventListener('change', function(event) {
+        // console.log(event);
+        model.innerHTML = JSONTree.create(editor.getJSONModel());
+      });
+      model.innerHTML = JSONTree.create(editor.getJSONModel());
+    </script>
+  </body>
+</html>
