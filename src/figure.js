@@ -116,18 +116,30 @@ Figure.registerRegexes = function(componentFactory) {
   for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
     componentFactory.registerRegex(
         Figure.IMAGE_URL_REGEXS[i],
-        Figure.createFigureFromLink);
+        Figure.handleMatchedRegex);
   }
 };
 
 
 /**
  * Creates a figure component from a link.
- * @param  {string} link Image URL.
- * @return {Figure} Figure component created from the link.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
  */
-Figure.createFigureFromLink = function (link) {
-  return new Figure({src: link});
+Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
+  var src = matchedComponent.text;
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var figure = new Figure({src: src});
+  figure.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, figure.getInsertOps(atIndex));
+
+  opsCallback(ops);
 };
 
 

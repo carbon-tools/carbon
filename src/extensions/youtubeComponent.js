@@ -148,7 +148,7 @@ YouTubeComponent.registerRegexes = function(componentFactory) {
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     componentFactory.registerRegex(
         YouTubeComponent.YOUTUBE_URL_REGEXS[i],
-        YouTubeComponent.createYouTubeComponentFromLink);
+        YouTubeComponent.handleMatchedRegex);
   }
 };
 
@@ -162,13 +162,35 @@ YouTubeComponent.createYouTubeComponentFromLink = function (link) {
   var src = link;
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
-    var matches = regex.exec(link);
+    var matches = regex.exec(src);
     if (matches) {
       src = YouTubeComponent.createEmbedSrcFromId(matches[1]);
       break;
     }
   }
   return new YouTubeComponent({src: src});
+};
+
+
+/**
+ * Creates a YouTube video component from a link.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var ytComponent = YouTubeComponent.createYouTubeComponentFromLink(
+      matchedComponent.text);
+  ytComponent.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
+
+  opsCallback(ops);
 };
 
 

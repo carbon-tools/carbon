@@ -124,6 +124,7 @@ Editor.prototype.init = function() {
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
   var selection = this.article.selection, newP;
+  var article = this.article;
   var preventDefault = false;
   var ops = [];
   var inBetweenComponents = [];
@@ -187,14 +188,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         }
 
         if (factoryMethod) {
-          var atIndex = currentIndex - inBetweenComponents.length;
-
-          // Delete current paragraph with its text.
-          Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
-          var component = factoryMethod(currentComponent.text);
-          component.section = selection.getSectionAtEnd();
-          // Add the new component created from the text.
-          Utils.arrays.extend(ops, component.getInsertOps(atIndex));
+          factoryMethod(currentComponent, function(ops) {
+            article.transaction(ops);
+          });
         }
 
         newP = new Paragraph({section: selection.getSectionAtEnd()});
@@ -312,7 +308,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   } else if (currentComponent && Utils.willTypeCharacter(event)) {
     // Update current paragraph internal text model.
     var oldValue = currentComponent.text;
-    var article = this.article;
     var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
     var cursorOffsetDirection = 1;
     if (event.keyCode === 8) {

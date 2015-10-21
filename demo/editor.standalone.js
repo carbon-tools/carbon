@@ -618,6 +618,7 @@ Editor.prototype.init = function() {
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
   var selection = this.article.selection, newP;
+  var article = this.article;
   var preventDefault = false;
   var ops = [];
   var inBetweenComponents = [];
@@ -681,14 +682,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         }
 
         if (factoryMethod) {
-          var atIndex = currentIndex - inBetweenComponents.length;
-
-          // Delete current paragraph with its text.
-          Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
-          var component = factoryMethod(currentComponent.text);
-          component.section = selection.getSectionAtEnd();
-          // Add the new component created from the text.
-          Utils.arrays.extend(ops, component.getInsertOps(atIndex));
+          factoryMethod(currentComponent, function(ops) {
+            article.transaction(ops);
+          });
         }
 
         newP = new Paragraph({section: selection.getSectionAtEnd()});
@@ -806,7 +802,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   } else if (currentComponent && Utils.willTypeCharacter(event)) {
     // Update current paragraph internal text model.
     var oldValue = currentComponent.text;
-    var article = this.article;
     var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
     var cursorOffsetDirection = 1;
     if (event.keyCode === 8) {
@@ -2488,7 +2483,7 @@ YouTubeComponent.registerRegexes = function(componentFactory) {
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     componentFactory.registerRegex(
         YouTubeComponent.YOUTUBE_URL_REGEXS[i],
-        YouTubeComponent.createYouTubeComponentFromLink);
+        YouTubeComponent.handleMatchedRegex);
   }
 };
 
@@ -2502,13 +2497,35 @@ YouTubeComponent.createYouTubeComponentFromLink = function (link) {
   var src = link;
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
-    var matches = regex.exec(link);
+    var matches = regex.exec(src);
     if (matches) {
       src = YouTubeComponent.createEmbedSrcFromId(matches[1]);
       break;
     }
   }
   return new YouTubeComponent({src: src});
+};
+
+
+/**
+ * Creates a YouTube video component from a link.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var ytComponent = YouTubeComponent.createYouTubeComponentFromLink(
+      matchedComponent.text);
+  ytComponent.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
+
+  opsCallback(ops);
 };
 
 
@@ -2737,18 +2754,30 @@ Figure.registerRegexes = function(componentFactory) {
   for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
     componentFactory.registerRegex(
         Figure.IMAGE_URL_REGEXS[i],
-        Figure.createFigureFromLink);
+        Figure.handleMatchedRegex);
   }
 };
 
 
 /**
  * Creates a figure component from a link.
- * @param  {string} link Image URL.
- * @return {Figure} Figure component created from the link.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
  */
-Figure.createFigureFromLink = function (link) {
-  return new Figure({src: link});
+Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
+  var src = matchedComponent.text;
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var figure = new Figure({src: src});
+  figure.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, figure.getInsertOps(atIndex));
+
+  opsCallback(ops);
 };
 
 
