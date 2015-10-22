@@ -9,6 +9,7 @@ var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
 var YouTubeComponent = require('./extensions/youtubeComponent');
+var GiphyComponent = require('./extensions/giphyComponent');
 
 
 /**
@@ -81,7 +82,7 @@ var Editor = function (element, optParams) {
    * @type {ComponentFactory}
    */
   this.componentFactory = new ComponentFactory({
-    componentsClasses: [Figure, YouTubeComponent]
+    componentsClasses: [Figure, YouTubeComponent, GiphyComponent]
   });
 
   this.init();
