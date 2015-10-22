@@ -112,7 +112,7 @@ GiphyComponent.GIPHY_SEARCH_REGEXS = [
  * Ref: https://github.com/Giphy/GiphyAPI
  * @type {String.<string>}
  */
-GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'http://api.giphy.com/v1/gifs/random?' +
+GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
       'api_key=dc6zaTOxFJmzC&' +
       'tag=';
 
