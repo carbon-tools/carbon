@@ -4,6 +4,7 @@ var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var Figure = require('./figure');
 var YouTubeComponent = require('./extensions/youtubeComponent');
+var GiphyComponent = require('./extensions/giphyComponent');
 var Utils = require('./utils');
 
 
@@ -314,5 +315,6 @@ Article.prototype.getComponentClassByName = function (name) {
     case 'Paragraph': return Paragraph;
     case 'Figure': return Figure;
     case 'YouTubeComponent': return YouTubeComponent;
+    case 'GiphyComponent': return GiphyComponent;
   }
 };
