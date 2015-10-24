@@ -91,6 +91,13 @@ module.exports = Paragraph;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+Paragraph.CLASS_NAME = 'Paragraph';
+
+
+/**
  * Differet types of a paragraph.
  * @type {Enum}
  */
@@ -101,6 +108,17 @@ Paragraph.Types = {
   ThirdHeader: 'h3',
   Quote: 'blockquote',
   Code: 'pre'
+};
+
+
+/**
+ * Handles onInstall when Paragrarph module is installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+Paragraph.onInstall = function(editor) {
+  // jshint unused: false
+  // TODO(mkhatib): Register regexes for UL/OL LIs and other markdown syntaxes.
+  // TODO(mkhatib): Initialize a toolbar for all Paragraph components instances.
 };
 
 

@@ -5,11 +5,10 @@ var Paragraph = require('./paragraph');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
+var Errors = require('./errors');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
-var YouTubeComponent = require('./extensions/youtubeComponent');
-var GiphyComponent = require('./extensions/giphyComponent');
 
 
 /**
@@ -25,8 +24,10 @@ var Editor = function (element, optParams) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    modules: [],
     rtl: false,
     article: new Article({
+      editor: this,
       sections: [new Section({
         components: [new Paragraph({
           placeholder: 'Editor',
@@ -40,6 +41,23 @@ var Editor = function (element, optParams) {
         new FormattingExtension(this)
     ]
   }, optParams);
+
+  /**
+   * Registers, matches and create components based on registered regex.
+   * @type {ComponentFactory}
+   */
+  this.componentFactory = new ComponentFactory();
+
+  /**
+   * Components installed and enabled in the editor.
+   * @type {Object.<string, Function>}
+   */
+  this.installedModules = {};
+  this.install(Paragraph);
+  this.install(Figure);
+  for (var i = 0; i < params.modules.length; i++) {
+    this.install(params.modules[i]);
+  }
 
   /**
    * Unique name to identify the editor.
@@ -70,20 +88,13 @@ var Editor = function (element, optParams) {
    * @type {Article}
    */
   this.article = params.article;
+  this.article.editor = this;
 
   /**
    * Shortcuts manager to handle keyboard shortcuts on the editor.
    * @type {ShortcutsManager}
    */
   this.shortcutsManager = new ShortcutsManager(this);
-
-  /**
-   * Registers, matches and create components based on registered regex.
-   * @type {ComponentFactory}
-   */
-  this.componentFactory = new ComponentFactory({
-    componentsClasses: [Figure, YouTubeComponent, GiphyComponent]
-  });
 
   this.init();
 };
@@ -116,6 +127,42 @@ Editor.prototype.init = function() {
     component: this.article.sections[0].components[0],
     offset: 0
   });
+};
+
+
+/**
+ * Installs and activate a component type to use in the editor.
+ * @param  {Function} ModuleClass The component class.
+ */
+Editor.prototype.install = function(ModuleClass) {
+  if (this.installedModules[ModuleClass.CLASS_NAME]) {
+    throw Errors.AlreadyRegisteredError(ModuleClass.CLASS_NAME +
+        ' module has already been installed in this editor.');
+  }
+  this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
+  ModuleClass.onInstall(this);
+};
+
+
+/**
+ * Returns the component class function for the string passed.
+ * @param  {string} name Name of the function.
+ * @return {Function} Class function for the component.
+ */
+Editor.prototype.getComponentClassByName = function (name) {
+  return this.installedModules[name];
+};
+
+
+/**
+ * Registers a regex with the factory.
+ * @param  {string} regex String regular expression to register for.
+ * @param  {Function} factoryMethod Callback factory method for handling match.
+ * @param  {boolean=} optForce Forcing registering even when its already
+ * registered.
+ */
+Editor.prototype.registerRegex = function (regex, factoryMethod, optForce) {
+  this.componentFactory.registerRegex(regex, factoryMethod, optForce);
 };
 
 

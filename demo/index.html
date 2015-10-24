@@ -108,8 +108,13 @@
       });
 
       var editor = new manshar.Editor(
-          document.getElementById('editor'),
-          {article: demoArticle});
+          document.getElementById('editor'), {
+            article: demoArticle,
+            modules: [
+              manshar.YouTubeComponent,
+              manshar.GiphyComponent
+            ]
+          });
 
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {

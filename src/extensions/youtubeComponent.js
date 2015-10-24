@@ -94,6 +94,13 @@ module.exports = YouTubeComponent;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
+
+
+/**
  * YouTubeComponent component container element tag name.
  * @type {string}
  */
@@ -140,13 +147,24 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
 
 
 /**
- * Registers regular experessions to create YouTube component from if matched.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
+ * Handles onInstall when the YouTubeComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
  */
-YouTubeComponent.registerRegexes = function(componentFactory) {
+YouTubeComponent.onInstall = function(editor) {
+  YouTubeComponent.registerRegexes_(editor);
+
+  // TODO(mkhatib): Initialize a toolbar for all YouTube components instances.
+};
+
+
+/**
+ * Registers regular experessions to create YouTube component from if matched.
+ * @param  {Editor} editor The editor to register regexes with.
+ * @private
+ */
+YouTubeComponent.registerRegexes_ = function(editor) {
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
-    componentFactory.registerRegex(
+    editor.registerRegex(
         YouTubeComponent.YOUTUBE_URL_REGEXS[i],
         YouTubeComponent.handleMatchedRegex);
   }

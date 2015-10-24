@@ -38,6 +38,19 @@ module.exports = Component;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+Component.CLASS_NAME = 'Component';
+
+
+Component.onInstall = function (editor) {
+  // jshint unused: false
+  // pass.
+};
+
+
+/**
  * Registers regular experessions to handle if matched in the editor.
  * @param  {ComponentFactory} componentFactory The component factory to register
  * the regex with.

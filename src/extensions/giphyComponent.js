@@ -78,6 +78,13 @@ module.exports = GiphyComponent;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+GiphyComponent.CLASS_NAME = 'GiphyComponent';
+
+
+/**
  * GiphyComponent component container element tag name.
  * @type {string}
  */
@@ -118,13 +125,24 @@ GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
 
 
 /**
- * Registers regular experessions to create giphy component from if matched.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
+ * Handles onInstall when the GiphyComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
  */
-GiphyComponent.registerRegexes = function(componentFactory) {
+GiphyComponent.onInstall = function(editor) {
+  GiphyComponent.registerRegexes_(editor);
+
+  // TODO(mkhatib): Initialize a toolbar for all giphy components instances.
+};
+
+
+/**
+ * Registers regular experessions to create giphy component from if matched.
+ * @param  {Editor} editor The editor to register regexes with.
+ * @private
+ */
+GiphyComponent.registerRegexes_ = function(editor) {
   for (var i = 0; i < GiphyComponent.GIPHY_SEARCH_REGEXS.length; i++) {
-    componentFactory.registerRegex(
+    editor.registerRegex(
         GiphyComponent.GIPHY_SEARCH_REGEXS[i],
         GiphyComponent.handleMatchedRegex);
   }
@@ -137,7 +155,7 @@ GiphyComponent.registerRegexes = function(componentFactory) {
  * @param {Function} opsCallback Callback to send list of operations to exectue.
  */
 GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
-  var giphyQuery = matchedComponent.text.split(/\s/).slice(1).join("+");
+  var giphyQuery = matchedComponent.text.split(/\s/).slice(1).join('+');
 
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
@@ -166,7 +184,7 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
       }
     }
   };
-  xhttp.open("GET", GiphyComponent.GIPHY_RANDOM_ENDPOINT + giphyQuery, true);
+  xhttp.open('GET', GiphyComponent.GIPHY_RANDOM_ENDPOINT + giphyQuery, true);
   xhttp.send();
 };
 
