@@ -2,9 +2,6 @@
 
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
-var Figure = require('./figure');
-var YouTubeComponent = require('./extensions/youtubeComponent');
-var GiphyComponent = require('./extensions/giphyComponent');
 var Utils = require('./utils');
 
 
@@ -22,6 +19,12 @@ var Article = function(optParams) {
     // The sections that is in this article.
     sections: []
   }, optParams);
+
+  /**
+   * Editor that contains this article.
+   * @type {Editor}
+   */
+  this.editor = params.editor;
 
   /**
    * Selection object.
@@ -268,7 +271,7 @@ Article.prototype.exec = function(operation, action) {
     }, operation[action].attrs || {});
 
     var constructorName = operation[action].componentClass;
-    var ComponentClass = this.getComponentClassByName(constructorName);
+    var ComponentClass = this.editor.getComponentClassByName(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
   }
@@ -301,20 +304,5 @@ Article.prototype.getComponentByName = function(name) {
         return this.sections[i].components[j];
       }
     }
-  }
-};
-
-
-/**
- * Returns the component class function for the string passed.
- * @param  {string} name Name of the function.
- * @return {Function} Class function for the component.
- */
-Article.prototype.getComponentClassByName = function (name) {
-  switch (name) {
-    case 'Paragraph': return Paragraph;
-    case 'Figure': return Figure;
-    case 'YouTubeComponent': return YouTubeComponent;
-    case 'GiphyComponent': return GiphyComponent;
   }
 };

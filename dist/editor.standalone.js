@@ -3,9 +3,6 @@
 
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
-var Figure = require('./figure');
-var YouTubeComponent = require('./extensions/youtubeComponent');
-var GiphyComponent = require('./extensions/giphyComponent');
 var Utils = require('./utils');
 
 
@@ -23,6 +20,12 @@ var Article = function(optParams) {
     // The sections that is in this article.
     sections: []
   }, optParams);
+
+  /**
+   * Editor that contains this article.
+   * @type {Editor}
+   */
+  this.editor = params.editor;
 
   /**
    * Selection object.
@@ -269,7 +272,7 @@ Article.prototype.exec = function(operation, action) {
     }, operation[action].attrs || {});
 
     var constructorName = operation[action].componentClass;
-    var ComponentClass = this.getComponentClassByName(constructorName);
+    var ComponentClass = this.editor.getComponentClassByName(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
   }
@@ -305,22 +308,7 @@ Article.prototype.getComponentByName = function(name) {
   }
 };
 
-
-/**
- * Returns the component class function for the string passed.
- * @param  {string} name Name of the function.
- * @return {Function} Class function for the component.
- */
-Article.prototype.getComponentClassByName = function (name) {
-  switch (name) {
-    case 'Paragraph': return Paragraph;
-    case 'Figure': return Figure;
-    case 'YouTubeComponent': return YouTubeComponent;
-    case 'GiphyComponent': return GiphyComponent;
-  }
-};
-
-},{"./extensions/giphyComponent":7,"./extensions/youtubeComponent":9,"./figure":10,"./paragraph":12,"./selection":14,"./utils":15}],2:[function(require,module,exports){
+},{"./paragraph":12,"./selection":14,"./utils":15}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -358,6 +346,19 @@ var Component = function(optParams) {
 
 };
 module.exports = Component;
+
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+Component.CLASS_NAME = 'Component';
+
+
+Component.onInstall = function (editor) {
+  // jshint unused: false
+  // pass.
+};
 
 
 /**
@@ -501,11 +502,10 @@ var Paragraph = require('./paragraph');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
+var Errors = require('./errors');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
-var YouTubeComponent = require('./extensions/youtubeComponent');
-var GiphyComponent = require('./extensions/giphyComponent');
 
 
 /**
@@ -521,8 +521,10 @@ var Editor = function (element, optParams) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    modules: [],
     rtl: false,
     article: new Article({
+      editor: this,
       sections: [new Section({
         components: [new Paragraph({
           placeholder: 'Editor',
@@ -536,6 +538,23 @@ var Editor = function (element, optParams) {
         new FormattingExtension(this)
     ]
   }, optParams);
+
+  /**
+   * Registers, matches and create components based on registered regex.
+   * @type {ComponentFactory}
+   */
+  this.componentFactory = new ComponentFactory();
+
+  /**
+   * Components installed and enabled in the editor.
+   * @type {Object.<string, Function>}
+   */
+  this.installedModules = {};
+  this.install(Paragraph);
+  this.install(Figure);
+  for (var i = 0; i < params.modules.length; i++) {
+    this.install(params.modules[i]);
+  }
 
   /**
    * Unique name to identify the editor.
@@ -566,20 +585,13 @@ var Editor = function (element, optParams) {
    * @type {Article}
    */
   this.article = params.article;
+  this.article.editor = this;
 
   /**
    * Shortcuts manager to handle keyboard shortcuts on the editor.
    * @type {ShortcutsManager}
    */
   this.shortcutsManager = new ShortcutsManager(this);
-
-  /**
-   * Registers, matches and create components based on registered regex.
-   * @type {ComponentFactory}
-   */
-  this.componentFactory = new ComponentFactory({
-    componentsClasses: [Figure, YouTubeComponent, GiphyComponent]
-  });
 
   this.init();
 };
@@ -612,6 +624,42 @@ Editor.prototype.init = function() {
     component: this.article.sections[0].components[0],
     offset: 0
   });
+};
+
+
+/**
+ * Installs and activate a component type to use in the editor.
+ * @param  {Function} ModuleClass The component class.
+ */
+Editor.prototype.install = function(ModuleClass) {
+  if (this.installedModules[ModuleClass.CLASS_NAME]) {
+    throw Errors.AlreadyRegisteredError(ModuleClass.CLASS_NAME +
+        ' module has already been installed in this editor.');
+  }
+  this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
+  ModuleClass.onInstall(this);
+};
+
+
+/**
+ * Returns the component class function for the string passed.
+ * @param  {string} name Name of the function.
+ * @return {Function} Class function for the component.
+ */
+Editor.prototype.getComponentClassByName = function (name) {
+  return this.installedModules[name];
+};
+
+
+/**
+ * Registers a regex with the factory.
+ * @param  {string} regex String regular expression to register for.
+ * @param  {Function} factoryMethod Callback factory method for handling match.
+ * @param  {boolean=} optForce Forcing registering even when its already
+ * registered.
+ */
+Editor.prototype.registerRegex = function (regex, factoryMethod, optForce) {
+  this.componentFactory.registerRegex(regex, factoryMethod, optForce);
 };
 
 
@@ -1243,7 +1291,7 @@ Editor.prototype.handleCut = function() {
 };
 
 
-},{"./article":1,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/giphyComponent":7,"./extensions/shortcutsManager":8,"./extensions/youtubeComponent":9,"./figure":10,"./paragraph":12,"./section":13,"./utils":15}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":8,"./figure":10,"./paragraph":12,"./section":13,"./utils":15}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1274,47 +1322,21 @@ Errors.AlreadyRegisteredError.prototype = Error.prototype;
 },{}],5:[function(require,module,exports){
 'use strict';
 
-var Utils = require('../utils');
 var Errors = require('../errors');
 
 
 /**
  * ComponentFactory A factory to allow components to register regex matches
  * to be notified when a match is found in the editor.
- * @param {Object} optParams Optional params to initialize ComponentFactory.
  */
-var ComponentFactory = function (optParams) {
-  var params = Utils.extend({
-    componentsClasses: []
-  }, optParams);
-
-  /**
-   * The components classes that would need to register their regexs.
-   * @type {Array.<Function>}
-   */
-  this.componentsClasses = params.componentsClasses;
-
+var ComponentFactory = function () {
   /**
    * The registery for the regexes and its factory methods (callbacks).
    * @type {Object}
    */
   this.regexToFactories = {};
-
-  this.init();
 };
 module.exports = ComponentFactory;
-
-
-/**
- * Initializes the component factory by calling the components registerRegexes
- * methods passing the instance of the factory.
- */
-ComponentFactory.prototype.init = function() {
-  for (var i = 0; i < this.componentsClasses.length; i++) {
-    var ComponentClass = this.componentsClasses[i];
-    ComponentClass.registerRegexes(this);
-  }
-};
 
 
 /**
@@ -1350,7 +1372,7 @@ ComponentFactory.prototype.match = function(str) {
   }
 };
 
-},{"../errors":4,"../utils":15}],6:[function(require,module,exports){
+},{"../errors":4}],6:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -2284,6 +2306,13 @@ module.exports = GiphyComponent;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+GiphyComponent.CLASS_NAME = 'GiphyComponent';
+
+
+/**
  * GiphyComponent component container element tag name.
  * @type {string}
  */
@@ -2324,13 +2353,24 @@ GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
 
 
 /**
- * Registers regular experessions to create giphy component from if matched.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
+ * Handles onInstall when the GiphyComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
  */
-GiphyComponent.registerRegexes = function(componentFactory) {
+GiphyComponent.onInstall = function(editor) {
+  GiphyComponent.registerRegexes_(editor);
+
+  // TODO(mkhatib): Initialize a toolbar for all giphy components instances.
+};
+
+
+/**
+ * Registers regular experessions to create giphy component from if matched.
+ * @param  {Editor} editor The editor to register regexes with.
+ * @private
+ */
+GiphyComponent.registerRegexes_ = function(editor) {
   for (var i = 0; i < GiphyComponent.GIPHY_SEARCH_REGEXS.length; i++) {
-    componentFactory.registerRegex(
+    editor.registerRegex(
         GiphyComponent.GIPHY_SEARCH_REGEXS[i],
         GiphyComponent.handleMatchedRegex);
   }
@@ -2343,7 +2383,7 @@ GiphyComponent.registerRegexes = function(componentFactory) {
  * @param {Function} opsCallback Callback to send list of operations to exectue.
  */
 GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
-  var giphyQuery = matchedComponent.text.split(/\s/).slice(1).join("+");
+  var giphyQuery = matchedComponent.text.split(/\s/).slice(1).join('+');
 
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
@@ -2372,7 +2412,7 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
       }
     }
   };
-  xhttp.open("GET", GiphyComponent.GIPHY_RANDOM_ENDPOINT + giphyQuery, true);
+  xhttp.open('GET', GiphyComponent.GIPHY_RANDOM_ENDPOINT + giphyQuery, true);
   xhttp.send();
 };
 
@@ -2696,6 +2736,13 @@ module.exports = YouTubeComponent;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
+
+
+/**
  * YouTubeComponent component container element tag name.
  * @type {string}
  */
@@ -2742,13 +2789,24 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
 
 
 /**
- * Registers regular experessions to create YouTube component from if matched.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
+ * Handles onInstall when the YouTubeComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
  */
-YouTubeComponent.registerRegexes = function(componentFactory) {
+YouTubeComponent.onInstall = function(editor) {
+  YouTubeComponent.registerRegexes_(editor);
+
+  // TODO(mkhatib): Initialize a toolbar for all YouTube components instances.
+};
+
+
+/**
+ * Registers regular experessions to create YouTube component from if matched.
+ * @param  {Editor} editor The editor to register regexes with.
+ * @private
+ */
+YouTubeComponent.registerRegexes_ = function(editor) {
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
-    componentFactory.registerRegex(
+    editor.registerRegex(
         YouTubeComponent.YOUTUBE_URL_REGEXS[i],
         YouTubeComponent.handleMatchedRegex);
   }
@@ -2983,6 +3041,13 @@ module.exports = Figure;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+Figure.CLASS_NAME = 'Figure';
+
+
+/**
  * Figure component container element tag name.
  * @type {string}
  */
@@ -3013,13 +3078,22 @@ Figure.IMAGE_URL_REGEXS = [
 
 
 /**
- * Registers regular experessions to create image from if matched.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
+ * Handles onInstall when Paragrarph module is installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
  */
-Figure.registerRegexes = function(componentFactory) {
+Figure.onInstall = function(editor) {
+  Figure.registerRegexes_(editor);
+  // TODO(mkhatib): Initialize a toolbar for all Figure components instances.
+};
+
+
+/**
+ * Registers regular experessions to create image from if matched.
+ * @param  {Editor} editor The editor to register the regex with.
+ */
+Figure.registerRegexes_ = function(editor) {
   for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
-    componentFactory.registerRegex(
+    editor.registerRegex(
         Figure.IMAGE_URL_REGEXS[i],
         Figure.handleMatchedRegex);
   }
@@ -3151,7 +3225,11 @@ module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 module.exports.Formatting = require('./extensions/formatting');
 
-},{"./article":1,"./editor":3,"./extensions/formatting":6,"./extensions/youtubeComponent":9,"./figure":10,"./paragraph":12,"./section":13,"./selection":14}],12:[function(require,module,exports){
+// TODO(mkhatib): Find a better way to expose the classes and without making
+// them part of the whole editor Javascript.
+module.exports.GiphyComponent = require('./extensions/giphyComponent');
+
+},{"./article":1,"./editor":3,"./extensions/formatting":6,"./extensions/giphyComponent":7,"./extensions/youtubeComponent":9,"./figure":10,"./paragraph":12,"./section":13,"./selection":14}],12:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -3245,6 +3323,13 @@ module.exports = Paragraph;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+Paragraph.CLASS_NAME = 'Paragraph';
+
+
+/**
  * Differet types of a paragraph.
  * @type {Enum}
  */
@@ -3255,6 +3340,17 @@ Paragraph.Types = {
   ThirdHeader: 'h3',
   Quote: 'blockquote',
   Code: 'pre'
+};
+
+
+/**
+ * Handles onInstall when Paragrarph module is installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+Paragraph.onInstall = function(editor) {
+  // jshint unused: false
+  // TODO(mkhatib): Register regexes for UL/OL LIs and other markdown syntaxes.
+  // TODO(mkhatib): Initialize a toolbar for all Paragraph components instances.
 };
 
 

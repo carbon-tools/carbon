@@ -1,46 +1,20 @@
 'use strict';
 
-var Utils = require('../utils');
 var Errors = require('../errors');
 
 
 /**
  * ComponentFactory A factory to allow components to register regex matches
  * to be notified when a match is found in the editor.
- * @param {Object} optParams Optional params to initialize ComponentFactory.
  */
-var ComponentFactory = function (optParams) {
-  var params = Utils.extend({
-    componentsClasses: []
-  }, optParams);
-
-  /**
-   * The components classes that would need to register their regexs.
-   * @type {Array.<Function>}
-   */
-  this.componentsClasses = params.componentsClasses;
-
+var ComponentFactory = function () {
   /**
    * The registery for the regexes and its factory methods (callbacks).
    * @type {Object}
    */
   this.regexToFactories = {};
-
-  this.init();
 };
 module.exports = ComponentFactory;
-
-
-/**
- * Initializes the component factory by calling the components registerRegexes
- * methods passing the instance of the factory.
- */
-ComponentFactory.prototype.init = function() {
-  for (var i = 0; i < this.componentsClasses.length; i++) {
-    var ComponentClass = this.componentsClasses[i];
-    ComponentClass.registerRegexes(this);
-  }
-};
 
 
 /**

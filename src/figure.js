@@ -78,6 +78,13 @@ module.exports = Figure;
 
 
 /**
+ * String name for the component class.
+ * @type {string}
+ */
+Figure.CLASS_NAME = 'Figure';
+
+
+/**
  * Figure component container element tag name.
  * @type {string}
  */
@@ -108,13 +115,22 @@ Figure.IMAGE_URL_REGEXS = [
 
 
 /**
- * Registers regular experessions to create image from if matched.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
+ * Handles onInstall when Paragrarph module is installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
  */
-Figure.registerRegexes = function(componentFactory) {
+Figure.onInstall = function(editor) {
+  Figure.registerRegexes_(editor);
+  // TODO(mkhatib): Initialize a toolbar for all Figure components instances.
+};
+
+
+/**
+ * Registers regular experessions to create image from if matched.
+ * @param  {Editor} editor The editor to register the regex with.
+ */
+Figure.registerRegexes_ = function(editor) {
   for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
-    componentFactory.registerRegex(
+    editor.registerRegex(
         Figure.IMAGE_URL_REGEXS[i],
         Figure.handleMatchedRegex);
   }
