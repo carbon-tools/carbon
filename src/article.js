@@ -209,7 +209,7 @@ Article.prototype.exec = function(operation, action) {
     componentName = operation[action].component;
     value = operation[action].value;
     index = operation[action].index;
-    component = this.getComponentByName(componentName);
+    component = Utils.getReference(componentName);
     component.insertCharactersAt(value, index);
 
     if (operation[action].cursorOffset) {
@@ -222,7 +222,7 @@ Article.prototype.exec = function(operation, action) {
     componentName = operation[action].component;
     index = operation[action].index;
     count = operation[action].count;
-    component = this.getComponentByName(componentName);
+    component = Utils.getReference(componentName);
     component.removeCharactersAt(index, count);
 
     if (operation[action].cursorOffset) {
@@ -234,7 +234,7 @@ Article.prototype.exec = function(operation, action) {
   } else if (op === 'updateComponent') {
     componentName = operation[action].component;
     value = operation[action].value;
-    component = this.getComponentByName(componentName);
+    component = Utils.getReference(componentName);
 
     if (value !== undefined) {
       component.setText(value);
@@ -262,10 +262,11 @@ Article.prototype.exec = function(operation, action) {
       }
     }
   } else if (op === 'deleteComponent') {
-    component = this.getComponentByName(operation[action].component);
+    component = Utils.getReference(operation[action].component);
     component.section.removeComponent(component);
   } else if (op === 'insertComponent') {
-    var section = this.getSectionByName(operation[action].section);
+    // TODO(mkhatib): Insert components inside a component.
+    var section = Utils.getReference(operation[action].section);
     var options = Utils.extend({
       name: operation[action].component,
     }, operation[action].attrs || {});
@@ -274,35 +275,5 @@ Article.prototype.exec = function(operation, action) {
     var ComponentClass = this.editor.getComponentClassByName(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
-  }
-};
-
-
-/**
- * Returns the section that has the specific name.
- * @param  {string} name Name of the section.
- * @return {Section} Section with the passed name.
- */
-Article.prototype.getSectionByName = function(name) {
-  for (var i = 0; i < this.sections.length; i++) {
-    if (this.sections[i].name === name) {
-      return this.sections[i];
-    }
-  }
-};
-
-
-/**
- * Returns the component that has the specific name.
- * @param  {string} name Name of the component.
- * @return {Component} Component with the passed name.
- */
-Article.prototype.getComponentByName = function(name) {
-  for (var i = 0; i < this.sections.length; i++) {
-    for (var j = 0; j < this.sections[i].components.length; j++) {
-      if (this.sections[i].components[j].name === name) {
-        return this.sections[i].components[j];
-      }
-    }
   }
 };

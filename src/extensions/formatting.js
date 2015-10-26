@@ -75,6 +75,20 @@ Formatting.EDGE = -999999;
 
 
 /**
+ * Enable block formatting toolbar on these types of paragraphs.
+ * @type {Array.<String>}
+ */
+Formatting.BLOCK_ENABLED_ON = [
+    Paragraph.Types.Paragraph,
+    Paragraph.Types.MainHeader,
+    Paragraph.Types.SecondaryHeader,
+    Paragraph.Types.ThirdHeader,
+    Paragraph.Types.Quote,
+    Paragraph.Types.Code
+];
+
+
+/**
  * Actions allowed on the toolbars.
  * @type {Object}
  */
@@ -354,7 +368,8 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
       this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
 
   if (wSelection.isCollapsed) {
-    if (startComp instanceof Paragraph) {
+    if (startComp instanceof Paragraph &&
+        Formatting.BLOCK_ENABLED_ON.indexOf(startComp.paragraphType) !== -1) {
       // If there's no selection, show the block toolbar.
       this.repositionBlockToolbar();
     } else {

@@ -64,6 +64,13 @@ body {
   position: relative;
 }
 
+.manshar-editor figure figcaption {
+  color: #ccc;
+  font-style: italic;
+  font-size: 0.8em;
+  outline: none;
+}
+
 .manshar-editor figure .video-overlay {
   position: absolute;
   top: 0;

@@ -3,6 +3,7 @@
 var Utils = require('./utils');
 var Selection = require('./selection');
 var Component = require('./component');
+var Paragrarph = require('./paragraph');
 
 /**
  * Figure main.
@@ -21,16 +22,9 @@ var Figure = function(optParams) {
     src: '',
     caption: null,
     width: '100%',
-    // Generate a UID as a reference for this Figure.
-    name: Utils.getUID()
   }, optParams);
 
-  /**
-   * Name to reference this Figure.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this Figure.
@@ -47,23 +41,27 @@ var Figure = function(optParams) {
   this.caption = params.caption;
 
   /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.captionParagraph = new Paragrarph({
+    placeholderText: 'Type caption for image',
+    text: params.caption,
+    paragraphType: Paragrarph.Types.Caption,
+    parentComponent: this,
+    inline: true
+  });
+
+  /**
    * DOM element tied to this object.
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-  this.dom.addEventListener('click', this.handleClick.bind(this));
-
-  this.captionDom = document.createElement(Figure.CAPTION_TAG_NAME);
-  this.captionDom.setAttribute('contenteditable', true);
 
   this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-
-  if (this.caption) {
-    this.captionDom.innerText = this.caption;
-    this.dom.appendChild(this.captionDom);
-  }
+  this.imgDom.addEventListener('click', this.handleClick.bind(this));
 
   if (this.src) {
     this.imgDom.setAttribute('src', this.src);
@@ -72,8 +70,12 @@ var Figure = function(optParams) {
     }
     this.dom.appendChild(this.imgDom);
   }
+
+  this.captionDom = this.captionParagraph.dom;
+  this.captionDom.setAttribute('contenteditable', true);
+  this.dom.appendChild(this.captionDom);
 };
-Figure.prototype = new Component();
+Figure.prototype = Object.create(Component.prototype);
 module.exports = Figure;
 
 
@@ -167,7 +169,7 @@ Figure.prototype.getJSONModel = function() {
   var image = {
     name: this.name,
     src: this.src,
-    caption: this.caption
+    caption: this.captionParagraph.getJSONModel()
   };
 
   return image;
