@@ -440,9 +440,8 @@ var Selection = (function() {
         offset: this.calculateEndOffsetFromWindowSelection_(selection)
       };
 
-      var endIndex = end.component.section.components.indexOf(end.component);
-      var startIndex = start.component.section.components.indexOf(
-          start.component);
+      var endIndex = end.component.getIndexInSection();
+      var startIndex = start.component.getIndexInSection();
       var reversedSelection = ((end.component === start.component &&
           end.offset < start.offset) || startIndex > endIndex);
 

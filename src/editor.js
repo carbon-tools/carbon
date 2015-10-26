@@ -2,6 +2,7 @@
 
 var Article = require('./article');
 var Paragraph = require('./paragraph');
+var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
@@ -54,6 +55,7 @@ var Editor = function (element, optParams) {
    */
   this.installedModules = {};
   this.install(Paragraph);
+  this.install(List);
   this.install(Figure);
   for (var i = 0; i < params.modules.length; i++) {
     this.install(params.modules[i]);
@@ -206,8 +208,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
   var offsetAfterOperation;
   var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.section.components.indexOf(
-      currentComponent);
+  var currentIndex = currentComponent.getIndexInSection();
   var nextComponent = currentComponent.getNextComponent();
   var prevComponent = currentComponent.getPreviousComponent();
 
@@ -217,11 +218,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // TODO(mkhatib): I don't like that we keep checking if the component is
       // an instanceof Paragraph. Maybe find a better way to manage this.
       if (!selection.isCursorAtEnding() &&
-          currentComponent instanceof Paragraph) {
+          currentComponent instanceof Paragraph &&
+          !currentComponent.inline) {
         Utils.arrays.extend(ops, this.getSplitParagraphOps(
             -inBetweenComponents.length));
       } else if (nextComponent instanceof Paragraph &&
-          nextComponent.isPlaceholder()) {
+          (nextComponent.isPlaceholder() || currentComponent.inline)) {
         // If the next paragraph is a placeholder, just move the cursor to it
         // and don't insert a new paragraph.
         selection.setCursor({
@@ -239,12 +241,36 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           factoryMethod(currentComponent, function(ops) {
             article.transaction(ops);
           });
-        }
+        } else {
+          var insertType = currentComponent.paragraphType;
+          var insertInSection = selection.getSectionAtEnd();
+          var atIndex = currentIndex - inBetweenComponents.length + 1;
+          if (insertType === Paragraph.Types.ListItem) {
+            if (currentComponent.getLength() === 0) {
+              var list = insertInSection;
+              insertType = Paragraph.Types.Paragraph;
+              insertInSection = selection.getSectionAtEnd().section;
+              // If this is not the last element of the list split the list.
+              if (atIndex < list.getLength()) {
+                Utils.arrays.extend(ops, list.getSplitOps(atIndex));
+              }
+              Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
+              atIndex = selection.getSectionAtEnd().getIndexInSection() + 1;
+            }
+          } else if (currentComponent.parentComponent) {
+            insertInSection = currentComponent.parentComponent.section;
+            atIndex = currentComponent.parentComponent.getIndexInSection() + 1;
+            insertType = Paragraph.Types.Paragraph;
+          } else {
+            insertType = Paragraph.Types.Paragraph;
+          }
 
-        newP = new Paragraph({section: selection.getSectionAtEnd()});
-        Utils.arrays.extend(
-            ops, newP.getInsertOps(
-                currentIndex - inBetweenComponents.length + 1));
+          newP = new Paragraph({
+            section: insertInSection,
+            paragraphType: insertType
+          });
+          Utils.arrays.extend(ops, newP.getInsertOps(atIndex));
+        }
       }
 
       this.article.transaction(ops);
@@ -476,8 +502,7 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   var ops = [];
   var selection = this.article.selection;
   var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.section.components.indexOf(
-      currentComponent);
+  var currentIndex = currentComponent.getIndexInSection();
   var afterCursorText = currentComponent.text.substring(
       selection.end.offset, currentComponent.text.length);
 
@@ -501,7 +526,8 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   var newP = new Paragraph({
       section: selection.getSectionAtEnd(),
       text: afterCursorText,
-      formats: afterCursorShiftedFormats
+      formats: afterCursorShiftedFormats,
+      paragraphType: currentComponent.paragraphType
   });
   Utils.arrays.extend(
       ops, newP.getInsertOps(currentIndex + indexOffset + 1));
@@ -597,7 +623,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var selection = this.article.selection;
   var currentComponent = selection.getComponentAtStart();
   var section = selection.getSectionAtStart();
-  var startParagraphIndex = section.components.indexOf(currentComponent);
+  var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
   var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 

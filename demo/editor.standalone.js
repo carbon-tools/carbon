@@ -210,7 +210,7 @@ Article.prototype.exec = function(operation, action) {
     componentName = operation[action].component;
     value = operation[action].value;
     index = operation[action].index;
-    component = this.getComponentByName(componentName);
+    component = Utils.getReference(componentName);
     component.insertCharactersAt(value, index);
 
     if (operation[action].cursorOffset) {
@@ -223,7 +223,7 @@ Article.prototype.exec = function(operation, action) {
     componentName = operation[action].component;
     index = operation[action].index;
     count = operation[action].count;
-    component = this.getComponentByName(componentName);
+    component = Utils.getReference(componentName);
     component.removeCharactersAt(index, count);
 
     if (operation[action].cursorOffset) {
@@ -235,7 +235,7 @@ Article.prototype.exec = function(operation, action) {
   } else if (op === 'updateComponent') {
     componentName = operation[action].component;
     value = operation[action].value;
-    component = this.getComponentByName(componentName);
+    component = Utils.getReference(componentName);
 
     if (value !== undefined) {
       component.setText(value);
@@ -263,10 +263,11 @@ Article.prototype.exec = function(operation, action) {
       }
     }
   } else if (op === 'deleteComponent') {
-    component = this.getComponentByName(operation[action].component);
+    component = Utils.getReference(operation[action].component);
     component.section.removeComponent(component);
   } else if (op === 'insertComponent') {
-    var section = this.getSectionByName(operation[action].section);
+    // TODO(mkhatib): Insert components inside a component.
+    var section = Utils.getReference(operation[action].section);
     var options = Utils.extend({
       name: operation[action].component,
     }, operation[action].attrs || {});
@@ -278,37 +279,7 @@ Article.prototype.exec = function(operation, action) {
   }
 };
 
-
-/**
- * Returns the section that has the specific name.
- * @param  {string} name Name of the section.
- * @return {Section} Section with the passed name.
- */
-Article.prototype.getSectionByName = function(name) {
-  for (var i = 0; i < this.sections.length; i++) {
-    if (this.sections[i].name === name) {
-      return this.sections[i];
-    }
-  }
-};
-
-
-/**
- * Returns the component that has the specific name.
- * @param  {string} name Name of the component.
- * @return {Component} Component with the passed name.
- */
-Article.prototype.getComponentByName = function(name) {
-  for (var i = 0; i < this.sections.length; i++) {
-    for (var j = 0; j < this.sections[i].components.length; j++) {
-      if (this.sections[i].components[j].name === name) {
-        return this.sections[i].components[j];
-      }
-    }
-  }
-};
-
-},{"./paragraph":12,"./selection":14,"./utils":15}],2:[function(require,module,exports){
+},{"./paragraph":13,"./selection":15,"./utils":16}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -327,9 +298,27 @@ var Errors = require('./errors');
 var Component = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    section: null,
     // Generate a UID as a reference for this Component.
-    name: Utils.getUID()
+    name: Utils.getUID(),
+    // Indicates if this component is an inline component.
+    inline: false,
+    // Points to the parent component if this component is encompased within it.
+    parentComponent: null
   }, optParams);
+
+  /**
+   * This indicates if this component is inline and shouldn't allow multiple
+   * components.
+   * @type {boolean}
+   */
+  this.inline = params.inline;
+
+  /**
+   * If the component is contained within another this will point to the parent.
+   * @type {Component}
+   */
+  this.parentComponent = params.parentComponent;
 
   /**
    * Name to reference this Component.
@@ -342,7 +331,13 @@ var Component = function(optParams) {
    * Section this Component belongs to.
    * @type {Section}
    */
-  this.section = null;
+  this.section = params.section;
+
+  /**
+   * If component is nested within another component.
+   * @type {Component}
+   */
+  this.parentComponent = null;
 
 };
 module.exports = Component;
@@ -355,9 +350,12 @@ module.exports = Component;
 Component.CLASS_NAME = 'Component';
 
 
+/**
+ * Called when the module is installed on in an editor.
+ * @param  {Editor} editor Editor instance which installed the module.
+ */
 Component.onInstall = function (editor) {
   // jshint unused: false
-  // pass.
 };
 
 
@@ -378,9 +376,21 @@ Component.registerRegexes = function(componentFactory) {
  * @return {Component} Next sibling Component.
  */
 Component.prototype.getNextComponent = function() {
+  // If this is an inline component and it is included in another one.
+  // Next component is the parent's next component.
+  if (this.parentComponent && this.inline) {
+    return this.parentComponent.getNextComponent();
+  }
+
   if (this.section) {
     var i = this.section.components.indexOf(this);
-    return this.section.components[i + 1];
+    var component = this.section.components[i + 1];
+    if (!component) {
+      // If the component is the last component in its section, then return
+      // the new component after this section.
+      return this.section.getNextComponent();
+    }
+    return component;
   }
 };
 
@@ -392,7 +402,11 @@ Component.prototype.getNextComponent = function() {
 Component.prototype.getPreviousComponent = function() {
   if (this.section) {
     var i = this.section.components.indexOf(this);
-    return this.section.components[i - 1];
+    var component = this.section.components[i - 1];
+    if (!component) {
+      return this.section.getPreviousComponent();
+    }
+    return component;
   }
 };
 
@@ -421,7 +435,16 @@ Component.prototype.getJSONModel = function() {
  * @return {number} Index of the component in the section.
  */
 Component.prototype.getIndexInSection = function() {
-  return this.section.components.indexOf(this);
+  if (this.section) {
+    return this.section.components.indexOf(this);
+  } else if (this.parentComponent) {
+    if (this.parentComponent.components) {
+      return this.parentComponent.components.indexOf(this);
+    } else {
+      return 0;
+    }
+  }
+  return null;
 };
 
 
@@ -494,11 +517,12 @@ Component.prototype.getLength = function () {
   return 0;
 };
 
-},{"./errors":4,"./utils":15}],3:[function(require,module,exports){
+},{"./errors":4,"./utils":16}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
 var Paragraph = require('./paragraph');
+var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
@@ -551,6 +575,7 @@ var Editor = function (element, optParams) {
    */
   this.installedModules = {};
   this.install(Paragraph);
+  this.install(List);
   this.install(Figure);
   for (var i = 0; i < params.modules.length; i++) {
     this.install(params.modules[i]);
@@ -703,8 +728,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
   var offsetAfterOperation;
   var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.section.components.indexOf(
-      currentComponent);
+  var currentIndex = currentComponent.getIndexInSection();
   var nextComponent = currentComponent.getNextComponent();
   var prevComponent = currentComponent.getPreviousComponent();
 
@@ -714,11 +738,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // TODO(mkhatib): I don't like that we keep checking if the component is
       // an instanceof Paragraph. Maybe find a better way to manage this.
       if (!selection.isCursorAtEnding() &&
-          currentComponent instanceof Paragraph) {
+          currentComponent instanceof Paragraph &&
+          !currentComponent.inline) {
         Utils.arrays.extend(ops, this.getSplitParagraphOps(
             -inBetweenComponents.length));
       } else if (nextComponent instanceof Paragraph &&
-          nextComponent.isPlaceholder()) {
+          (nextComponent.isPlaceholder() || currentComponent.inline)) {
         // If the next paragraph is a placeholder, just move the cursor to it
         // and don't insert a new paragraph.
         selection.setCursor({
@@ -736,12 +761,36 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           factoryMethod(currentComponent, function(ops) {
             article.transaction(ops);
           });
-        }
+        } else {
+          var insertType = currentComponent.paragraphType;
+          var insertInSection = selection.getSectionAtEnd();
+          var atIndex = currentIndex - inBetweenComponents.length + 1;
+          if (insertType === Paragraph.Types.ListItem) {
+            if (currentComponent.getLength() === 0) {
+              var list = insertInSection;
+              insertType = Paragraph.Types.Paragraph;
+              insertInSection = selection.getSectionAtEnd().section;
+              // If this is not the last element of the list split the list.
+              if (atIndex < list.getLength()) {
+                Utils.arrays.extend(ops, list.getSplitOps(atIndex));
+              }
+              Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
+              atIndex = selection.getSectionAtEnd().getIndexInSection() + 1;
+            }
+          } else if (currentComponent.parentComponent) {
+            insertInSection = currentComponent.parentComponent.section;
+            atIndex = currentComponent.parentComponent.getIndexInSection() + 1;
+            insertType = Paragraph.Types.Paragraph;
+          } else {
+            insertType = Paragraph.Types.Paragraph;
+          }
 
-        newP = new Paragraph({section: selection.getSectionAtEnd()});
-        Utils.arrays.extend(
-            ops, newP.getInsertOps(
-                currentIndex - inBetweenComponents.length + 1));
+          newP = new Paragraph({
+            section: insertInSection,
+            paragraphType: insertType
+          });
+          Utils.arrays.extend(ops, newP.getInsertOps(atIndex));
+        }
       }
 
       this.article.transaction(ops);
@@ -973,8 +1022,7 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   var ops = [];
   var selection = this.article.selection;
   var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.section.components.indexOf(
-      currentComponent);
+  var currentIndex = currentComponent.getIndexInSection();
   var afterCursorText = currentComponent.text.substring(
       selection.end.offset, currentComponent.text.length);
 
@@ -998,7 +1046,8 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   var newP = new Paragraph({
       section: selection.getSectionAtEnd(),
       text: afterCursorText,
-      formats: afterCursorShiftedFormats
+      formats: afterCursorShiftedFormats,
+      paragraphType: currentComponent.paragraphType
   });
   Utils.arrays.extend(
       ops, newP.getInsertOps(currentIndex + indexOffset + 1));
@@ -1094,7 +1143,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var selection = this.article.selection;
   var currentComponent = selection.getComponentAtStart();
   var section = selection.getSectionAtStart();
-  var startParagraphIndex = section.components.indexOf(currentComponent);
+  var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
   var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
@@ -1291,7 +1340,7 @@ Editor.prototype.handleCut = function() {
 };
 
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":8,"./figure":10,"./paragraph":12,"./section":13,"./utils":15}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":8,"./figure":10,"./list":11,"./paragraph":13,"./section":14,"./utils":16}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1447,6 +1496,20 @@ Formatting.Types = {
  * @type {number}
  */
 Formatting.EDGE = -999999;
+
+
+/**
+ * Enable block formatting toolbar on these types of paragraphs.
+ * @type {Array.<String>}
+ */
+Formatting.BLOCK_ENABLED_ON = [
+    Paragraph.Types.Paragraph,
+    Paragraph.Types.MainHeader,
+    Paragraph.Types.SecondaryHeader,
+    Paragraph.Types.ThirdHeader,
+    Paragraph.Types.Quote,
+    Paragraph.Types.Code
+];
 
 
 /**
@@ -1729,7 +1792,8 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
       this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
 
   if (wSelection.isCollapsed) {
-    if (startComp instanceof Paragraph) {
+    if (startComp instanceof Paragraph &&
+        Formatting.BLOCK_ENABLED_ON.indexOf(startComp.paragraphType) !== -1) {
       // If there's no selection, show the block toolbar.
       this.repositionBlockToolbar();
     } else {
@@ -2225,7 +2289,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":12,"../selection":14,"../utils":15}],7:[function(require,module,exports){
+},{"../paragraph":13,"../selection":15,"../utils":16}],7:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2507,7 +2571,7 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../selection":14,"../utils":15}],8:[function(require,module,exports){
+},{"../component":2,"../selection":15,"../utils":16}],8:[function(require,module,exports){
 'use strict';
 
 
@@ -2960,12 +3024,13 @@ YouTubeComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../selection":14,"../utils":15}],10:[function(require,module,exports){
+},{"../component":2,"../selection":15,"../utils":16}],10:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
 var Selection = require('./selection');
 var Component = require('./component');
+var Paragrarph = require('./paragraph');
 
 /**
  * Figure main.
@@ -2984,16 +3049,9 @@ var Figure = function(optParams) {
     src: '',
     caption: null,
     width: '100%',
-    // Generate a UID as a reference for this Figure.
-    name: Utils.getUID()
   }, optParams);
 
-  /**
-   * Name to reference this Figure.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this Figure.
@@ -3010,23 +3068,27 @@ var Figure = function(optParams) {
   this.caption = params.caption;
 
   /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.captionParagraph = new Paragrarph({
+    placeholderText: 'Type caption for image',
+    text: params.caption,
+    paragraphType: Paragrarph.Types.Caption,
+    parentComponent: this,
+    inline: true
+  });
+
+  /**
    * DOM element tied to this object.
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-  this.dom.addEventListener('click', this.handleClick.bind(this));
-
-  this.captionDom = document.createElement(Figure.CAPTION_TAG_NAME);
-  this.captionDom.setAttribute('contenteditable', true);
 
   this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-
-  if (this.caption) {
-    this.captionDom.innerText = this.caption;
-    this.dom.appendChild(this.captionDom);
-  }
+  this.imgDom.addEventListener('click', this.handleClick.bind(this));
 
   if (this.src) {
     this.imgDom.setAttribute('src', this.src);
@@ -3035,8 +3097,12 @@ var Figure = function(optParams) {
     }
     this.dom.appendChild(this.imgDom);
   }
+
+  this.captionDom = this.captionParagraph.dom;
+  this.captionDom.setAttribute('contenteditable', true);
+  this.dom.appendChild(this.captionDom);
 };
-Figure.prototype = new Component();
+Figure.prototype = Object.create(Component.prototype);
 module.exports = Figure;
 
 
@@ -3130,7 +3196,7 @@ Figure.prototype.getJSONModel = function() {
   var image = {
     name: this.name,
     src: this.src,
-    caption: this.caption
+    caption: this.captionParagraph.getJSONModel()
   };
 
   return image;
@@ -3213,12 +3279,276 @@ Figure.prototype.getLength = function () {
   return 1;
 };
 
-},{"./component":2,"./selection":14,"./utils":15}],11:[function(require,module,exports){
+},{"./component":2,"./paragraph":13,"./selection":15,"./utils":16}],11:[function(require,module,exports){
+'use strict';
+
+var Utils = require('./utils');
+var Section = require('./section');
+var Paragrarph = require('./paragraph');
+
+
+/**
+ * List main.
+ * @param {Object} optParams Optional params to initialize the List object.
+ * Default:
+ *   {
+ *     components: [Paragraph],
+ *     tagName: 'ul'
+ *   }
+ */
+var List = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    tagName: List.UNORDERED_LIST_TAG,
+    components: [new Paragrarph({
+      paragraphType: Paragrarph.Types.ListItem
+    })]
+  }, optParams);
+
+  Section.call(this, params);
+};
+List.prototype = Object.create(Section.prototype);
+module.exports = List;
+
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+List.CLASS_NAME = 'List';
+
+
+/**
+ * Unordered List component container element tag name.
+ * @type {string}
+ */
+List.UNORDERED_LIST_TAG = 'UL';
+
+
+/**
+ * Ordered List component container element tag name.
+ * @type {string}
+ */
+List.ORDERED_LIST_TAG = 'OL';
+
+
+/**
+ * Regex string for matching unordered list.
+ * @type {string}
+ */
+List.UNORDERED_LIST_REGEX = '^(?:\\*|-)\\s?(.*)';
+
+
+/**
+ * Regex strings for matching ordered list.
+ * @type {string}
+ */
+List.ORDERED_LIST_REGEX = '^(?:1\\.|-|_|\\))\\s?(.*)';
+
+
+/**
+ * Handles onInstall when List module is installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+List.onInstall = function(editor) {
+  List.registerRegexes_(editor);
+};
+
+
+/**
+ * Registers regular experessions to create image from if matched.
+ * @param  {Editor} editor The editor to register the regex with.
+ */
+List.registerRegexes_ = function(editor) {
+  editor.registerRegex(List.UNORDERED_LIST_REGEX, List.handleULMatchedRegex);
+  editor.registerRegex(List.ORDERED_LIST_REGEX, List.handleOLMatchedRegex);
+};
+
+
+/**
+ * Returns list of operations to create a list from a matched regex.
+ * @param  {Component} component Matched regex component.
+ * @param  {string} text Text for creating the list item.
+ * @param  {string} listType UL or OL.
+ * @return {Array.<Object>} List of operations to create a list.
+ */
+List.createListOpsForMatchedRegex_ = function (component, text, listType) {
+  var atIndex = component.getIndexInSection();
+  var ops = [];
+  var list = new List({
+    tagName: listType,
+    section: component.section,
+    components: [new Paragrarph({
+      text: text,
+      paragraphType: Paragrarph.Types.ListItem
+    })]
+  });
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, component.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, list.getInsertOps(atIndex));
+
+  var newLi = new Paragrarph({
+    paragraphType: Paragrarph.Types.ListItem,
+    section: list
+  });
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, newLi.getInsertOps(1));
+
+  return ops;
+};
+
+
+/**
+ * Creates an unordered list component from matched regex component.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+List.handleULMatchedRegex = function (matchedComponent, opsCallback) {
+  var regex = new RegExp(List.UNORDERED_LIST_REGEX);
+  var matches = regex.exec(matchedComponent.text);
+  var text = matches[1];
+  var ops = List.createListOpsForMatchedRegex_(
+      matchedComponent, text, List.UNORDERED_LIST_TAG);
+  opsCallback(ops);
+};
+
+
+/**
+ * Creates an ordered list component from matched regex component.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+List.handleOLMatchedRegex = function (matchedComponent, opsCallback) {
+  var regex = new RegExp(List.ORDERED_LIST_REGEX);
+  var matches = regex.exec(matchedComponent.text);
+  var text = matches[1];
+  var ops = List.createListOpsForMatchedRegex_(
+      matchedComponent, text, List.ORDERED_LIST_TAG);
+  opsCallback(ops);
+};
+
+
+/**
+ * Returns the operations to execute a deletion of list component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+List.prototype.getDeleteOps = function (optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: 'List',
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        components: this.components,
+        tagName: this.tagName
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a list.
+ * @param {number} index Index to insert the list at.
+ * @return {Array.<Object>} Operations for inserting the list.
+ */
+List.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'List',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        components: this.components,
+        tagName: this.tagName
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute splitting a list.
+ * @param {number} atIndex Index to split the list at.
+ * @return {Array.<Object>} Operations for splitting the list.
+ */
+List.prototype.getSplitOps = function (atIndex) {
+  var ops = this.getDeleteOps();
+  var newUID = Utils.getUID();
+  Utils.arrays.extend(ops, [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'List',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: this.getIndexInSection(),
+      attrs: {
+        components: this.components.slice(0, atIndex),
+        tagName: this.tagName
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }, {
+    do: {
+      op: 'insertComponent',
+      componentClass: 'List',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: newUID,
+      index: this.getIndexInSection() + 1,
+      attrs: {
+        components: this.components.slice(atIndex, this.getLength()),
+        tagName: this.tagName
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: newUID
+    }
+  }]);
+
+  return ops;
+};
+
+
+/**
+ * Returns the length of the list content.
+ * @return {number} Length of the list content.
+ */
+List.prototype.getLength = function () {
+  return this.components.length;
+};
+
+},{"./paragraph":13,"./section":14,"./utils":16}],12:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
 module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
+module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
 module.exports.Section = require('./section');
@@ -3229,7 +3559,7 @@ module.exports.Formatting = require('./extensions/formatting');
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
 
-},{"./article":1,"./editor":3,"./extensions/formatting":6,"./extensions/giphyComponent":7,"./extensions/youtubeComponent":9,"./figure":10,"./paragraph":12,"./section":13,"./selection":14}],12:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/formatting":6,"./extensions/giphyComponent":7,"./extensions/youtubeComponent":9,"./figure":10,"./list":11,"./paragraph":13,"./section":14,"./selection":15}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -3258,18 +3588,9 @@ var Paragraph = function(optParams) {
     paragraphType: Paragraph.Types.Paragraph,
     // List of inline formats for the paragraph.
     formats: [],
-    // Generate a UID as a reference for this paragraph.
-    name: Utils.getUID(),
-
-    section: null
   }, optParams);
 
-  /**
-   * Name to reference this paragraph.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this paragraph.
@@ -3295,7 +3616,6 @@ var Paragraph = function(optParams) {
    */
   this.paragraphType = params.paragraphType;
 
-  this.section = params.section;
 
   /**
    * DOM element tied to this object.
@@ -3318,7 +3638,7 @@ var Paragraph = function(optParams) {
     this.updateInnerDom_();
   }
 };
-Paragraph.prototype = new Component();
+Paragraph.prototype = Object.create(Component.prototype);
 module.exports = Paragraph;
 
 
@@ -3339,18 +3659,18 @@ Paragraph.Types = {
   SecondaryHeader: 'h2',
   ThirdHeader: 'h3',
   Quote: 'blockquote',
-  Code: 'pre'
+  Code: 'pre',
+  Caption: 'figcaption',
+  ListItem: 'li'
 };
 
 
 /**
- * Handles onInstall when Paragrarph module is installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * Called when the module is installed on in an editor.
+ * @param  {Editor} editor Editor instance which installed the module.
  */
-Paragraph.onInstall = function(editor) {
+Paragraph.onInstall = function (editor) {
   // jshint unused: false
-  // TODO(mkhatib): Register regexes for UL/OL LIs and other markdown syntaxes.
-  // TODO(mkhatib): Initialize a toolbar for all Paragraph components instances.
 };
 
 
@@ -3874,12 +4194,12 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./utils":15}],13:[function(require,module,exports){
+},{"./component":2,"./utils":16}],14:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
 var Utils = require('./utils');
-
+var Component = require('./component');
 
 /**
  * Section main.
@@ -3894,20 +4214,20 @@ var Utils = require('./utils');
 var Section = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    tagName: Section.TAG_NAME,
     // The components that is in this section.
     components: [],
     // The background of this section.
-    background: {},
-    // Generate a UID as a reference for this section.
-    name: Utils.getUID()
+    background: {}
   }, optParams);
 
+  Component.call(this, params);
+
   /**
-   * Name to reference this Section.
+   * Tag to use for the dom element for the section.
    * @type {string}
    */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  this.tagName = params.tagName;
 
   /**
    * Background settings
@@ -3919,7 +4239,7 @@ var Section = function(optParams) {
    * DOM element tied to this object.
    * @type {HTMLElement}
    */
-  this.dom = document.createElement(Section.TAG_NAME);
+  this.dom = document.createElement(this.tagName);
   this.dom.setAttribute('name', this.name);
 
   /**
@@ -3929,13 +4249,12 @@ var Section = function(optParams) {
   this.components = [];
   for (var i = 0; i < params.components.length; i++) {
     this.insertComponentAt(params.components[i], i);
-
-    // AbstractComponent is abstract class - (Text)Component, Figure,
-    // YouTubeEmbed, TwitterEmbed and so on inherits from Component.
   }
 
 };
+Section.prototype = Object.create(Component.prototype);
 module.exports = Section;
+
 
 /**
  * Element Tag name when creating the associated DOM element.
@@ -4031,7 +4350,7 @@ Section.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./selection":14,"./utils":15}],14:[function(require,module,exports){
+},{"./component":2,"./selection":15,"./utils":16}],15:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4474,9 +4793,8 @@ var Selection = (function() {
         offset: this.calculateEndOffsetFromWindowSelection_(selection)
       };
 
-      var endIndex = end.component.section.components.indexOf(end.component);
-      var startIndex = start.component.section.components.indexOf(
-          start.component);
+      var endIndex = end.component.getIndexInSection();
+      var startIndex = start.component.getIndexInSection();
       var reversedSelection = ((end.component === start.component &&
           end.offset < start.offset) || startIndex > endIndex);
 
@@ -4557,7 +4875,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./utils":15}],15:[function(require,module,exports){
+},{"./utils":16}],16:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -4827,5 +5145,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[11])(11)
+},{}]},{},[12])(12)
 });

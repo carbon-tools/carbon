@@ -3,6 +3,7 @@
 module.exports.Editor = require('./editor');
 module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
+module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
 module.exports.Section = require('./section');

@@ -16,9 +16,27 @@ var Errors = require('./errors');
 var Component = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    section: null,
     // Generate a UID as a reference for this Component.
-    name: Utils.getUID()
+    name: Utils.getUID(),
+    // Indicates if this component is an inline component.
+    inline: false,
+    // Points to the parent component if this component is encompased within it.
+    parentComponent: null
   }, optParams);
+
+  /**
+   * This indicates if this component is inline and shouldn't allow multiple
+   * components.
+   * @type {boolean}
+   */
+  this.inline = params.inline;
+
+  /**
+   * If the component is contained within another this will point to the parent.
+   * @type {Component}
+   */
+  this.parentComponent = params.parentComponent;
 
   /**
    * Name to reference this Component.
@@ -31,7 +49,13 @@ var Component = function(optParams) {
    * Section this Component belongs to.
    * @type {Section}
    */
-  this.section = null;
+  this.section = params.section;
+
+  /**
+   * If component is nested within another component.
+   * @type {Component}
+   */
+  this.parentComponent = null;
 
 };
 module.exports = Component;
@@ -44,9 +68,12 @@ module.exports = Component;
 Component.CLASS_NAME = 'Component';
 
 
+/**
+ * Called when the module is installed on in an editor.
+ * @param  {Editor} editor Editor instance which installed the module.
+ */
 Component.onInstall = function (editor) {
   // jshint unused: false
-  // pass.
 };
 
 
@@ -67,9 +94,21 @@ Component.registerRegexes = function(componentFactory) {
  * @return {Component} Next sibling Component.
  */
 Component.prototype.getNextComponent = function() {
+  // If this is an inline component and it is included in another one.
+  // Next component is the parent's next component.
+  if (this.parentComponent && this.inline) {
+    return this.parentComponent.getNextComponent();
+  }
+
   if (this.section) {
     var i = this.section.components.indexOf(this);
-    return this.section.components[i + 1];
+    var component = this.section.components[i + 1];
+    if (!component) {
+      // If the component is the last component in its section, then return
+      // the new component after this section.
+      return this.section.getNextComponent();
+    }
+    return component;
   }
 };
 
@@ -81,7 +120,11 @@ Component.prototype.getNextComponent = function() {
 Component.prototype.getPreviousComponent = function() {
   if (this.section) {
     var i = this.section.components.indexOf(this);
-    return this.section.components[i - 1];
+    var component = this.section.components[i - 1];
+    if (!component) {
+      return this.section.getPreviousComponent();
+    }
+    return component;
   }
 };
 
@@ -110,7 +153,16 @@ Component.prototype.getJSONModel = function() {
  * @return {number} Index of the component in the section.
  */
 Component.prototype.getIndexInSection = function() {
-  return this.section.components.indexOf(this);
+  if (this.section) {
+    return this.section.components.indexOf(this);
+  } else if (this.parentComponent) {
+    if (this.parentComponent.components) {
+      return this.parentComponent.components.indexOf(this);
+    } else {
+      return 0;
+    }
+  }
+  return null;
 };
 
 

@@ -26,18 +26,9 @@ var Paragraph = function(optParams) {
     paragraphType: Paragraph.Types.Paragraph,
     // List of inline formats for the paragraph.
     formats: [],
-    // Generate a UID as a reference for this paragraph.
-    name: Utils.getUID(),
-
-    section: null
   }, optParams);
 
-  /**
-   * Name to reference this paragraph.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this paragraph.
@@ -63,7 +54,6 @@ var Paragraph = function(optParams) {
    */
   this.paragraphType = params.paragraphType;
 
-  this.section = params.section;
 
   /**
    * DOM element tied to this object.
@@ -86,7 +76,7 @@ var Paragraph = function(optParams) {
     this.updateInnerDom_();
   }
 };
-Paragraph.prototype = new Component();
+Paragraph.prototype = Object.create(Component.prototype);
 module.exports = Paragraph;
 
 
@@ -107,18 +97,18 @@ Paragraph.Types = {
   SecondaryHeader: 'h2',
   ThirdHeader: 'h3',
   Quote: 'blockquote',
-  Code: 'pre'
+  Code: 'pre',
+  Caption: 'figcaption',
+  ListItem: 'li'
 };
 
 
 /**
- * Handles onInstall when Paragrarph module is installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * Called when the module is installed on in an editor.
+ * @param  {Editor} editor Editor instance which installed the module.
  */
-Paragraph.onInstall = function(editor) {
+Paragraph.onInstall = function (editor) {
   // jshint unused: false
-  // TODO(mkhatib): Register regexes for UL/OL LIs and other markdown syntaxes.
-  // TODO(mkhatib): Initialize a toolbar for all Paragraph components instances.
 };
 
 

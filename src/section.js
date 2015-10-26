@@ -2,7 +2,7 @@
 
 var Selection = require('./selection');
 var Utils = require('./utils');
-
+var Component = require('./component');
 
 /**
  * Section main.
@@ -17,20 +17,20 @@ var Utils = require('./utils');
 var Section = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    tagName: Section.TAG_NAME,
     // The components that is in this section.
     components: [],
     // The background of this section.
-    background: {},
-    // Generate a UID as a reference for this section.
-    name: Utils.getUID()
+    background: {}
   }, optParams);
 
+  Component.call(this, params);
+
   /**
-   * Name to reference this Section.
+   * Tag to use for the dom element for the section.
    * @type {string}
    */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  this.tagName = params.tagName;
 
   /**
    * Background settings
@@ -42,7 +42,7 @@ var Section = function(optParams) {
    * DOM element tied to this object.
    * @type {HTMLElement}
    */
-  this.dom = document.createElement(Section.TAG_NAME);
+  this.dom = document.createElement(this.tagName);
   this.dom.setAttribute('name', this.name);
 
   /**
@@ -52,13 +52,12 @@ var Section = function(optParams) {
   this.components = [];
   for (var i = 0; i < params.components.length; i++) {
     this.insertComponentAt(params.components[i], i);
-
-    // AbstractComponent is abstract class - (Text)Component, Figure,
-    // YouTubeEmbed, TwitterEmbed and so on inherits from Component.
   }
 
 };
+Section.prototype = Object.create(Component.prototype);
 module.exports = Section;
+
 
 /**
  * Element Tag name when creating the associated DOM element.

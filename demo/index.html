@@ -64,6 +64,43 @@
               ]
             }),
             new manshar.Paragraph({
+              text: 'Ordered and Unordered Lists',
+              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+            }),
+            new manshar.List({
+              components: [
+                new manshar.Paragraph({
+                  paragraphType: manshar.Paragraph.Types.ListItem,
+                  text: 'Item One'
+                }),
+                new manshar.Paragraph({
+                  paragraphType: manshar.Paragraph.Types.ListItem,
+                  text: 'Item Two'
+                }),
+                new manshar.Paragraph({
+                  paragraphType: manshar.Paragraph.Types.ListItem,
+                  text: 'Item Three'
+                }),
+              ]
+            }),
+            new manshar.List({
+              tagName: manshar.List.ORDERED_LIST_TAG,
+              components: [
+                new manshar.Paragraph({
+                  paragraphType: manshar.Paragraph.Types.ListItem,
+                  text: 'Item One'
+                }),
+                new manshar.Paragraph({
+                  paragraphType: manshar.Paragraph.Types.ListItem,
+                  text: 'Item Two'
+                }),
+                new manshar.Paragraph({
+                  paragraphType: manshar.Paragraph.Types.ListItem,
+                  text: 'Item Three'
+                }),
+              ]
+            }),
+            new manshar.Paragraph({
               text: 'Images',
               paragraphType: manshar.Paragraph.Types.SecondaryHeader
             }),
