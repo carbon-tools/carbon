@@ -157,6 +157,19 @@ body {
   border: 0;
 }
 
+.editor-toolbar-buttons .button-container {
+  display: inline-block;
+}
+
+.editor-toolbar-buttons .button-container.hidden {
+  display: none;
+}
+
+.editor-toolbar button {
+  outline: none;
+  user-select: none;
+}
+
 .editor-inline-toolbar .editor-toolbar-buttons button {
   background-color: #FF5722;
   color: #fff;
@@ -182,11 +195,67 @@ body {
   outline: none;
 }
 
-.editor-block-toolbar .editor-toolbar-buttons button.active {
+.editor-block-toolbar .button-container.active button {
   color: #2196F3;
 }
 
-.editor-inline-toolbar .editor-toolbar-buttons button.active {
+.editor-inline-toolbar .button-container.active button {
   background-color: #2196F3;
   color: #fff;
+}
+
+.toolbelt-toolbar {
+  max-width: 600px;
+  background: #ff5722;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.toolbelt-toolbar .editor-toolbar-buttons {
+  display: flex;
+  text-align: center;
+}
+
+.toolbelt-toolbar .not(.upload-button) button {
+  font-size: 1em;
+  padding: 1em;
+  flex-grow: 1;
+  background: #ff5722;
+  color: #fff;
+  text-align: center;
+  display: table-cell;
+  border: 5px solid rgba(0, 0, 0, .1);
+}
+
+.toolbelt-toolbar .upload-button button {
+  background: transparent;
+  color: #fff;
+}
+
+.upload-button {
+  position: relative;
+  font-size: 1em;
+  padding: 1em;
+  flex-grow: 1;
+  background: #ff5722;
+  color: #fff;
+  text-align: center;
+  display: table-cell;
+  border: 5px solid rgba(0, 0, 0, .1);
+  cursor: pointer;
+}
+
+.upload-button:hover {
+  background-color: #BF360C;
+}
+
+.upload-button input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
 }

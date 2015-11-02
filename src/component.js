@@ -16,6 +16,9 @@ var Errors = require('./errors');
 var Component = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    // The editor this component belongs to.
+    editor: null,
+    // The section this component is added to.
     section: null,
     // Generate a UID as a reference for this Component.
     name: Utils.getUID(),
@@ -24,6 +27,12 @@ var Component = function(optParams) {
     // Points to the parent component if this component is encompased within it.
     parentComponent: null
   }, optParams);
+
+  /**
+   * Editor this component is added it.
+   * @type {Editor}
+   */
+  this.editor = params.editor;
 
   /**
    * This indicates if this component is inline and shouldn't allow multiple

@@ -245,6 +245,11 @@ Article.prototype.exec = function(operation, action) {
       component.applyFormats(operation[action].formats);
     }
 
+    // If this is to update the component attributes.
+    if (operation[action].attrs) {
+      component.updateAttributes(operation[action].attrs);
+    }
+
     if (operation[action].cursorOffset !== undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({

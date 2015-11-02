@@ -155,10 +155,34 @@
 
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {
-        // console.log(event);
         model.innerHTML = JSONTree.create(editor.getJSONModel());
       });
       model.innerHTML = JSONTree.create(editor.getJSONModel());
+
+      // TODO(mkhatib): Find an image uploading service to demo the full
+      // functionality of attachments in the demo.
+      editor.addEventListener('attachment-added', function(event){
+        var attachment = event.detail.attachment;
+        // This is just to fake an async upload and then updating the attachment
+        // to have the remote URL for the resource.
+
+        // Typically the client would make an Ajax request to upload the file
+        // which can be accessed on `event.detail.attachment.file`.
+
+        // After the upload is complete the client would call
+        //   attachment.setAttributes to update the attributes of the figure.
+        setTimeout(function() {
+          var finalSrc = 'https://octodex.github.com/images/filmtocat.png';
+          var caption = 'The uploaded image has been replaced to demonstrate ' +
+              'how an application can replace the image src once it has been ' +
+              'uploaded. In a real application the image would still be the ' +
+              'the same, this demo does not implement uploading backend.';
+          attachment.setAttributes({
+            src: finalSrc,
+            caption: caption
+          });
+        }, 5000);
+      });
     </script>
   </body>
 </html>
