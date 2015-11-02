@@ -1,0 +1,66 @@
+'use strict';
+
+var Utils = require('../utils');
+
+
+/**
+ * Allow for updating attributes in history and in the component for
+ * uploading files and media.
+ * @param {Object=} optParams Optional Parameters.
+ */
+var Attachment = function (optParams) {
+  var params = Utils.extend({
+    file: null,
+    // TODO(mkhatib): Make this general for any kind of component
+    // (e.g. video, pdf...etc)
+    figure: null,
+    insertedOps: null
+  }, optParams);
+
+  /**
+   * The file that was picked by the user.
+   * @type {File}
+   */
+  this.file = params.file;
+
+  /**
+   * Figure inserted for this attachment.
+   * @type {Figure}
+   */
+  this.figure = params.figure;
+
+  /**
+   * Operations used to insert the component.
+   * @type {Array.<Object>}
+   */
+  this.insertedOps = params.insertedOps;
+};
+module.exports = Attachment;
+
+
+/**
+ * Sets upload progress for the attachment.
+ * @param {number} progress Progress for the uploading process.
+ */
+Attachment.prototype.setUploadProgress = function(progress) {
+  this.progress = progress;
+
+  // TODO(mkhatib): Update UI indication of the upload progress.
+};
+
+
+/**
+ * Sets attributes for the inserted component and updates the insertion
+ * operations in history.
+ * @param {Object} attrs Attributes to update.
+ */
+Attachment.prototype.setAttributes = function(attrs) {
+  // TODO(mkhatib): This is a hack to update previous history operation.
+  // Think of a better way to do this.
+  for (var i = 0; i < this.insertedOps.length; i++) {
+    var newAttrs = Utils.extend(this.insertedOps[i].do.attrs || {}, attrs);
+    this.insertedOps[i].do.attrs = newAttrs;
+  }
+  // Update the figure object attributes to reflect the changes.
+  this.figure.updateAttributes(attrs);
+};

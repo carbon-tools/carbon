@@ -32,6 +32,16 @@ var Figure = function(optParams) {
    */
   this.src = params.src;
 
+  /**
+   * Wether this figure is initialized with Data URL.
+   * @type {boolean}
+   */
+  this.isDataUrl = !!params.src && params.src.indexOf('http') !== 0;
+
+  /**
+   * Width of the figure.
+   * @type {string}
+   */
   this.width = params.width;
 
   /**
@@ -168,9 +178,12 @@ Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
 Figure.prototype.getJSONModel = function() {
   var image = {
     name: this.name,
-    src: this.src,
     caption: this.captionParagraph.getJSONModel()
   };
+
+  if (!this.isDataUrl) {
+    image.src = this.src;
+  }
 
   return image;
 };
@@ -250,4 +263,40 @@ Figure.prototype.getInsertOps = function (index) {
  */
 Figure.prototype.getLength = function () {
   return 1;
+};
+
+
+/**
+ * Updates figure attributes.
+ * @param  {Object} attrs Attributes to update.
+ */
+Figure.prototype.updateAttributes = function(attrs) {
+  if (attrs.src) {
+    this.updateSource(attrs.src);
+  }
+
+  if (attrs.caption) {
+    this.updateCaption(attrs.caption);
+  }
+};
+
+
+/**
+ * Updates the source attribute for the figure and its dom.
+ * @param  {string} src Image source.
+ */
+Figure.prototype.updateSource = function(src) {
+  this.src = src;
+  this.isDataUrl = !!this.src && this.src.indexOf('http') !== 0;
+  this.imgDom.setAttribute('src', src);
+};
+
+
+/**
+ * Updates figure caption and its dom.
+ * @param  {string} caption Caption text to update to.
+ */
+Figure.prototype.updateCaption = function(caption) {
+  this.caption = caption;
+  this.captionParagraph.setText(caption);
 };

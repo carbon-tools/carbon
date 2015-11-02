@@ -3,12 +3,9 @@
 var Paragraph = require('../paragraph');
 var Selection = require('../selection');
 var Utils = require('../utils');
+var Button = require('../toolbars/button');
+var TextField = require('../toolbars/textField');
 
-
-// TODO: Refactor this to make toolbar its own module and separate
-// the logic of formatting from the UI components.
-// Also encompass toolbar into an object with a .dom property on it
-// to access its HTMLElement.
 
 /**
  * Editor formatting logic is an extension to the editor.
@@ -65,13 +62,6 @@ Formatting.Types = {
   BLOCK: 'block',
   INLINE: 'inline'
 };
-
-
-/**
- * Used to position the toolbars outside the user view.
- * @type {number}
- */
-Formatting.EDGE = -999999;
 
 
 /**
@@ -154,19 +144,36 @@ Formatting.Actions = {
 
 
 /**
+ * Name of the block toolbar.
+ * @type {string}
+ */
+Formatting.BLOCK_TOOLBAR_NAME = 'block-toolbar';
+
+
+/**
+ * Name of the inline toolbar.
+ * @type {string}
+ */
+Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
+
+
+/**
  * Initializes the formatting extension.
  * @param  {Editor} editor The parent editor for the extension.
  */
 Formatting.prototype.init = function(editor) {
   this.editor = editor;
+  this.blockToolbar = editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
+  this.inlineToolbar = editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
 
   // Inline toolbar used for formatting inline elements (bold, italic...).
-  this.inlineToolbar = this.createInlineToolbar();
-  document.body.appendChild(this.inlineToolbar);
+  this.initInlineToolbarButtons();
 
   // Block toolbar used for formatting block elements (h1, h2, pre...).
-  this.blockToolbar = this.createBlockToolbar();
-  document.body.appendChild(this.blockToolbar);
+  this.initBlockToolbarButtons();
+
+  // Register keyboard shortcuts to handle formatting.
+  this.registerFormattingShortcuts_();
 
   // Initializes event listener to update toolbars position and status
   // when selection or cursor change.
@@ -180,82 +187,55 @@ Formatting.prototype.init = function(editor) {
  * Creates inline formatting toolbar.
  * @return {HTMLElement} Toolbar Element.
  */
-Formatting.prototype.createInlineToolbar = function() {
-  var toolbar = document.createElement('div');
-  toolbar.id = 'editor-inline-toolbar-' + this.editor.name;
-  toolbar.className = 'editor-toolbar editor-inline-toolbar';
-
-  toolbar.appendChild(this.createToolbarButtons(
-      Formatting.Actions.Inline, Formatting.Types.INLINE));
-  return toolbar;
+Formatting.prototype.initInlineToolbarButtons = function() {
+  var actions = Formatting.Actions.Inline;
+  for (var i = 0; i < actions.length; i++) {
+    var fields = this.createExtraFields(actions[i]);
+    var button = new Button({
+      name: actions[i].value,
+      label: actions[i].label,
+      data: actions[i],
+      fields: fields || []
+    });
+    button.addEventListener(
+        'click', this.handleInlineFormatterClicked.bind(this));
+    this.inlineToolbar.addButton(button);
+  }
 };
 
 
 /**
  * Creates block formatting toolbar.
- * @return {HTMLElement} Toolbar Element.
  */
-Formatting.prototype.createBlockToolbar = function() {
-  var toolbar = document.createElement('div');
-  toolbar.id = 'editor-block-toolbar-' + this.editor.name;
-  toolbar.className = 'editor-toolbar editor-block-toolbar';
-
-  toolbar.appendChild(this.createToolbarButtons(
-      Formatting.Actions.Block, Formatting.Types.BLOCK));
-  return toolbar;
+Formatting.prototype.initBlockToolbarButtons = function() {
+  var actions = Formatting.Actions.Block;
+  for (var i = 0; i < actions.length; i++) {
+    var button = new Button({
+      name: actions[i].value,
+      label: actions[i].label,
+      data: actions[i]
+    });
+    button.addEventListener(
+        'click', this.handleBlockFormatterClicked.bind(this));
+    this.blockToolbar.addButton(button);
+  }
 };
 
 
 /**
- * Creates toolbar buttons from passed actions.
- * @param  {Array.<Object>} actions Actions to create buttons for.
- * @param  {string} type Can be 'block' or 'inline'.
- * @return {HTMLElement} Element that holds the list of created buttons.
+ * Registers shortcuts to handle formatting.
  */
-Formatting.prototype.createToolbarButtons = function(actions, type) {
-  var i;
-  var container = document.createElement('div');
-  var buttonsList = document.createElement('ul');
-  var extraFieldsContainer = document.createElement('div');
-  buttonsList.className = 'editor-toolbar-buttons';
-  container.className = 'buttons-fields-container';
-  extraFieldsContainer.className = 'extra-fields-container';
-  for (i = 0; i < actions.length; i++) {
-    var fields = this.createExtraFields(actions[i], type);
-    if (fields) {
-      extraFieldsContainer.appendChild(fields);
+Formatting.prototype.registerFormattingShortcuts_ = function () {
+  for (var formatType in Formatting.Actions) {
+    var actions = Formatting.Actions[formatType];
+    for (var i = 0; i < actions.length; i++) {
+      var action = actions[i];
+      for (var j = 0; j < action.shortcuts.length; j++) {
+        this.editor.shortcutsManager.register(
+            action.shortcuts[j], this.handleKeyboardShortcut.bind(this));
+      }
     }
   }
-  container.appendChild(extraFieldsContainer);
-
-  for (i = 0; i < actions.length; i++) {
-    buttonsList.appendChild(this.createButton(actions[i], type));
-  }
-  container.appendChild(buttonsList);
-
-  return container;
-};
-
-
-/**
- * Creates a single action button.
- * @param  {Object} action Action to create the button for.
- * @param  {string} type Can be 'block' or 'inline'.
- * @return {HTMLElement} Button element.
- */
-Formatting.prototype.createButton = function(action, type) {
-  var button = document.createElement('button');
-  button.innerHTML = action.label;
-  button.value = action.value;
-  button.type = type;
-
-  // Add Event Listener to take action when clicking the button.
-  button.addEventListener('click', this.handleButtonClicked.bind(this));
-  for (var i = 0; i < action.shortcuts.length; i++) {
-    this.editor.shortcutsManager.register(
-        action.shortcuts[i], this.handleKeyboardShortcut.bind(this));
-  }
-  return button;
 };
 
 
@@ -265,30 +245,21 @@ Formatting.prototype.createButton = function(action, type) {
  * @return {HTMLElement} div contianer containing extra fields.
  */
 Formatting.prototype.createExtraFields = function(action) {
+  var fields = [];
   if (!action.attrs) {
-    return;
+    return fields;
   }
-
-  var fields = document.createElement('div');
-  fields.className = 'extra-fields ' + action.label;
 
   for (var key in action.attrs) {
     var attr = action.attrs[key];
-    var field = document.createElement('input');
-    field.placeholder = attr.placeholder;
-    field.setAttribute('name', key);
-    if (attr.required) {
-      field.setAttribute('required', attr.required);
-    }
-    fields.appendChild(field);
-
-    // Handle pressing enter.
+    var field = new TextField({
+      placeholder: attr.placeholder,
+      required: attr.required,
+      name: key
+    });
     field.addEventListener(
         'keyup', this.handleInlineInputFieldKeyUp.bind(this));
-
-    // TODO(mkhatib): Maybe in future also apply format attributes on blur.
-    // field.addEventListener(
-    //     'blur', this.handleInlineInputFieldBlur.bind(this));
+    fields.push(field);
   }
 
   return fields;
@@ -296,33 +267,14 @@ Formatting.prototype.createExtraFields = function(action) {
 
 
 /**
- * Focuses on the field for attributes for the active action.
- * @param  {HTMLElement} toolbar The toolbar element to focus the fields for.
- * @param  {Object} action The action representing the object to focus.
- */
-Formatting.prototype.focusOnExtraFieldsFor = function(toolbar, action) {
-  this.setToolbarActiveAction(toolbar, action);
-  var activeFields = toolbar.querySelector(
-      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
-  var firstInput = activeFields.querySelector('input');
-  firstInput.focus();
-};
-
-
-/**
  * Applies a format with attributes from the active button and fields.
  */
-Formatting.prototype.applyFormatWithAttrs = function() {
-  var activeButton = this.inlineToolbar.querySelector(
-      'button.' + Formatting.ACTIVE_ACTION_CLASS);
-  var activeFormatter = activeButton.value;
-  var activeFields = this.inlineToolbar.querySelector(
-      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
-
+Formatting.prototype.applyFormatWithAttrs = function(button) {
+  var activeFormatter = button.data.value;
   var attrs = {};
-  var inputs = activeFields.querySelectorAll('input');
-  for (var i = 0; i < inputs.length; i++) {
-    attrs[inputs[i].name] = inputs[i].value;
+  var fields = button.fields;
+  for (var i = 0; i < fields.length; i++) {
+    attrs[fields[i].name] = fields[i].value;
   }
   this.handleInlineFormatting(activeFormatter, attrs);
 };
@@ -335,20 +287,7 @@ Formatting.prototype.applyFormatWithAttrs = function() {
 Formatting.prototype.handleInlineInputFieldKeyUp = function(event) {
   // Enter.
   if (event.keyCode === 13) {
-    this.applyFormatWithAttrs();
-  }
-};
-
-
-/**
- * Handles clicking a formatting bar action button.
- * @param  {Event} event Click event.
- */
-Formatting.prototype.handleButtonClicked = function(event) {
-  if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
-    this.handleBlockFormatterClicked(event);
-  } else {
-    this.handleInlineFormatterClicked(event);
+    this.applyFormatWithAttrs(event.detail.target.parentButton);
   }
 };
 
@@ -362,83 +301,25 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
   var startComp = selection.getComponentAtStart();
   var endComp = selection.getComponentAtEnd();
 
-  this.setToolbarPosition(
-      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
-  this.setToolbarPosition(
-      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
+  this.blockToolbar.setVisible(false);
+  this.inlineToolbar.setVisible(false);
 
   if (wSelection.isCollapsed) {
     if (startComp instanceof Paragraph &&
         Formatting.BLOCK_ENABLED_ON.indexOf(startComp.paragraphType) !== -1) {
       // If there's no selection, show the block toolbar.
-      this.repositionBlockToolbar();
-    } else {
-      // TODO(mkhatib): Show the toolbar for the specific component.
+      this.blockToolbar.setPositionToStartTopOf(startComp.dom);
+      this.blockToolbar.setVisible(true);
     }
-  } else {
-    if (startComp instanceof Paragraph &&
+    this.reloadBlockToolbarStatus();
+  } else if (startComp instanceof Paragraph &&
         // Don't show the inline toolbar when multiple paragraphs are selected.
-        // TODO(mkhatib): Maybe allow this once we have support for multiple
-        // paragraphs formatting support.
         startComp === endComp) {
-      // Otherwise, show the inline toolbar.
-      this.repositionInlineToolbar();
-      setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
-    } else {
-      // TODO(mkhatib): show toolbar for the specific component.
-    }
+    // Otherwise, show the inline toolbar.
+    this.inlineToolbar.setPositionTopOfSelection();
+    this.inlineToolbar.setVisible(true);
+    this.reloadInlineToolbarStatus();
   }
-};
-
-
-/**
- * Reposition inline formatting toolbar and hides block toolbar.
- */
-Formatting.prototype.repositionInlineToolbar = function() {
-  var wSelection = window.getSelection();
-  var range = wSelection.getRangeAt(0);
-  var bounds = range.getBoundingClientRect();
-
-  // Hide the block formatting toolbar.
-  this.setToolbarPosition(
-      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
-
-  // Calculate the left edge of the inline toolbar.
-  var clientRect = this.inlineToolbar.getClientRects()[0];
-  var toolbarHeight = clientRect.height;
-  var toolbarWidth = clientRect.width;
-  var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
-
-  // Offset the top bound with the scrolled amount of the page.
-  var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
-
-  this.setToolbarPosition(this.inlineToolbar, top, left);
-};
-
-
-/**
- * Reposition block formatting toolbar and hides inline toolbar.
- */
-Formatting.prototype.repositionBlockToolbar = function() {
-  var selection = this.editor.article.selection;
-  var paragraph = selection.getComponentAtStart();
-  var bounds = paragraph.dom.getBoundingClientRect();
-
-  // Hide inline formatting toolbar.
-  this.setToolbarPosition(
-      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
-
-  // Offset the top bound with the scrolled amount of the page.
-  var top = bounds.top + window.pageYOffset;
-  var start = bounds.left;
-  if (this.editor.rtl) {
-    var toolbarBounds = this.blockToolbar.getBoundingClientRect();
-    start = bounds.right - toolbarBounds.width;
-  }
-  this.setToolbarPosition(this.blockToolbar, top, start);
-
-  // Update the active buttons on block toolbar.
-  this.reloadBlockToolbarStatus(this.blockToolbar);
 };
 
 
@@ -448,8 +329,9 @@ Formatting.prototype.repositionBlockToolbar = function() {
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getComponentAtStart();
-  var activeAction = this.getFormatterForValue(paragraph.paragraphType);
-  this.setToolbarActiveAction(this.blockToolbar, activeAction);
+
+  var button = this.blockToolbar.getButtonByName(paragraph.paragraphType);
+  this.blockToolbar.setActiveButton(button);
 };
 
 
@@ -461,73 +343,20 @@ Formatting.prototype.reloadInlineToolbarStatus = function() {
   var paragraph = selection.getComponentAtStart();
   var formatter = paragraph.getSelectedFormatter(selection);
   var activeAction = null;
-  var attrs = null;
+  var attrs = {};
+  var button = null;
   if (formatter) {
     activeAction = this.getFormatterForValue(formatter.type);
     attrs = formatter.attrs;
+    button = this.inlineToolbar.getButtonByName(formatter.type);
   }
 
-  this.setToolbarActiveAction(
-      this.inlineToolbar, activeAction, attrs);
-};
-
-
-/**
- * Reloads the status of the block toolbar buttons.
- * @param {HTMLElement} toolbar Toolbar to reload its status.
- */
-Formatting.prototype.setToolbarActiveAction = function(
-    toolbar, activeAction, optAttrs) {
-  // Reset the old activated button and fields to deactivate it.
-  var oldActiveButton = toolbar.querySelector(
-      'button.' + Formatting.ACTIVE_ACTION_CLASS);
-  var oldActiveFields = toolbar.querySelector(
-      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
-  if (oldActiveButton) {
-    oldActiveButton.classList.remove(Formatting.ACTIVE_ACTION_CLASS);
+  this.inlineToolbar.resetFields();
+  for (var key in attrs) {
+    var field = button.getFieldByName(key);
+    field.setValue(attrs[key]);
   }
-  if (oldActiveFields) {
-    oldActiveFields.classList.remove(Formatting.ACTIVE_ACTION_CLASS);
-  }
-
-  if (activeAction) {
-    // Activate the current paragraph block formatted button.
-    var activeButton = toolbar.querySelector(
-        '[value=' + activeAction.value + ']');
-    if (activeButton) {
-      activeButton.classList.add(Formatting.ACTIVE_ACTION_CLASS);
-    }
-
-    var activeFields = toolbar.querySelector(
-        '.extra-fields.' + activeAction.label);
-    if (activeFields) {
-      activeFields.classList.add(Formatting.ACTIVE_ACTION_CLASS);
-
-      var fields = activeFields.querySelectorAll('input');
-      var i;
-      if (optAttrs) {
-        for (i = 0; i < fields.length; i++) {
-          fields[i].value = optAttrs[fields[i].name];
-        }
-      } else {
-        for (i = 0; i < fields.length; i++) {
-          fields[i].value = '';
-        }
-      }
-    }
-  }
-};
-
-
-/**
- * Positions a toolbar to a specific location.
- * @param {HTMLElement} toolbar The toolbar to position.
- * @param {number} top Top offset of the toolbar.
- * @param {number} left Left offset of the toolbar.
- */
-Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
-  toolbar.style.top = top + 'px';
-  toolbar.style.left = left + 'px';
+  this.inlineToolbar.setActiveButton(button);
 };
 
 
@@ -536,8 +365,8 @@ Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
  * @param  {Event} event Click event.
  */
 Formatting.prototype.handleBlockFormatterClicked = function(event) {
-  var clickedFormatter = event.target.getAttribute('value');
-  this.handleBlockFormatting(clickedFormatter);
+  var formatter = event.detail.target.data;
+  this.handleBlockFormatting(formatter.value);
   this.reloadBlockToolbarStatus();
   event.preventDefault();
   event.stopPropagation();
@@ -679,7 +508,6 @@ Formatting.prototype.format = function(paragraph, selection, format) {
   };
   ops.push(newOp);
 
-
   return ops;
 };
 
@@ -689,8 +517,8 @@ Formatting.prototype.format = function(paragraph, selection, format) {
  * @param  {Event} event Click event.
  */
 Formatting.prototype.handleInlineFormatterClicked = function(event) {
-  var clickedFormatter = event.target.getAttribute('value');
-  var action = this.getFormatterForValue(clickedFormatter);
+  var action = event.detail.target.data;
+  var clickedFormatter = action.value;
   if (!action.attrs) {
     this.handleInlineFormatting(clickedFormatter);
     this.reloadInlineToolbarStatus();
@@ -702,10 +530,12 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
     // If the formatter is already applied, remove the formatting.
     if (activeAction && clickedFormatter === activeAction.type) {
       this.handleInlineFormatting(clickedFormatter);
+      this.reloadInlineToolbarStatus();
     } else {
-      this.focusOnExtraFieldsFor(this.inlineToolbar, action);
+      this.inlineToolbar.setActiveButton(event.detail.target);
     }
   }
+
   event.preventDefault();
   event.stopPropagation();
 };

@@ -10,6 +10,9 @@ var Errors = require('./errors');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
+var Toolbar = require('./toolbars/toolbar');
+var ToolbeltExtension = require('./extensions/toolbelt');
+var UploadExtension = require('./extensions/uploadExtension');
 
 
 /**
@@ -38,8 +41,9 @@ var Editor = function (element, optParams) {
     }),
     // The extensions enabled in this editor.
     extensions: [
-        // TODO(mkhatib): Handle different kind of shortcuts (e.g. formatting)
-        new FormattingExtension(this)
+        new FormattingExtension(),
+        new ToolbeltExtension(),
+        new UploadExtension()
     ]
   }, optParams);
 
@@ -98,10 +102,72 @@ var Editor = function (element, optParams) {
    */
   this.shortcutsManager = new ShortcutsManager(this);
 
+  /**
+   * This editor's toolbars.
+   * @type {Object.<String: Toolbar>}
+   */
+  this.toolbars = {};
+
+
+  /**
+   * Editor's inline toolbar.
+   * @type {Toolbar}
+   */
+  var inlineToolbar = new Toolbar({
+    name: Editor.INLINE_TOOLBAR_NAME,
+    classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME]
+  });
+  this.registerToolbar(Editor.INLINE_TOOLBAR_NAME, inlineToolbar);
+
+  /**
+   * Editor's block toolbar.
+   * @type {Toolbar}
+   */
+  var blockToolbar = new Toolbar({
+    name: Editor.BLOCK_TOOLBAR_NAME,
+    classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME]
+  });
+  this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
+
   this.init();
 };
 Editor.prototype = new Utils.CustomEventTarget();
 module.exports = Editor;
+
+
+/**
+ * Class name for the inline toolbar.
+ * @type {String}
+ */
+Editor.INLINE_TOOLBAR_CLASS_NAME = 'editor-inline-toolbar';
+
+
+/**
+ * Class name for the inline toolbar.
+ * @type {String}
+ */
+Editor.BLOCK_TOOLBAR_CLASS_NAME = 'editor-block-toolbar';
+
+
+/**
+ * Name of the block toolbar.
+ * @type {string}
+ */
+Editor.BLOCK_TOOLBAR_NAME = 'block-toolbar';
+
+
+/**
+ * Name of the inline toolbar.
+ * @type {string}
+ */
+Editor.INLINE_TOOLBAR_NAME = 'inline-toolbar';
+
+
+/**
+ * Name of the inline toolbar.
+ * @type {string}
+ */
+Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
@@ -143,6 +209,26 @@ Editor.prototype.install = function(ModuleClass) {
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
   ModuleClass.onInstall(this);
+};
+
+
+/**
+ * Registers a toolbar with the editor.
+ * @param  {string} name Name of the toolbar.
+ * @param  {Toolbar} toolbar Toolbar object.
+ */
+Editor.prototype.registerToolbar = function (name, toolbar) {
+  this.toolbars[name] = toolbar;
+};
+
+
+/**
+ * Returns the toolbar registered in this editor with the provided name.
+ * @param  {string} name Name of the toolbar.
+ * @return {Toolbar} Toolbar object.
+ */
+Editor.prototype.getToolbar = function (name) {
+  return this.toolbars[name];
 };
 
 

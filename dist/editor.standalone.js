@@ -246,6 +246,11 @@ Article.prototype.exec = function(operation, action) {
       component.applyFormats(operation[action].formats);
     }
 
+    // If this is to update the component attributes.
+    if (operation[action].attrs) {
+      component.updateAttributes(operation[action].attrs);
+    }
+
     if (operation[action].cursorOffset !== undefined) {
       if (!operation[action].selectRange) {
         selection.setCursor({
@@ -279,7 +284,7 @@ Article.prototype.exec = function(operation, action) {
   }
 };
 
-},{"./paragraph":13,"./selection":15,"./utils":16}],2:[function(require,module,exports){
+},{"./paragraph":16,"./selection":18,"./utils":22}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -298,6 +303,9 @@ var Errors = require('./errors');
 var Component = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
+    // The editor this component belongs to.
+    editor: null,
+    // The section this component is added to.
     section: null,
     // Generate a UID as a reference for this Component.
     name: Utils.getUID(),
@@ -306,6 +314,12 @@ var Component = function(optParams) {
     // Points to the parent component if this component is encompased within it.
     parentComponent: null
   }, optParams);
+
+  /**
+   * Editor this component is added it.
+   * @type {Editor}
+   */
+  this.editor = params.editor;
 
   /**
    * This indicates if this component is inline and shouldn't allow multiple
@@ -517,7 +531,7 @@ Component.prototype.getLength = function () {
   return 0;
 };
 
-},{"./errors":4,"./utils":16}],3:[function(require,module,exports){
+},{"./errors":4,"./utils":22}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -530,6 +544,9 @@ var Errors = require('./errors');
 var FormattingExtension = require('./extensions/formatting');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
+var Toolbar = require('./toolbars/toolbar');
+var ToolbeltExtension = require('./extensions/toolbelt');
+var UploadExtension = require('./extensions/uploadExtension');
 
 
 /**
@@ -558,8 +575,9 @@ var Editor = function (element, optParams) {
     }),
     // The extensions enabled in this editor.
     extensions: [
-        // TODO(mkhatib): Handle different kind of shortcuts (e.g. formatting)
-        new FormattingExtension(this)
+        new FormattingExtension(),
+        new ToolbeltExtension(),
+        new UploadExtension()
     ]
   }, optParams);
 
@@ -618,10 +636,72 @@ var Editor = function (element, optParams) {
    */
   this.shortcutsManager = new ShortcutsManager(this);
 
+  /**
+   * This editor's toolbars.
+   * @type {Object.<String: Toolbar>}
+   */
+  this.toolbars = {};
+
+
+  /**
+   * Editor's inline toolbar.
+   * @type {Toolbar}
+   */
+  var inlineToolbar = new Toolbar({
+    name: Editor.INLINE_TOOLBAR_NAME,
+    classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME]
+  });
+  this.registerToolbar(Editor.INLINE_TOOLBAR_NAME, inlineToolbar);
+
+  /**
+   * Editor's block toolbar.
+   * @type {Toolbar}
+   */
+  var blockToolbar = new Toolbar({
+    name: Editor.BLOCK_TOOLBAR_NAME,
+    classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME]
+  });
+  this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
+
   this.init();
 };
 Editor.prototype = new Utils.CustomEventTarget();
 module.exports = Editor;
+
+
+/**
+ * Class name for the inline toolbar.
+ * @type {String}
+ */
+Editor.INLINE_TOOLBAR_CLASS_NAME = 'editor-inline-toolbar';
+
+
+/**
+ * Class name for the inline toolbar.
+ * @type {String}
+ */
+Editor.BLOCK_TOOLBAR_CLASS_NAME = 'editor-block-toolbar';
+
+
+/**
+ * Name of the block toolbar.
+ * @type {string}
+ */
+Editor.BLOCK_TOOLBAR_NAME = 'block-toolbar';
+
+
+/**
+ * Name of the inline toolbar.
+ * @type {string}
+ */
+Editor.INLINE_TOOLBAR_NAME = 'inline-toolbar';
+
+
+/**
+ * Name of the inline toolbar.
+ * @type {string}
+ */
+Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
@@ -663,6 +743,26 @@ Editor.prototype.install = function(ModuleClass) {
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
   ModuleClass.onInstall(this);
+};
+
+
+/**
+ * Registers a toolbar with the editor.
+ * @param  {string} name Name of the toolbar.
+ * @param  {Toolbar} toolbar Toolbar object.
+ */
+Editor.prototype.registerToolbar = function (name, toolbar) {
+  this.toolbars[name] = toolbar;
+};
+
+
+/**
+ * Returns the toolbar registered in this editor with the provided name.
+ * @param  {string} name Name of the toolbar.
+ * @return {Toolbar} Toolbar object.
+ */
+Editor.prototype.getToolbar = function (name) {
+  return this.toolbars[name];
 };
 
 
@@ -1340,7 +1440,7 @@ Editor.prototype.handleCut = function() {
 };
 
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":5,"./extensions/formatting":6,"./extensions/shortcutsManager":8,"./figure":10,"./list":11,"./paragraph":13,"./section":14,"./utils":16}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formatting":7,"./extensions/shortcutsManager":9,"./extensions/toolbelt":10,"./extensions/uploadExtension":11,"./figure":13,"./list":14,"./paragraph":16,"./section":17,"./toolbars/toolbar":21,"./utils":22}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1369,6 +1469,74 @@ Errors.AlreadyRegisteredError = function (message) {
 Errors.AlreadyRegisteredError.prototype = Error.prototype;
 
 },{}],5:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+
+
+/**
+ * Allow for updating attributes in history and in the component for
+ * uploading files and media.
+ * @param {Object=} optParams Optional Parameters.
+ */
+var Attachment = function (optParams) {
+  var params = Utils.extend({
+    file: null,
+    // TODO(mkhatib): Make this general for any kind of component
+    // (e.g. video, pdf...etc)
+    figure: null,
+    insertedOps: null
+  }, optParams);
+
+  /**
+   * The file that was picked by the user.
+   * @type {File}
+   */
+  this.file = params.file;
+
+  /**
+   * Figure inserted for this attachment.
+   * @type {Figure}
+   */
+  this.figure = params.figure;
+
+  /**
+   * Operations used to insert the component.
+   * @type {Array.<Object>}
+   */
+  this.insertedOps = params.insertedOps;
+};
+module.exports = Attachment;
+
+
+/**
+ * Sets upload progress for the attachment.
+ * @param {number} progress Progress for the uploading process.
+ */
+Attachment.prototype.setUploadProgress = function(progress) {
+  this.progress = progress;
+
+  // TODO(mkhatib): Update UI indication of the upload progress.
+};
+
+
+/**
+ * Sets attributes for the inserted component and updates the insertion
+ * operations in history.
+ * @param {Object} attrs Attributes to update.
+ */
+Attachment.prototype.setAttributes = function(attrs) {
+  // TODO(mkhatib): This is a hack to update previous history operation.
+  // Think of a better way to do this.
+  for (var i = 0; i < this.insertedOps.length; i++) {
+    var newAttrs = Utils.extend(this.insertedOps[i].do.attrs || {}, attrs);
+    this.insertedOps[i].do.attrs = newAttrs;
+  }
+  // Update the figure object attributes to reflect the changes.
+  this.figure.updateAttributes(attrs);
+};
+
+},{"../utils":22}],6:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -1421,18 +1589,15 @@ ComponentFactory.prototype.match = function(str) {
   }
 };
 
-},{"../errors":4}],6:[function(require,module,exports){
+},{"../errors":4}],7:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
 var Selection = require('../selection');
 var Utils = require('../utils');
+var Button = require('../toolbars/button');
+var TextField = require('../toolbars/textField');
 
-
-// TODO: Refactor this to make toolbar its own module and separate
-// the logic of formatting from the UI components.
-// Also encompass toolbar into an object with a .dom property on it
-// to access its HTMLElement.
 
 /**
  * Editor formatting logic is an extension to the editor.
@@ -1489,13 +1654,6 @@ Formatting.Types = {
   BLOCK: 'block',
   INLINE: 'inline'
 };
-
-
-/**
- * Used to position the toolbars outside the user view.
- * @type {number}
- */
-Formatting.EDGE = -999999;
 
 
 /**
@@ -1578,19 +1736,36 @@ Formatting.Actions = {
 
 
 /**
+ * Name of the block toolbar.
+ * @type {string}
+ */
+Formatting.BLOCK_TOOLBAR_NAME = 'block-toolbar';
+
+
+/**
+ * Name of the inline toolbar.
+ * @type {string}
+ */
+Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
+
+
+/**
  * Initializes the formatting extension.
  * @param  {Editor} editor The parent editor for the extension.
  */
 Formatting.prototype.init = function(editor) {
   this.editor = editor;
+  this.blockToolbar = editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
+  this.inlineToolbar = editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
 
   // Inline toolbar used for formatting inline elements (bold, italic...).
-  this.inlineToolbar = this.createInlineToolbar();
-  document.body.appendChild(this.inlineToolbar);
+  this.initInlineToolbarButtons();
 
   // Block toolbar used for formatting block elements (h1, h2, pre...).
-  this.blockToolbar = this.createBlockToolbar();
-  document.body.appendChild(this.blockToolbar);
+  this.initBlockToolbarButtons();
+
+  // Register keyboard shortcuts to handle formatting.
+  this.registerFormattingShortcuts_();
 
   // Initializes event listener to update toolbars position and status
   // when selection or cursor change.
@@ -1604,82 +1779,55 @@ Formatting.prototype.init = function(editor) {
  * Creates inline formatting toolbar.
  * @return {HTMLElement} Toolbar Element.
  */
-Formatting.prototype.createInlineToolbar = function() {
-  var toolbar = document.createElement('div');
-  toolbar.id = 'editor-inline-toolbar-' + this.editor.name;
-  toolbar.className = 'editor-toolbar editor-inline-toolbar';
-
-  toolbar.appendChild(this.createToolbarButtons(
-      Formatting.Actions.Inline, Formatting.Types.INLINE));
-  return toolbar;
+Formatting.prototype.initInlineToolbarButtons = function() {
+  var actions = Formatting.Actions.Inline;
+  for (var i = 0; i < actions.length; i++) {
+    var fields = this.createExtraFields(actions[i]);
+    var button = new Button({
+      name: actions[i].value,
+      label: actions[i].label,
+      data: actions[i],
+      fields: fields || []
+    });
+    button.addEventListener(
+        'click', this.handleInlineFormatterClicked.bind(this));
+    this.inlineToolbar.addButton(button);
+  }
 };
 
 
 /**
  * Creates block formatting toolbar.
- * @return {HTMLElement} Toolbar Element.
  */
-Formatting.prototype.createBlockToolbar = function() {
-  var toolbar = document.createElement('div');
-  toolbar.id = 'editor-block-toolbar-' + this.editor.name;
-  toolbar.className = 'editor-toolbar editor-block-toolbar';
-
-  toolbar.appendChild(this.createToolbarButtons(
-      Formatting.Actions.Block, Formatting.Types.BLOCK));
-  return toolbar;
+Formatting.prototype.initBlockToolbarButtons = function() {
+  var actions = Formatting.Actions.Block;
+  for (var i = 0; i < actions.length; i++) {
+    var button = new Button({
+      name: actions[i].value,
+      label: actions[i].label,
+      data: actions[i]
+    });
+    button.addEventListener(
+        'click', this.handleBlockFormatterClicked.bind(this));
+    this.blockToolbar.addButton(button);
+  }
 };
 
 
 /**
- * Creates toolbar buttons from passed actions.
- * @param  {Array.<Object>} actions Actions to create buttons for.
- * @param  {string} type Can be 'block' or 'inline'.
- * @return {HTMLElement} Element that holds the list of created buttons.
+ * Registers shortcuts to handle formatting.
  */
-Formatting.prototype.createToolbarButtons = function(actions, type) {
-  var i;
-  var container = document.createElement('div');
-  var buttonsList = document.createElement('ul');
-  var extraFieldsContainer = document.createElement('div');
-  buttonsList.className = 'editor-toolbar-buttons';
-  container.className = 'buttons-fields-container';
-  extraFieldsContainer.className = 'extra-fields-container';
-  for (i = 0; i < actions.length; i++) {
-    var fields = this.createExtraFields(actions[i], type);
-    if (fields) {
-      extraFieldsContainer.appendChild(fields);
+Formatting.prototype.registerFormattingShortcuts_ = function () {
+  for (var formatType in Formatting.Actions) {
+    var actions = Formatting.Actions[formatType];
+    for (var i = 0; i < actions.length; i++) {
+      var action = actions[i];
+      for (var j = 0; j < action.shortcuts.length; j++) {
+        this.editor.shortcutsManager.register(
+            action.shortcuts[j], this.handleKeyboardShortcut.bind(this));
+      }
     }
   }
-  container.appendChild(extraFieldsContainer);
-
-  for (i = 0; i < actions.length; i++) {
-    buttonsList.appendChild(this.createButton(actions[i], type));
-  }
-  container.appendChild(buttonsList);
-
-  return container;
-};
-
-
-/**
- * Creates a single action button.
- * @param  {Object} action Action to create the button for.
- * @param  {string} type Can be 'block' or 'inline'.
- * @return {HTMLElement} Button element.
- */
-Formatting.prototype.createButton = function(action, type) {
-  var button = document.createElement('button');
-  button.innerHTML = action.label;
-  button.value = action.value;
-  button.type = type;
-
-  // Add Event Listener to take action when clicking the button.
-  button.addEventListener('click', this.handleButtonClicked.bind(this));
-  for (var i = 0; i < action.shortcuts.length; i++) {
-    this.editor.shortcutsManager.register(
-        action.shortcuts[i], this.handleKeyboardShortcut.bind(this));
-  }
-  return button;
 };
 
 
@@ -1689,30 +1837,21 @@ Formatting.prototype.createButton = function(action, type) {
  * @return {HTMLElement} div contianer containing extra fields.
  */
 Formatting.prototype.createExtraFields = function(action) {
+  var fields = [];
   if (!action.attrs) {
-    return;
+    return fields;
   }
-
-  var fields = document.createElement('div');
-  fields.className = 'extra-fields ' + action.label;
 
   for (var key in action.attrs) {
     var attr = action.attrs[key];
-    var field = document.createElement('input');
-    field.placeholder = attr.placeholder;
-    field.setAttribute('name', key);
-    if (attr.required) {
-      field.setAttribute('required', attr.required);
-    }
-    fields.appendChild(field);
-
-    // Handle pressing enter.
+    var field = new TextField({
+      placeholder: attr.placeholder,
+      required: attr.required,
+      name: key
+    });
     field.addEventListener(
         'keyup', this.handleInlineInputFieldKeyUp.bind(this));
-
-    // TODO(mkhatib): Maybe in future also apply format attributes on blur.
-    // field.addEventListener(
-    //     'blur', this.handleInlineInputFieldBlur.bind(this));
+    fields.push(field);
   }
 
   return fields;
@@ -1720,33 +1859,14 @@ Formatting.prototype.createExtraFields = function(action) {
 
 
 /**
- * Focuses on the field for attributes for the active action.
- * @param  {HTMLElement} toolbar The toolbar element to focus the fields for.
- * @param  {Object} action The action representing the object to focus.
- */
-Formatting.prototype.focusOnExtraFieldsFor = function(toolbar, action) {
-  this.setToolbarActiveAction(toolbar, action);
-  var activeFields = toolbar.querySelector(
-      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
-  var firstInput = activeFields.querySelector('input');
-  firstInput.focus();
-};
-
-
-/**
  * Applies a format with attributes from the active button and fields.
  */
-Formatting.prototype.applyFormatWithAttrs = function() {
-  var activeButton = this.inlineToolbar.querySelector(
-      'button.' + Formatting.ACTIVE_ACTION_CLASS);
-  var activeFormatter = activeButton.value;
-  var activeFields = this.inlineToolbar.querySelector(
-      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
-
+Formatting.prototype.applyFormatWithAttrs = function(button) {
+  var activeFormatter = button.data.value;
   var attrs = {};
-  var inputs = activeFields.querySelectorAll('input');
-  for (var i = 0; i < inputs.length; i++) {
-    attrs[inputs[i].name] = inputs[i].value;
+  var fields = button.fields;
+  for (var i = 0; i < fields.length; i++) {
+    attrs[fields[i].name] = fields[i].value;
   }
   this.handleInlineFormatting(activeFormatter, attrs);
 };
@@ -1759,20 +1879,7 @@ Formatting.prototype.applyFormatWithAttrs = function() {
 Formatting.prototype.handleInlineInputFieldKeyUp = function(event) {
   // Enter.
   if (event.keyCode === 13) {
-    this.applyFormatWithAttrs();
-  }
-};
-
-
-/**
- * Handles clicking a formatting bar action button.
- * @param  {Event} event Click event.
- */
-Formatting.prototype.handleButtonClicked = function(event) {
-  if (event.target.getAttribute('type') == Formatting.Types.BLOCK) {
-    this.handleBlockFormatterClicked(event);
-  } else {
-    this.handleInlineFormatterClicked(event);
+    this.applyFormatWithAttrs(event.detail.target.parentButton);
   }
 };
 
@@ -1786,83 +1893,25 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
   var startComp = selection.getComponentAtStart();
   var endComp = selection.getComponentAtEnd();
 
-  this.setToolbarPosition(
-      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
-  this.setToolbarPosition(
-      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
+  this.blockToolbar.setVisible(false);
+  this.inlineToolbar.setVisible(false);
 
   if (wSelection.isCollapsed) {
     if (startComp instanceof Paragraph &&
         Formatting.BLOCK_ENABLED_ON.indexOf(startComp.paragraphType) !== -1) {
       // If there's no selection, show the block toolbar.
-      this.repositionBlockToolbar();
-    } else {
-      // TODO(mkhatib): Show the toolbar for the specific component.
+      this.blockToolbar.setPositionToStartTopOf(startComp.dom);
+      this.blockToolbar.setVisible(true);
     }
-  } else {
-    if (startComp instanceof Paragraph &&
+    this.reloadBlockToolbarStatus();
+  } else if (startComp instanceof Paragraph &&
         // Don't show the inline toolbar when multiple paragraphs are selected.
-        // TODO(mkhatib): Maybe allow this once we have support for multiple
-        // paragraphs formatting support.
         startComp === endComp) {
-      // Otherwise, show the inline toolbar.
-      this.repositionInlineToolbar();
-      setTimeout(this.reloadInlineToolbarStatus.bind(this), 10);
-    } else {
-      // TODO(mkhatib): show toolbar for the specific component.
-    }
+    // Otherwise, show the inline toolbar.
+    this.inlineToolbar.setPositionTopOfSelection();
+    this.inlineToolbar.setVisible(true);
+    this.reloadInlineToolbarStatus();
   }
-};
-
-
-/**
- * Reposition inline formatting toolbar and hides block toolbar.
- */
-Formatting.prototype.repositionInlineToolbar = function() {
-  var wSelection = window.getSelection();
-  var range = wSelection.getRangeAt(0);
-  var bounds = range.getBoundingClientRect();
-
-  // Hide the block formatting toolbar.
-  this.setToolbarPosition(
-      this.blockToolbar, Formatting.EDGE, Formatting.EDGE);
-
-  // Calculate the left edge of the inline toolbar.
-  var clientRect = this.inlineToolbar.getClientRects()[0];
-  var toolbarHeight = clientRect.height;
-  var toolbarWidth = clientRect.width;
-  var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
-
-  // Offset the top bound with the scrolled amount of the page.
-  var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
-
-  this.setToolbarPosition(this.inlineToolbar, top, left);
-};
-
-
-/**
- * Reposition block formatting toolbar and hides inline toolbar.
- */
-Formatting.prototype.repositionBlockToolbar = function() {
-  var selection = this.editor.article.selection;
-  var paragraph = selection.getComponentAtStart();
-  var bounds = paragraph.dom.getBoundingClientRect();
-
-  // Hide inline formatting toolbar.
-  this.setToolbarPosition(
-      this.inlineToolbar, Formatting.EDGE, Formatting.EDGE);
-
-  // Offset the top bound with the scrolled amount of the page.
-  var top = bounds.top + window.pageYOffset;
-  var start = bounds.left;
-  if (this.editor.rtl) {
-    var toolbarBounds = this.blockToolbar.getBoundingClientRect();
-    start = bounds.right - toolbarBounds.width;
-  }
-  this.setToolbarPosition(this.blockToolbar, top, start);
-
-  // Update the active buttons on block toolbar.
-  this.reloadBlockToolbarStatus(this.blockToolbar);
 };
 
 
@@ -1872,8 +1921,9 @@ Formatting.prototype.repositionBlockToolbar = function() {
 Formatting.prototype.reloadBlockToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getComponentAtStart();
-  var activeAction = this.getFormatterForValue(paragraph.paragraphType);
-  this.setToolbarActiveAction(this.blockToolbar, activeAction);
+
+  var button = this.blockToolbar.getButtonByName(paragraph.paragraphType);
+  this.blockToolbar.setActiveButton(button);
 };
 
 
@@ -1885,73 +1935,20 @@ Formatting.prototype.reloadInlineToolbarStatus = function() {
   var paragraph = selection.getComponentAtStart();
   var formatter = paragraph.getSelectedFormatter(selection);
   var activeAction = null;
-  var attrs = null;
+  var attrs = {};
+  var button = null;
   if (formatter) {
     activeAction = this.getFormatterForValue(formatter.type);
     attrs = formatter.attrs;
+    button = this.inlineToolbar.getButtonByName(formatter.type);
   }
 
-  this.setToolbarActiveAction(
-      this.inlineToolbar, activeAction, attrs);
-};
-
-
-/**
- * Reloads the status of the block toolbar buttons.
- * @param {HTMLElement} toolbar Toolbar to reload its status.
- */
-Formatting.prototype.setToolbarActiveAction = function(
-    toolbar, activeAction, optAttrs) {
-  // Reset the old activated button and fields to deactivate it.
-  var oldActiveButton = toolbar.querySelector(
-      'button.' + Formatting.ACTIVE_ACTION_CLASS);
-  var oldActiveFields = toolbar.querySelector(
-      '.extra-fields.' + Formatting.ACTIVE_ACTION_CLASS);
-  if (oldActiveButton) {
-    oldActiveButton.classList.remove(Formatting.ACTIVE_ACTION_CLASS);
+  this.inlineToolbar.resetFields();
+  for (var key in attrs) {
+    var field = button.getFieldByName(key);
+    field.setValue(attrs[key]);
   }
-  if (oldActiveFields) {
-    oldActiveFields.classList.remove(Formatting.ACTIVE_ACTION_CLASS);
-  }
-
-  if (activeAction) {
-    // Activate the current paragraph block formatted button.
-    var activeButton = toolbar.querySelector(
-        '[value=' + activeAction.value + ']');
-    if (activeButton) {
-      activeButton.classList.add(Formatting.ACTIVE_ACTION_CLASS);
-    }
-
-    var activeFields = toolbar.querySelector(
-        '.extra-fields.' + activeAction.label);
-    if (activeFields) {
-      activeFields.classList.add(Formatting.ACTIVE_ACTION_CLASS);
-
-      var fields = activeFields.querySelectorAll('input');
-      var i;
-      if (optAttrs) {
-        for (i = 0; i < fields.length; i++) {
-          fields[i].value = optAttrs[fields[i].name];
-        }
-      } else {
-        for (i = 0; i < fields.length; i++) {
-          fields[i].value = '';
-        }
-      }
-    }
-  }
-};
-
-
-/**
- * Positions a toolbar to a specific location.
- * @param {HTMLElement} toolbar The toolbar to position.
- * @param {number} top Top offset of the toolbar.
- * @param {number} left Left offset of the toolbar.
- */
-Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
-  toolbar.style.top = top + 'px';
-  toolbar.style.left = left + 'px';
+  this.inlineToolbar.setActiveButton(button);
 };
 
 
@@ -1960,8 +1957,8 @@ Formatting.prototype.setToolbarPosition = function(toolbar, top, left) {
  * @param  {Event} event Click event.
  */
 Formatting.prototype.handleBlockFormatterClicked = function(event) {
-  var clickedFormatter = event.target.getAttribute('value');
-  this.handleBlockFormatting(clickedFormatter);
+  var formatter = event.detail.target.data;
+  this.handleBlockFormatting(formatter.value);
   this.reloadBlockToolbarStatus();
   event.preventDefault();
   event.stopPropagation();
@@ -2103,7 +2100,6 @@ Formatting.prototype.format = function(paragraph, selection, format) {
   };
   ops.push(newOp);
 
-
   return ops;
 };
 
@@ -2113,8 +2109,8 @@ Formatting.prototype.format = function(paragraph, selection, format) {
  * @param  {Event} event Click event.
  */
 Formatting.prototype.handleInlineFormatterClicked = function(event) {
-  var clickedFormatter = event.target.getAttribute('value');
-  var action = this.getFormatterForValue(clickedFormatter);
+  var action = event.detail.target.data;
+  var clickedFormatter = action.value;
   if (!action.attrs) {
     this.handleInlineFormatting(clickedFormatter);
     this.reloadInlineToolbarStatus();
@@ -2126,10 +2122,12 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
     // If the formatter is already applied, remove the formatting.
     if (activeAction && clickedFormatter === activeAction.type) {
       this.handleInlineFormatting(clickedFormatter);
+      this.reloadInlineToolbarStatus();
     } else {
-      this.focusOnExtraFieldsFor(this.inlineToolbar, action);
+      this.inlineToolbar.setActiveButton(event.detail.target);
     }
   }
+
   event.preventDefault();
   event.stopPropagation();
 };
@@ -2289,7 +2287,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":13,"../selection":15,"../utils":16}],7:[function(require,module,exports){
+},{"../paragraph":16,"../selection":18,"../toolbars/button":19,"../toolbars/textField":20,"../utils":22}],8:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2571,7 +2569,7 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../selection":15,"../utils":16}],8:[function(require,module,exports){
+},{"../component":2,"../selection":18,"../utils":22}],9:[function(require,module,exports){
 'use strict';
 
 
@@ -2703,7 +2701,289 @@ ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
   this.registery[shortcutId] = handler;
 };
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
+'use strict';
+
+var Selection = require('../selection');
+var Toolbar = require('../toolbars/toolbar');
+var Button = require('../toolbars/button');
+
+
+/**
+ * Toolbelt extension for the editor.
+ *   Adds an extendable toolbar for components to add buttons to.
+ */
+var Toolbelt = function () {
+
+  /**
+   * The editor this toolbelt belongs to.
+   * @type {Editor}
+   */
+  this.editor = null;
+
+  /**
+   * The toolbelt toolbar.
+   * @type {Toolbar}
+   */
+  this.toolbar = null;
+
+  /**
+   * The editor's block toolbar.
+   * @type {Toolbar}
+   */
+  this.blockToolbar = null;
+
+  /**
+   * The insert button to show the toolbelt when clicked.
+   * @type {Toolbar}
+   */
+  this.insertButton = new Button({ label: '+' });
+  this.insertButton.setVisible(false);
+  this.insertButton.addEventListener(
+      'click', this.handleInsertClick.bind(this));
+};
+module.exports = Toolbelt;
+
+
+/**
+ * Initiates the toolbelt extension.
+ * @param  {Editor} editor The editor to initialize the extension for.
+ */
+Toolbelt.prototype.init = function(editor) {
+  this.editor = editor;
+  this.blockToolbar = this.editor.getToolbar(Toolbelt.BLOCK_TOOLBAR_NAME);
+  this.blockToolbar.addButton(this.insertButton);
+
+  // Create a new toolbar for the toolbelt.
+  this.toolbar = new Toolbar({
+    name: Toolbelt.TOOLBELT_TOOLBAR_NAME,
+    classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME]
+  });
+  this.toolbar.addEventListener(
+      'button-added', this.handleButtonAdded.bind(this));
+
+  // Register the toolbelt toolbar with the editor.
+  this.editor.registerToolbar(Toolbelt.TOOLBELT_TOOLBAR_NAME, this.toolbar);
+
+  // Listen to selection changes.
+  this.editor.article.selection.addEventListener(
+      Selection.Events.SELECTION_CHANGED,
+      this.handleSelectionChangedEvent.bind(this));
+};
+
+
+/**
+ * Toolbelt toolbar name.
+ * @type {string}
+ */
+Toolbelt.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
+
+
+/**
+ * Toolbelt toolbar class name.
+ * @type {string}
+ */
+Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME = 'toolbelt-toolbar';
+
+
+/**
+ * Block toolbar name.
+ * @type {string}
+ */
+Toolbelt.BLOCK_TOOLBAR_NAME = 'block-toolbar';
+
+
+/**
+ * Handles clicking the insert button to expand the toolbelt.
+ */
+Toolbelt.prototype.handleInsertClick = function() {
+  this.toolbar.setPositionToStartBottomOf(this.insertButton.dom);
+  this.toolbar.setVisible(!this.toolbar.isVisible);
+};
+
+
+/**
+ * Handles selection change event on the editor to hide the toolbelt.
+ */
+Toolbelt.prototype.handleSelectionChangedEvent = function() {
+  this.toolbar.setVisible(false);
+};
+
+
+/**
+ * Handles new button added to toolbelt to show the insert button.
+ */
+Toolbelt.prototype.handleButtonAdded = function () {
+  this.insertButton.setVisible(true);
+};
+
+},{"../selection":18,"../toolbars/button":19,"../toolbars/toolbar":21}],11:[function(require,module,exports){
+'use strict';
+
+var Button = require('../toolbars/button');
+var Utils = require('../utils');
+var Figure = require('../figure');
+var Attachment = require('./attachment');
+
+
+/**
+ * An upload button that extends Button to style the upload button.
+ * @param {Object=} optParams Optional parameters.
+ */
+var UploadButton = function (optParams) {
+  var params = Utils.extend({
+    label: 'Upload',
+  }, optParams);
+
+  Button.call(this, params);
+
+  this.dom.classList.add(UploadButton.UPLOAD_CONTAINER_CLASS_NAME);
+
+  /**
+   * Upload button input element.
+   * @type {HTMLElement}
+   */
+  this.uploadButtonDom = document.createElement(UploadButton.TAG_NAME);
+  this.uploadButtonDom.setAttribute('type', 'file');
+  this.uploadButtonDom.setAttribute('name', this.name);
+  this.uploadButtonDom.addEventListener('change', this.handleChange.bind(this));
+
+  this.dom.appendChild(this.uploadButtonDom);
+};
+UploadButton.prototype = Object.create(Button.prototype);
+
+
+/**
+ * Upload button container class name.
+ * @type {string}
+ */
+UploadButton.UPLOAD_CONTAINER_CLASS_NAME = 'upload-button';
+
+
+/**
+ * Upload button element tag name.
+ * @type {string}
+ */
+UploadButton.TAG_NAME = 'input';
+
+
+/**
+ * Handles file change when selecting a file.
+ * @param {Event} event File event containing the selected files.
+ */
+UploadButton.prototype.handleChange = function(event) {
+  var eventDetails = { target: this, files: event.target.files };
+  var newEvent = new CustomEvent('change', {detail: eventDetails});
+  this.dispatchEvent(newEvent);
+  event.target.value = '';
+};
+
+
+/**
+ * Upload Extension enables upload button on the toolbelt.
+ */
+var UploadExtension = function () {
+  /**
+   * The editor this toolbelt belongs to.
+   * @type {Editor}
+   */
+  this.editor = null;
+
+  /**
+   * The toolbelt toolbar.
+   * @type {Toolbar}
+   */
+  this.toolbelt = null;
+};
+module.exports = UploadExtension;
+
+
+/**
+ * Toolbar name for the toolbelt toolbar.
+ * @type {string}
+ */
+UploadExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
+
+
+/**
+ * Event name for attachment added.
+ * @type {string}
+ */
+UploadExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
+
+
+/**
+ * Initialize the upload button and listener.
+ * @param  {Editor} editor The editor to enable the extension on.
+ */
+UploadExtension.prototype.init = function(editor) {
+  this.editor = editor;
+  this.toolbelt = this.editor.getToolbar(
+      UploadExtension.TOOLBELT_TOOLBAR_NAME);
+
+  var uploadButton = new UploadButton({
+    label: 'Upload Photo'
+  });
+  uploadButton.addEventListener('change', this.handleUpload.bind(this));
+  this.toolbelt.addButton(uploadButton);
+};
+
+
+/**
+ * Handles selecting a file.
+ * @param  {Event} event Event fired from UploadButton.
+ */
+UploadExtension.prototype.handleUpload = function(event) {
+  var that = this;
+  // TODO(mkhatib): Create attachment per supported file.
+  var file = event.detail.files[0];
+
+  // Read the file as Data URL.
+  this.readFileAsDataUrl_(file, function(dataUrl) {
+    var selection = that.editor.article.selection;
+    var component = selection.getComponentAtStart();
+
+    // Create a figure with the file Data URL and insert it.
+    var figure = new Figure({src: dataUrl});
+    figure.section = selection.getSectionAtStart();
+    var insertFigureOps = figure.getInsertOps(component.getIndexInSection());
+    that.editor.article.transaction(insertFigureOps);
+
+    // Create an attachment to track the figure and insertion operations.
+    var attachment = new Attachment({
+      file: file,
+      figure: selection.getComponentAtStart(),
+      editor: that.editor,
+      insertedOps: insertFigureOps
+    });
+
+    // Dispatch an attachment added event to allow clients to upload the file.
+    var newEvent = new CustomEvent(
+      UploadExtension.ATTACHMENT_ADDED_EVENT_NAME, {
+        detail: { attachment: attachment }
+    });
+    that.editor.dispatchEvent(newEvent);
+  });
+};
+
+
+/**
+ * Read file data URL.
+ * @param  {File} file File picked by the user.
+ * @param  {Function} callback Callback function when the reading is complete.
+ */
+UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
+  var reader = new FileReader();
+  reader.onload = (function(f) {
+    // jshint unused: false
+    return function(e) {
+      callback(e.target.result);
+    };
+  }(file));
+  reader.readAsDataURL(file);
+};
+
+},{"../figure":13,"../toolbars/button":19,"../utils":22,"./attachment":5}],12:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -3024,7 +3304,7 @@ YouTubeComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../selection":15,"../utils":16}],10:[function(require,module,exports){
+},{"../component":2,"../selection":18,"../utils":22}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -3059,6 +3339,16 @@ var Figure = function(optParams) {
    */
   this.src = params.src;
 
+  /**
+   * Wether this figure is initialized with Data URL.
+   * @type {boolean}
+   */
+  this.isDataUrl = !!params.src && params.src.indexOf('http') !== 0;
+
+  /**
+   * Width of the figure.
+   * @type {string}
+   */
   this.width = params.width;
 
   /**
@@ -3195,9 +3485,12 @@ Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
 Figure.prototype.getJSONModel = function() {
   var image = {
     name: this.name,
-    src: this.src,
     caption: this.captionParagraph.getJSONModel()
   };
+
+  if (!this.isDataUrl) {
+    image.src = this.src;
+  }
 
   return image;
 };
@@ -3279,7 +3572,43 @@ Figure.prototype.getLength = function () {
   return 1;
 };
 
-},{"./component":2,"./paragraph":13,"./selection":15,"./utils":16}],11:[function(require,module,exports){
+
+/**
+ * Updates figure attributes.
+ * @param  {Object} attrs Attributes to update.
+ */
+Figure.prototype.updateAttributes = function(attrs) {
+  if (attrs.src) {
+    this.updateSource(attrs.src);
+  }
+
+  if (attrs.caption) {
+    this.updateCaption(attrs.caption);
+  }
+};
+
+
+/**
+ * Updates the source attribute for the figure and its dom.
+ * @param  {string} src Image source.
+ */
+Figure.prototype.updateSource = function(src) {
+  this.src = src;
+  this.isDataUrl = !!this.src && this.src.indexOf('http') !== 0;
+  this.imgDom.setAttribute('src', src);
+};
+
+
+/**
+ * Updates figure caption and its dom.
+ * @param  {string} caption Caption text to update to.
+ */
+Figure.prototype.updateCaption = function(caption) {
+  this.caption = caption;
+  this.captionParagraph.setText(caption);
+};
+
+},{"./component":2,"./paragraph":16,"./selection":18,"./utils":22}],14:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -3542,7 +3871,7 @@ List.prototype.getLength = function () {
   return this.components.length;
 };
 
-},{"./paragraph":13,"./section":14,"./utils":16}],12:[function(require,module,exports){
+},{"./paragraph":16,"./section":17,"./utils":22}],15:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -3559,7 +3888,7 @@ module.exports.Formatting = require('./extensions/formatting');
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
 
-},{"./article":1,"./editor":3,"./extensions/formatting":6,"./extensions/giphyComponent":7,"./extensions/youtubeComponent":9,"./figure":10,"./list":11,"./paragraph":13,"./section":14,"./selection":15}],13:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/formatting":7,"./extensions/giphyComponent":8,"./extensions/youtubeComponent":12,"./figure":13,"./list":14,"./paragraph":16,"./section":17,"./selection":18}],16:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4194,7 +4523,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./utils":16}],14:[function(require,module,exports){
+},{"./component":2,"./utils":22}],17:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -4350,7 +4679,7 @@ Section.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./component":2,"./selection":15,"./utils":16}],15:[function(require,module,exports){
+},{"./component":2,"./selection":18,"./utils":22}],18:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4875,7 +5204,621 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./utils":16}],16:[function(require,module,exports){
+},{"./utils":22}],19:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+
+
+/**
+ * Button component to add to toolbars.
+ * @param {Object=} optParams Optional parameters.
+ */
+var Button = function (optParams) {
+  var params = Utils.extend({
+    label: 'New Button',
+    name: Utils.getUID(),
+    fields: [],
+    data: {}
+  }, optParams);
+
+  Utils.CustomEventTarget.call(this);
+
+  /**
+   * Name of the button.
+   * @type {string}
+   */
+  this.name = params.name;
+
+  /**
+   * Extra data to attach to the button.
+   * @type {Object}
+   */
+  this.data = params.data;
+
+  /**
+   * Fields for the button.
+   * @type {Array.<TextField>}
+   */
+  this.fields = [];
+
+  /**
+   * Button container element.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(Button.CONTAINER_TAG_NAME);
+  this.dom.className = Button.CONTAINER_CLASS_NAME;
+
+  /**
+   * Button element.
+   * @type {HTMLElement}
+   */
+  this.buttonDom = document.createElement(Button.TAG_NAME);
+  this.buttonDom.setAttribute('name', this.name);
+  this.buttonDom.innerText = params.label;
+  this.buttonDom.addEventListener('click', this.handleClick.bind(this));
+  this.dom.appendChild(this.buttonDom);
+
+  /**
+   * Fields container element.
+   * @type {HTMLElement}
+   */
+  this.fieldsDom = document.createElement(Button.FIELDS_CONTAINER_TAG_NAME);
+  this.fieldsDom.className = Button.FIELDS_CONTAINER_CLASS_NAME;
+  for (var i = 0; i < params.fields.length; i++) {
+    this.addField(params.fields[i]);
+  }
+};
+Button.prototype = Object.create(Utils.CustomEventTarget.prototype);
+module.exports = Button;
+
+
+/**
+ * Button container element tag name.
+ * @type {string}
+ */
+Button.CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * Button container element class name.
+ * @type {string}
+ */
+Button.CONTAINER_CLASS_NAME = 'button-container';
+
+
+/**
+ * Button element tag name.
+ * @type {string}
+ */
+Button.TAG_NAME = 'button';
+
+
+/**
+ * Button fields container tag name.
+ * @type {string}
+ */
+Button.FIELDS_CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * Button fields container class name.
+ * @type {string}
+ */
+Button.FIELDS_CONTAINER_CLASS_NAME = 'extra-fields';
+
+
+/**
+ * Active button class name.
+ * @type {string}
+ */
+Button.ACTIVE_CLASS_NAME = 'active';
+
+
+/**
+ * Hidden class name.
+ * @type {string}
+ */
+Button.HIDDEN_CLASS_NAME = 'hidden';
+
+
+/**
+ * Handles a click on the button.
+ * @param {Function} handler Callback to call when the button is clicked.
+ */
+Button.prototype.handleClick = function() {
+  var newEvent = new CustomEvent('click', {
+      detail: { target: this }
+  });
+  this.dispatchEvent(newEvent);
+};
+
+
+/**
+ * Adds a field to the button.
+ * @param {TextField} field A field to add to the button.
+ */
+Button.prototype.addField = function(field) {
+  field.parentButton = this;
+  this.fields.push(field);
+  this.fieldsDom.appendChild(field.dom);
+};
+
+
+/**
+ * Sets the button as active.
+ * @param {boolean} isActive Whether the button is active or not.
+ */
+Button.prototype.setActive = function (isActive) {
+  this.isActive = isActive;
+  if (this.isActive) {
+    this.dom.classList.add(Button.ACTIVE_CLASS_NAME);
+    this.fieldsDom.classList.add(Button.ACTIVE_CLASS_NAME);
+    if (this.hasExtraFields()) {
+      this.fields[0].dom.focus();
+    }
+  } else {
+    this.dom.classList.remove(Button.ACTIVE_CLASS_NAME);
+    this.fieldsDom.classList.remove(Button.ACTIVE_CLASS_NAME);
+  }
+};
+
+
+/**
+ * Sets the button as visible or not.
+ * @param {boolean} isVisible Whether the button should be visible or not.
+ */
+Button.prototype.setVisible = function (isVisible) {
+  this.isVisible = isVisible;
+  if (this.isVisible) {
+    this.dom.classList.remove(Button.HIDDEN_CLASS_NAME);
+  } else {
+    this.dom.classList.add(Button.HIDDEN_CLASS_NAME);
+  }
+};
+
+
+/**
+ * Returns true if the button has extra fields.
+ * @return {boolean} True if the button has extra fields.
+ */
+Button.prototype.hasExtraFields = function() {
+  return this.fields && this.fields.length;
+};
+
+
+/**
+ * Returns a field with the specified name.
+ * @param {string} name Field name.
+ * @return {TextField|null} Returns a field with the name.
+ */
+Button.prototype.getFieldByName = function (name) {
+  for (var i = 0; i < this.fields.length; i++) {
+    if (this.fields[i].name === name) {
+      return this.fields[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Resets the value of all fields for the button.
+ */
+Button.prototype.resetFields = function () {
+  for (var i = 0; i < this.fields.length; i++) {
+    this.fields[i].setValue('');
+  }
+};
+
+},{"../utils":22}],20:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+
+
+/**
+ * TextField component to add to toolbars.
+ * @param {Object=} optParams Optional params.
+ */
+var TextField = function (optParams) {
+  var params = Utils.extend({
+    placeholder: 'New field',
+    name: Utils.getUID(),
+    required: true,
+    data: {},
+    value: '',
+  }, optParams);
+
+  Utils.CustomEventTarget.call(this);
+
+  /**
+   * Field name.
+   * @type {string}
+   */
+  this.name = params.name;
+
+  /**
+   * Extra data on the field.
+   * @type {Object}
+   */
+  this.data = params.data;
+
+  /**
+   * Field placeholder.
+   * @type {string}
+   */
+  this.placeholder = params.placeholder;
+
+  /**
+   * Whether the field is required.
+   * @type {boolean}
+   */
+  this.required = params.required;
+
+  /**
+   * The parent button of the field.
+   * @type {Button}
+   */
+  this.parentButton = null;
+
+  /**
+   * Value entered in the field.
+   * @type {string}
+   */
+  this.value = params.value;
+
+  /**
+   * Input field element.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(TextField.TAG_NAME);
+  this.dom.setAttribute('placeholder', this.placeholder);
+  this.dom.setAttribute('name', this.name);
+  this.dom.setAttribute('required', this.required);
+  this.dom.addEventListener('keyup', this.handleKeyUp.bind(this));
+};
+TextField.prototype = Object.create(Utils.CustomEventTarget.prototype);
+module.exports = TextField;
+
+
+/**
+ * Input field element tag name.
+ * @type {string}
+ */
+TextField.TAG_NAME = 'input';
+
+
+/**
+ * Handles key up event and update the value of the field.
+ * @param {Function} handler Callback to call when the button is clicked.
+ */
+TextField.prototype.handleKeyUp = function(event) {
+  this.value = this.dom.value;
+  var newEvent = new CustomEvent('keyup', {
+      detail: { target: this }
+  });
+  newEvent.keyCode = event.keyCode;
+  this.dispatchEvent(newEvent);
+};
+
+
+/**
+ * Sets the value of the field.
+ * @param {string} value Value to set to the field.
+ */
+TextField.prototype.setValue = function (value) {
+  this.value = value;
+  this.dom.value = value;
+};
+
+},{"../utils":22}],21:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+
+
+/**
+ * Toolbar component for adding controls to the editor.
+ * @param {Object=} optParams Optional Params.
+ */
+var Toolbar = function (optParams) {
+  Utils.CustomEventTarget.call(this);
+
+  var params = Utils.extend({
+    buttons: [],
+    classNames: [],
+    name: Utils.getUID()
+  }, optParams);
+
+  /**
+   * Toolbar name.
+   * @type {string}
+   */
+  this.name = params.name;
+
+  /**
+   * CSS class names to add to the toolbar.
+   * @type {Array.<string>}
+   */
+  this.classNames = params.classNames;
+  this.classNames.push(Toolbar.TOOLBAR_CLASS_NAME);
+
+  /**
+   * If the toolbar is added to a right to left editor.
+   * @type {boolean}
+   */
+  this.rtl = false;
+
+  /**
+   * List of buttons on the toolbar.
+   * @type {Array.<Button>}
+   */
+  this.buttons = [];
+
+  /**
+   * The current active button on the toolbar.
+   * @type {Button}
+   */
+  this.activeButton = null;
+
+  /**
+   * Whether the toolbar is visible or not.
+   * @type {boolean}
+   */
+  this.isVisible = false;
+
+  /**
+   * Element for rendering the toolbar.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(Toolbar.TAG_NAME);
+  this.dom.id = Toolbar.DOM_ID_PREFIX + this.name;
+  this.dom.className = this.classNames.join(' ');
+
+  /**
+   * Element for containing both the buttons and fields.
+   * @type {HTMLElement}
+   */
+  this.containerDom = document.createElement(
+      Toolbar.BUTTONS_CONTAINER_TAG_NAME);
+  this.containerDom.className = Toolbar.BUTTONS_FIELDS_CONTAINER_CLASS_NAME;
+  this.dom.appendChild(this.containerDom);
+
+
+  /**
+   * Element for containing buttons of the toolbar.
+   * @type {HTMLElement}
+   */
+  this.buttonsContainer = document.createElement(
+      Toolbar.BUTTONS_CONTAINER_TAG_NAME);
+  this.buttonsContainer.className = Toolbar.BUTTONS_CONTAINER_CLASS_NAME;
+  this.containerDom.appendChild(this.buttonsContainer);
+
+  /**
+   * Element for containing fields of the toolbar.
+   * @type {HTMLElement}
+   */
+  this.fieldsContainer = document.createElement(
+      Toolbar.FIELDS_CONTAINER_TAG_NAME);
+  this.fieldsContainer.className = Toolbar.FIELDS_CONTAINER_CLASS_NAME;
+  this.containerDom.appendChild(this.fieldsContainer);
+
+  for (var i = 0; i < params.buttons.length; i++) {
+    this.addButton(params.buttons[i]);
+  }
+
+  document.body.appendChild(this.dom);
+};
+Toolbar.prototype = Object.create(Utils.CustomEventTarget.prototype);
+module.exports = Toolbar;
+
+
+/**
+ * Toolbar container tag name.
+ * @type {string}
+ */
+Toolbar.TAG_NAME = 'div';
+
+
+/**
+ * Fields container tag name.
+ * @type {string}
+ */
+Toolbar.FIELDS_CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * Buttons container tag name.
+ * @type {string}
+ */
+Toolbar.BUTTONS_CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * Element ID prefix.
+ * @type {string}
+ */
+Toolbar.DOM_ID_PREFIX = 'editor-inline-toolbar-';
+
+
+/**
+ * Toolbar css class name.
+ * @type {string}
+ */
+Toolbar.TOOLBAR_CLASS_NAME = 'editor-toolbar';
+
+
+/**
+ * Class added when the toolbar is visible..
+ * @type {string}
+ */
+Toolbar.VISIBLE_CLASS_NAME = 'toolbar-visible';
+
+
+/**
+ * Toolbar buttons container class name.
+ * @type {string}
+ */
+Toolbar.BUTTONS_CONTAINER_CLASS_NAME = 'editor-toolbar-buttons';
+
+
+/**
+ * Toolbar fields container class name.
+ * @type {string}
+ */
+Toolbar.FIELDS_CONTAINER_CLASS_NAME = 'extra-fields-container';
+
+
+/**
+ * Toolbar buttons container class name.
+ * @type {string}
+ */
+Toolbar.BUTTONS_FIELDS_CONTAINER_CLASS_NAME = 'buttons-fields-container';
+
+
+/**
+ * Used to position the toolbars outside the user view.
+ * @type {number}
+ */
+Toolbar.EDGE = -999999;
+
+
+/**
+ * Adds a button to the toolbar.
+ * @param {Button} button The button to add to the toolbar.
+ */
+Toolbar.prototype.addButton = function (button) {
+  var event = new CustomEvent('button-added', {
+    detail: { target: this }
+  });
+
+  this.buttons.push(button);
+  this.buttonsContainer.appendChild(button.dom);
+  this.fieldsContainer.appendChild(button.fieldsDom);
+
+  this.dispatchEvent(event);
+};
+
+
+/**
+ * Sets the toolbar to be visible or hidden.
+ * @param {boolean} isVisible Whether to be visible or not.
+ */
+Toolbar.prototype.setVisible = function (isVisible) {
+  this.isVisible = isVisible;
+  if (this.isVisible) {
+    this.dom.classList.add(Toolbar.VISIBLE_CLASS_NAME);
+  } else {
+    this.dom.classList.remove(Toolbar.VISIBLE_CLASS_NAME);
+    this.dom.style.top = Toolbar.EDGE + 'px';
+    this.dom.style.left = Toolbar.EDGE + 'px';
+  }
+};
+
+
+/**
+ * Sets the toolbar position relative to start top position of an element.
+ * @param {HTMLElement} element Element to position the toolbar.
+ */
+Toolbar.prototype.setPositionToStartTopOf = function (element) {
+  var bounds = element.getBoundingClientRect();
+
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.top + window.pageYOffset;
+  var start = bounds.left;
+  if (this.rtl) {
+    var toolbarBounds = this.dom.getBoundingClientRect();
+    start = bounds.right - toolbarBounds.width;
+  }
+
+  this.dom.style.top = top + 'px';
+  this.dom.style.left = start + 'px';
+};
+
+
+/**
+ * Sets the toolbar position relative to start bottom position of an element.
+ * @param {HTMLElement} element Element to position the toolbar.
+ */
+Toolbar.prototype.setPositionToStartBottomOf = function (element) {
+  var bounds = element.getBoundingClientRect();
+
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.bottom + window.pageYOffset;
+  var start = bounds.left;
+  if (this.rtl) {
+    var toolbarBounds = this.dom.getBoundingClientRect();
+    start = bounds.right - toolbarBounds.width;
+  }
+  this.dom.style.top = top + 'px';
+  this.dom.style.left = start + 'px';
+};
+
+
+/**
+ * Sets the toolbar position relative to top of window selection.
+ */
+Toolbar.prototype.setPositionTopOfSelection = function () {
+  var wSelection = window.getSelection();
+  var range = wSelection.getRangeAt(0);
+  var bounds = range.getBoundingClientRect();
+
+  // Calculate the left edge of the inline toolbar.
+  var clientRect = this.dom.getClientRects()[0];
+  var toolbarHeight = clientRect.height;
+  var toolbarWidth = clientRect.width;
+  var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
+
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
+  this.dom.style.top = top + 'px';
+  this.dom.style.left = left + 'px';
+};
+
+
+/**
+ * Returns the button with the passed name.
+ * @param  {string} name Name of the button to find.
+ * @return {Button|null} Button with the specified name.
+ */
+Toolbar.prototype.getButtonByName = function (name) {
+  for (var i = 0; i < this.buttons.length; i++) {
+    if (this.buttons[i].name === name) {
+      return this.buttons[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Sets the toolbar active button.
+ * @param {Button} button To set active.
+ */
+Toolbar.prototype.setActiveButton = function (button) {
+  if (this.activeButton) {
+    this.activeButton.setActive(false);
+    this.activeButton = null;
+  }
+
+  if (button) {
+    button.setActive(true);
+    this.activeButton = button;
+  }
+};
+
+
+/**
+ * Resets the status and the values of the fields.
+ */
+Toolbar.prototype.resetFields = function () {
+  for (var i = 0; i < this.buttons.length; i++) {
+    this.buttons[i].resetFields();
+  }
+};
+
+},{"../utils":22}],22:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -5145,5 +6088,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[12])(12)
+},{}]},{},[15])(15)
 });
