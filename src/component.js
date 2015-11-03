@@ -60,12 +60,6 @@ var Component = function(optParams) {
    */
   this.section = params.section;
 
-  /**
-   * If component is nested within another component.
-   * @type {Component}
-   */
-  this.parentComponent = null;
-
 };
 module.exports = Component;
 
