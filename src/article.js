@@ -129,6 +129,24 @@ Article.prototype.removeComponent = function(component) {
 
 
 /**
+ * Returns first component in the section.
+ * @return {Component} Returns first component.
+ */
+Article.prototype.getFirstComponent = function() {
+  return this.sections[0].getFirstComponent();
+};
+
+
+/**
+ * Returns last component in the section.
+ * @return {Component} Returns last component.
+ */
+Article.prototype.getLastComponent = function() {
+  return this.sections[this.sections.length - 1].getLastComponent();
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this section.
  */

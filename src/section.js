@@ -121,6 +121,24 @@ Section.prototype.removeComponent = function(component) {
 
 
 /**
+ * Returns first component in the section.
+ * @return {Component} Returns first component.
+ */
+Section.prototype.getFirstComponent = function() {
+  return this.components[0];
+};
+
+
+/**
+ * Returns last component in the section.
+ * @return {Component} Returns last component.
+ */
+Section.prototype.getLastComponent = function() {
+  return this.components[this.components.length - 1];
+};
+
+
+/**
  * Returns components from a section between two components (exclusive).
  * @param  {Component} startComponent Starting component.
  * @param  {Component} endComponent Ending component.

@@ -145,6 +145,17 @@ Utils.isRedo = function(event) {
 
 
 /**
+ * Checks if the event is select all shortcut.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if it is select all.
+ */
+Utils.isSelectAll = function(event) {
+  return !!((event.ctrlKey || event.metaKey) &&
+          event.keyCode === 65 && !event.shiftKey);
+};
+
+
+/**
  * Makes a copy of the passed object.
  *   Reference: http://stackoverflow.com/a/728694/646979
  * @param  {Object} obj Object to clone.

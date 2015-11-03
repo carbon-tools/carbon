@@ -1,6 +1,7 @@
 'use strict';
 
 var Utils = require('./utils');
+var Paragraph = require('./paragraph');
 
 
 /**
@@ -252,6 +253,8 @@ var Selection = (function() {
       selection.removeAllRanges();
       selection.addRange(range);
 
+      // Scroll the selected component into view.
+      this.start.component.dom.scrollIntoViewIfNeeded(false);
       var event = new Event(Selection.Events.SELECTION_CHANGED);
       this.dispatchEvent(event);
     };
@@ -318,7 +321,7 @@ var Selection = (function() {
 
     /**
      * Calculates end offset from the window selection. Relative to the parent
-     * paragaraph currently selected.
+     * paragraph currently selected.
      * @param  {Selection} selection Current selection.
      * @return {number} End offset relative to parent.
      */
@@ -472,7 +475,8 @@ var Selection = (function() {
      * @return {boolean} True if the cursor at the ending of component.
      */
     Selection.prototype.isCursorAtEnding = function() {
-      return (this.start.offset === this.start.component.getLength() &&
+      return (!(this.start.component instanceof Paragraph) ||
+              this.start.offset === this.start.component.getLength() &&
               this.end.offset === this.end.component.getLength());
     };
 

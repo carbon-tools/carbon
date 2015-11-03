@@ -248,13 +248,15 @@ Toolbar.prototype.setPositionTopOfSelection = function () {
   var wSelection = window.getSelection();
   var range = wSelection.getRangeAt(0);
   var bounds = range.getBoundingClientRect();
+  var windowRect = document.body.getBoundingClientRect();
 
   // Calculate the left edge of the inline toolbar.
   var clientRect = this.dom.getClientRects()[0];
   var toolbarHeight = clientRect.height;
   var toolbarWidth = clientRect.width;
   var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
-
+  left = Math.max(10, left);
+  left = Math.min(left, windowRect.width - toolbarWidth - 10);
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
   this.dom.style.top = top + 'px';

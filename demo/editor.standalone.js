@@ -130,6 +130,24 @@ Article.prototype.removeComponent = function(component) {
 
 
 /**
+ * Returns first component in the section.
+ * @return {Component} Returns first component.
+ */
+Article.prototype.getFirstComponent = function() {
+  return this.sections[0].getFirstComponent();
+};
+
+
+/**
+ * Returns last component in the section.
+ * @return {Component} Returns last component.
+ */
+Article.prototype.getLastComponent = function() {
+  return this.sections[this.sections.length - 1].getLastComponent();
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this section.
  */
@@ -346,12 +364,6 @@ var Component = function(optParams) {
    * @type {Section}
    */
   this.section = params.section;
-
-  /**
-   * If component is nested within another component.
-   * @type {Component}
-   */
-  this.parentComponent = null;
 
 };
 module.exports = Component;
@@ -798,12 +810,22 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var preventDefault = false;
   var ops = [];
   var inBetweenComponents = [];
+  var offset, currentOffset;
 
   if (Utils.isUndo(event)) {
     this.article.undo();
     preventDefault = true;
   } else if (Utils.isRedo(event)) {
     this.article.redo();
+    preventDefault = true;
+  } else if (Utils.isSelectAll(event)) {
+    selection.select({
+      component: article.getFirstComponent(),
+      cursor: 0
+    }, {
+      component: article.getLastComponent(),
+      cursor: article.getLastComponent().getLength()
+    });
     preventDefault = true;
   }
 
@@ -877,7 +899,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
               Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
               atIndex = selection.getSectionAtEnd().getIndexInSection() + 1;
             }
-          } else if (currentComponent.parentComponent) {
+          } else if (currentComponent.parentComponent &&
+                     currentComponent.inline) {
             insertInSection = currentComponent.parentComponent.section;
             atIndex = currentComponent.parentComponent.getIndexInSection() + 1;
             insertType = Paragraph.Types.Paragraph;
@@ -940,6 +963,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         });
 
         preventDefault = true;
+      } else if (selection.isCursorAtBeginning() && !prevComponent) {
+        preventDefault = true;
       }
       break;
 
@@ -992,6 +1017,66 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         preventDefault = true;
       }
       break;
+
+    // Left.
+    case 37:
+      if (selection.isCursorAtBeginning() && prevComponent) {
+        offset = 0;
+        if (prevComponent instanceof Paragraph) {
+          offset = prevComponent.getLength();
+        }
+
+        selection.setCursor({
+          component: prevComponent,
+          offset: offset
+        });
+        preventDefault = true;
+      }
+      break;
+
+    // Up.
+    case 38:
+      if (prevComponent) {
+        offset = 0;
+        if (prevComponent instanceof Paragraph) {
+          currentOffset = selection.start.offset;
+          offset = Math.min(prevComponent.getLength(), currentOffset);
+        }
+        selection.setCursor({
+          component: prevComponent,
+          offset: offset
+        });
+        preventDefault = true;
+      }
+      break;
+
+    // Right.
+    case 39:
+      if (selection.isCursorAtEnding() && nextComponent) {
+        selection.setCursor({
+          component: nextComponent,
+          offset: 0
+        });
+        preventDefault = true;
+      }
+      break;
+
+    // Down.
+    case 40:
+      if (nextComponent) {
+        offset = 0;
+        if (nextComponent instanceof Paragraph) {
+          currentOffset = selection.end.offset;
+          offset = Math.min(nextComponent.getLength(), currentOffset);
+        }
+        selection.setCursor({
+          component: nextComponent,
+          offset: offset
+        });
+        preventDefault = true;
+      }
+      break;
+
     default:
       break;
   }
@@ -1054,45 +1139,47 @@ Editor.prototype.getDeleteSelectionOps = function() {
   }
 
   if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
-    var lastParagraphOldText = selection.getComponentAtEnd().text;
-    var lastParagraphText = lastParagraphOldText.substring(
-        selection.end.offset, lastParagraphOldText.length);
-
     var lastComponent = selection.getComponentAtEnd();
     Utils.arrays.extend(ops, lastComponent.getDeleteOps(
         -inBetweenComponents.length));
 
-    var firstParagraphOldText = selection.getComponentAtStart().text;
-    var firstParagraphText = firstParagraphOldText.substring(
-        selection.start.offset, firstParagraphOldText.length);
+    if (lastComponent instanceof Paragraph) {
+      var lastParagraphOldText = lastComponent.text;
+      var lastParagraphText = lastParagraphOldText.substring(
+          selection.end.offset, lastParagraphOldText.length);
 
-    var startParagraph = selection.getComponentAtStart();
-    var startParagraphFormats = startParagraph.getFormatsForRange(
-        selection.start.offset, firstParagraphOldText.length);
+      var firstParagraphOldText = selection.getComponentAtStart().text;
+      var firstParagraphText = firstParagraphOldText.substring(
+          selection.start.offset, firstParagraphOldText.length);
 
-    var selectRange = firstParagraphOldText.length - selection.start.offset;
-    Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-      formats: startParagraphFormats
-    }, selection.start.offset, selectRange));
+      var startParagraph = selection.getComponentAtStart();
+      var startParagraphFormats = startParagraph.getFormatsForRange(
+          selection.start.offset, firstParagraphOldText.length);
 
-    Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
-        firstParagraphText, selection.start.offset));
+      var selectRange = firstParagraphOldText.length - selection.start.offset;
+      Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+        formats: startParagraphFormats
+      }, selection.start.offset, selectRange));
 
-    var lastCount = lastParagraphOldText.length - lastParagraphText.length;
-    Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
-        lastParagraphText, selection.start.offset));
+      Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
+          firstParagraphText, selection.start.offset));
 
-    var endParagraphFormatting = selection.getComponentAtEnd().getFormatsForRange(
-        selection.end.offset, lastParagraphOldText.length);
-    var formatShift = -lastCount + selection.start.offset;
-    for (var k = 0; k < endParagraphFormatting.length; k++) {
-      endParagraphFormatting[k].from += formatShift;
-      endParagraphFormatting[k].to += formatShift;
+      var lastCount = lastParagraphOldText.length - lastParagraphText.length;
+      Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
+          lastParagraphText, selection.start.offset));
+
+      var endParagraphFormatting = lastComponent.getFormatsForRange(
+          selection.end.offset, lastParagraphOldText.length);
+      var formatShift = -lastCount + selection.start.offset;
+      for (var k = 0; k < endParagraphFormatting.length; k++) {
+        endParagraphFormatting[k].from += formatShift;
+        endParagraphFormatting[k].to += formatShift;
+      }
+
+      Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+        formats: endParagraphFormatting
+      }, firstParagraphOldText.length - firstParagraphText.length));
     }
-
-    Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-      formats: endParagraphFormatting
-    }, firstParagraphOldText.length - firstParagraphText.length));
   } else {
     var currentComponent = selection.getComponentAtStart();
     var selectedText = currentComponent.text.substring(
@@ -4647,6 +4734,24 @@ Section.prototype.removeComponent = function(component) {
 
 
 /**
+ * Returns first component in the section.
+ * @return {Component} Returns first component.
+ */
+Section.prototype.getFirstComponent = function() {
+  return this.components[0];
+};
+
+
+/**
+ * Returns last component in the section.
+ * @return {Component} Returns last component.
+ */
+Section.prototype.getLastComponent = function() {
+  return this.components[this.components.length - 1];
+};
+
+
+/**
  * Returns components from a section between two components (exclusive).
  * @param  {Component} startComponent Starting component.
  * @param  {Component} endComponent Ending component.
@@ -4683,6 +4788,7 @@ Section.prototype.getJSONModel = function() {
 'use strict';
 
 var Utils = require('./utils');
+var Paragraph = require('./paragraph');
 
 
 /**
@@ -4934,6 +5040,8 @@ var Selection = (function() {
       selection.removeAllRanges();
       selection.addRange(range);
 
+      // Scroll the selected component into view.
+      this.start.component.dom.scrollIntoViewIfNeeded(false);
       var event = new Event(Selection.Events.SELECTION_CHANGED);
       this.dispatchEvent(event);
     };
@@ -5000,7 +5108,7 @@ var Selection = (function() {
 
     /**
      * Calculates end offset from the window selection. Relative to the parent
-     * paragaraph currently selected.
+     * paragraph currently selected.
      * @param  {Selection} selection Current selection.
      * @return {number} End offset relative to parent.
      */
@@ -5154,7 +5262,8 @@ var Selection = (function() {
      * @return {boolean} True if the cursor at the ending of component.
      */
     Selection.prototype.isCursorAtEnding = function() {
-      return (this.start.offset === this.start.component.getLength() &&
+      return (!(this.start.component instanceof Paragraph) ||
+              this.start.offset === this.start.component.getLength() &&
               this.end.offset === this.end.component.getLength());
     };
 
@@ -5204,7 +5313,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./utils":22}],19:[function(require,module,exports){
+},{"./paragraph":16,"./utils":22}],19:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -5763,13 +5872,15 @@ Toolbar.prototype.setPositionTopOfSelection = function () {
   var wSelection = window.getSelection();
   var range = wSelection.getRangeAt(0);
   var bounds = range.getBoundingClientRect();
+  var windowRect = document.body.getBoundingClientRect();
 
   // Calculate the left edge of the inline toolbar.
   var clientRect = this.dom.getClientRects()[0];
   var toolbarHeight = clientRect.height;
   var toolbarWidth = clientRect.width;
   var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
-
+  left = Math.max(10, left);
+  left = Math.min(left, windowRect.width - toolbarWidth - 10);
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
   this.dom.style.top = top + 'px';
@@ -5962,6 +6073,17 @@ Utils.isRedo = function(event) {
   return !!((event.ctrlKey || event.metaKey) &&
           (event.keyCode === 89 ||
            (event.shiftKey && event.keyCode === 90)));
+};
+
+
+/**
+ * Checks if the event is select all shortcut.
+ * @param  {Event} event Keypress event.
+ * @return {boolean} True if it is select all.
+ */
+Utils.isSelectAll = function(event) {
+  return !!((event.ctrlKey || event.metaKey) &&
+          event.keyCode === 65 && !event.shiftKey);
 };
 
 
