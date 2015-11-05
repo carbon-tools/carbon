@@ -2,14 +2,13 @@
 
 var Utils = require('./utils');
 var Errors = require('./errors');
-
+var Loader = require('./loader');
 
 /**
  * Component main.
  * @param {Object} optParams Optional params to initialize the Component object.
  * Default:
  *   {
- *     ComponentType: Component.Types.Component,
  *     name: Utils.getUID()
  *   }
  */
@@ -69,6 +68,7 @@ module.exports = Component;
  * @type {string}
  */
 Component.CLASS_NAME = 'Component';
+Loader.register(Component.CLASS_NAME);
 
 
 /**
@@ -138,9 +138,8 @@ Component.prototype.getPreviousComponent = function() {
  */
 Component.prototype.getJSONModel = function() {
   var Component = {
+    component: Component.CLASS_NAME,
     name: this.name,
-    text: this.text,
-    ComponentType: this.ComponentType
   };
 
   if (this.formats) {

@@ -26,123 +26,177 @@
 
     <script src="editor.standalone.js"></script>
     <script>
-      var demoArticle = new manshar.Article({
-        sections: [new manshar.Section({
-          components: [
-            new manshar.Figure({
-              src: 'assets/images/editor-logo.png',
-              width: '182px'
-            }),
-            new manshar.Paragraph({
-              placeholderText: 'Manshar Editor Demo',
-              text: 'Welcome to Editor',
-              paragraphType: manshar.Paragraph.Types.MainHeader
-            }),
-            new manshar.Paragraph({
-              placeholderText: 'This is just a demo.',
-              text: 'A rich and beautiful editor in the browser',
-              paragraphType: manshar.Paragraph.Types.ThirdHeader
-            }),
-            new manshar.Paragraph({
-              text: 'Play around and see the internal model of the' +
-                ' article being displayed to the right. The Editor is still under'+
-                ' development.'
-            }),
-            new manshar.Paragraph({
-              text: 'Inline and Block Formatting',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
-            }),
-            new manshar.Paragraph({
-              text: 'You can format the article with inline and block' +
-                ' formatting like bolding, italic, strike, underline and hyperlinks.',
-              formats: [
-                {type: 'strong', from: 65, to: 72},
-                {type: 'em', from: 74, to: 80},
-                {type: 's', from: 82, to: 88},
-                {type: 'u', from: 90, to: 99},
-                {type: 'a', attrs: {href: 'https://github.com/manshar/editor'}, from: 104, to: 114}
-              ]
-            }),
-            new manshar.Paragraph({
-              text: 'Ordered and Unordered Lists',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
-            }),
-            new manshar.List({
-              components: [
-                new manshar.Paragraph({
-                  paragraphType: manshar.Paragraph.Types.ListItem,
-                  text: 'Item One'
-                }),
-                new manshar.Paragraph({
-                  paragraphType: manshar.Paragraph.Types.ListItem,
-                  text: 'Item Two'
-                }),
-                new manshar.Paragraph({
-                  paragraphType: manshar.Paragraph.Types.ListItem,
-                  text: 'Item Three'
-                }),
-              ]
-            }),
-            new manshar.List({
-              tagName: manshar.List.ORDERED_LIST_TAG,
-              components: [
-                new manshar.Paragraph({
-                  paragraphType: manshar.Paragraph.Types.ListItem,
-                  text: 'Item One'
-                }),
-                new manshar.Paragraph({
-                  paragraphType: manshar.Paragraph.Types.ListItem,
-                  text: 'Item Two'
-                }),
-                new manshar.Paragraph({
-                  paragraphType: manshar.Paragraph.Types.ListItem,
-                  text: 'Item Three'
-                }),
-              ]
-            }),
-            new manshar.Paragraph({
-              text: 'Images',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
-            }),
-            new manshar.Figure({
-              src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
-            }),
-            new manshar.Paragraph({
-              text: 'You can also insert images by ' +
-                'pasting an image URL in a new line and hitting enter.'
-            }),
-            new manshar.Paragraph({
-              text: 'Undo-Redo Manager',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
-            }),
-            new manshar.Paragraph({
-              text: 'The editor also includes a built-in undo-redo' +
-                ' manager so you can work freely without losing edits.'
-            }),
-            new manshar.Figure({
-              src: 'https://octodex.github.com/images/mummytocat.gif'
-            }),
-            new manshar.Paragraph({
-              text: 'Embedding YouTube Videos',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
-            }),
-            new manshar.Paragraph({
-              text: 'The editor will also recognize YouTube links pasted in a' +
-                ' new line after you hit enter and insert a YouTube player.'
-            }),
-            manshar.YouTubeComponent.createYouTubeComponentFromLink(
-              'https://www.youtube.com/watch?v=JGhoLcsr8GA'
-            ),
-            new manshar.Paragraph({
-              text: 'Images are taken from OctoDex',
-              formats: [
-                {type: 'i', from: 0, to: 22},
-                {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 22, to: 29}
-              ]
-            }),
-          ]
-        })]
-      });
+      var demoArticle;
+      var storedArticle = localStorage.getItem('article');
+      if (storedArticle) {
+        demoArticle = manshar.Article.fromJSON(JSON.parse(storedArticle));
+      } else {
+        demoArticle = new manshar.Article({
+          sections: [new manshar.Section({
+            components: [
+              new manshar.Figure({
+                src: 'assets/images/editor-logo.png',
+                width: '182px'
+              }),
+              new manshar.Paragraph({
+                placeholderText: 'Manshar Editor Demo',
+                text: 'Welcome to Editor',
+                paragraphType: manshar.Paragraph.Types.MainHeader
+              }),
+              new manshar.Paragraph({
+                placeholderText: 'This is just a demo.',
+                text: 'A rich and beautiful editor in the browser',
+                paragraphType: manshar.Paragraph.Types.ThirdHeader
+              }),
+              new manshar.Paragraph({
+                text: 'Play around and see the internal model of the' +
+                  ' article being displayed to the right. The Editor is still under'+
+                  ' development.'
+              }),
+              new manshar.Paragraph({
+                text: 'Inline and Block Formatting',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.Paragraph({
+                text: 'You can format the article with inline and block' +
+                  ' formatting like bolding, italic, strike, underline and hyperlinks.',
+                formats: [
+                  {type: 'strong', from: 65, to: 72},
+                  {type: 'em', from: 74, to: 80},
+                  {type: 's', from: 82, to: 88},
+                  {type: 'u', from: 90, to: 99},
+                  {type: 'a', attrs: {href: 'https://github.com/manshar/editor'}, from: 104, to: 114}
+                ]
+              }),
+              new manshar.Paragraph({
+                text: 'Ordered and Unordered Lists',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.List({
+                components: [
+                  new manshar.Paragraph({
+                    paragraphType: manshar.Paragraph.Types.ListItem,
+                    text: 'Item One'
+                  }),
+                  new manshar.Paragraph({
+                    paragraphType: manshar.Paragraph.Types.ListItem,
+                    text: 'Item Two'
+                  }),
+                  new manshar.Paragraph({
+                    paragraphType: manshar.Paragraph.Types.ListItem,
+                    text: 'Item Three'
+                  }),
+                ]
+              }),
+              new manshar.List({
+                tagName: manshar.List.ORDERED_LIST_TAG,
+                components: [
+                  new manshar.Paragraph({
+                    paragraphType: manshar.Paragraph.Types.ListItem,
+                    text: 'Item One'
+                  }),
+                  new manshar.Paragraph({
+                    paragraphType: manshar.Paragraph.Types.ListItem,
+                    text: 'Item Two'
+                  }),
+                  new manshar.Paragraph({
+                    paragraphType: manshar.Paragraph.Types.ListItem,
+                    text: 'Item Three'
+                  }),
+                ]
+              }),
+              new manshar.Paragraph({
+                text: 'Images',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.Figure({
+                src: 'https://octodex.github.com/images/daftpunktocat-guy.gif',
+                caption: 'Source: octodex.github.com'
+              }),
+              new manshar.Paragraph({
+                text: 'You can also insert images by ' +
+                  'pasting an image URL in a new line and hitting enter.'
+              }),
+              new manshar.Paragraph({
+                text: 'Undo-Redo Manager',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.Paragraph({
+                text: 'The editor also includes a built-in undo-redo' +
+                  ' manager so you can work freely without losing edits.'
+              }),
+              new manshar.Figure({
+                src: 'https://octodex.github.com/images/mummytocat.gif',
+                caption: 'Source: octodex.github.com'
+              }),
+              new manshar.Paragraph({
+                text: 'Embedding YouTube Videos',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.Paragraph({
+                text: 'The editor will also recognize YouTube links pasted in a' +
+                  ' new line after you hit enter and insert a YouTube player.'
+              }),
+              manshar.YouTubeComponent.createYouTubeComponentFromLink(
+                'https://www.youtube.com/watch?v=JGhoLcsr8GA',
+                {caption: 'Macklemore & Ryan Lewis - Downtown (Official Music Video)'}
+              ),
+              new manshar.Paragraph({
+                text: 'Serializing and Deserializing Article',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.Paragraph({
+                text: 'The editor also exposes a getJSONModel and fromJSON methods' +
+                    ' to allow clients to persist the article model and recreate it for' +
+                    ' further editing. For example, this demo page store changes in' +
+                    ' localStorage and retreive it to recreate the saved article when' +
+                    ' you revisit the demo page. Try making changes and refresh the page.',
+                formats: [
+                    {type: 'em', from: 26, to: 38},
+                    {type: 'em', from: 43, to: 51},
+                    {type: 'strong', from: 279, to: 318},
+                ]
+              }),
+              new manshar.Paragraph({
+                text: 'Custom Components and Extensions',
+                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              }),
+              new manshar.Paragraph({
+                text: 'Developers can create custom components to extend the editor' +
+                    ' two ways you can extend the editor are: RegEx Matching and' +
+                    ' Toolbelt Button.',
+                formats: [
+                    {type: 'strong', from: 101, to: 115},
+                    {type: 'strong', from: 120, to: 135},
+                ]
+              }),
+              new manshar.Paragraph({
+                text: 'By registering a regex with the editor, your component can' +
+                    ' be notified and do custom work. For example, GiphyComponent' +
+                    ' (enabled in this demo) allows the users to insert GIFs from' +
+                    ' Giphy APIs into the editor. Try it out, on a new paragraph' +
+                    ' type: "/giphy hello" (without quotes) and hit enter.',
+                formats: [
+                    {type: 'em', from: 104, to: 118},
+                    {type: 'a', from: 179, to: 184, attrs: {href: 'http://giphy.com'}},
+                    {type: 'strong', from: 207, to: 289},
+                ]
+              }),
+              new manshar.GiphyComponent({
+                src : "http://media.giphy.com/media/CnpgcGr2MQbwQ/giphy.gif",
+              }),
+              new manshar.Paragraph({
+                text: 'A component can also add action(s) to the toolbelt toolbar.' +
+                    ' The toolbelt toolbar appears when you click the + button on' +
+                    ' the block toolbar that appears above the focused paragraph.' +
+                    ' For example, the UploadExtension (enabled in this demo)' +
+                    ' registers a "Upload Photo" action that allows it to handle' +
+                    ' uploading photos and inserting them.',
+              }),
+            ]
+          })]
+        });
+      }
 
       var editor = new manshar.Editor(
           document.getElementById('editor'), {
@@ -156,6 +210,7 @@
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {
         model.innerHTML = JSONTree.create(editor.getJSONModel());
+        localStorage.setItem('article', JSON.stringify(editor.getJSONModel()));
       });
       model.innerHTML = JSONTree.create(editor.getJSONModel());
 

@@ -3,6 +3,7 @@
 
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
+var Section = require('./section');
 var Utils = require('./utils');
 
 
@@ -68,6 +69,23 @@ module.exports = Article;
  * @type {String}
  */
 Article.TAG_NAME = 'article';
+
+
+/**
+ * Create and initiate an Article object from JSON.
+ * @param  {Object} json JSON representation of the article.
+ * @return {Article} Article object representing the JSON data.
+ */
+Article.fromJSON = function (json) {
+  var sections = [];
+  for (var i = 0; i < json.sections.length; i++) {
+    sections.push(Section.fromJSON(json.sections[i]));
+  }
+
+  return new Article({
+    sections: sections
+  });
+};
 
 
 /**
@@ -302,19 +320,18 @@ Article.prototype.exec = function(operation, action) {
   }
 };
 
-},{"./paragraph":16,"./selection":18,"./utils":22}],2:[function(require,module,exports){
+},{"./paragraph":17,"./section":18,"./selection":19,"./utils":23}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
 var Errors = require('./errors');
-
+var Loader = require('./loader');
 
 /**
  * Component main.
  * @param {Object} optParams Optional params to initialize the Component object.
  * Default:
  *   {
- *     ComponentType: Component.Types.Component,
  *     name: Utils.getUID()
  *   }
  */
@@ -374,6 +391,7 @@ module.exports = Component;
  * @type {string}
  */
 Component.CLASS_NAME = 'Component';
+Loader.register(Component.CLASS_NAME);
 
 
 /**
@@ -443,9 +461,8 @@ Component.prototype.getPreviousComponent = function() {
  */
 Component.prototype.getJSONModel = function() {
   var Component = {
+    component: Component.CLASS_NAME,
     name: this.name,
-    text: this.text,
-    ComponentType: this.ComponentType
   };
 
   if (this.formats) {
@@ -543,7 +560,7 @@ Component.prototype.getLength = function () {
   return 0;
 };
 
-},{"./errors":4,"./utils":22}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":15,"./utils":23}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -604,6 +621,7 @@ var Editor = function (element, optParams) {
    * @type {Object.<string, Function>}
    */
   this.installedModules = {};
+  this.install(Section);
   this.install(Paragraph);
   this.install(List);
   this.install(Figure);
@@ -717,6 +735,16 @@ Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
+ * Create and initiate an editor from JSON.
+ * @param  {Object} json JSON representation of the editor.
+ * @return {Article} Article object representing the JSON data.
+ */
+Editor.fromJSON = function (json) {
+  return Article.fromJSON(json);
+};
+
+
+/**
  * Initialize the editor article model and event listeners.
  */
 Editor.prototype.init = function() {
@@ -811,6 +839,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var ops = [];
   var inBetweenComponents = [];
   var offset, currentOffset;
+  var that = this;
 
   if (Utils.isUndo(event)) {
     this.article.undo();
@@ -821,10 +850,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   } else if (Utils.isSelectAll(event)) {
     selection.select({
       component: article.getFirstComponent(),
-      cursor: 0
+      offset: 0
     }, {
       component: article.getLastComponent(),
-      cursor: article.getLastComponent().getLength()
+      offset: article.getLastComponent().getLength()
     });
     preventDefault = true;
   }
@@ -882,6 +911,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         if (factoryMethod) {
           factoryMethod(currentComponent, function(ops) {
             article.transaction(ops);
+            setTimeout(function() {
+              that.dispatchEvent(new Event('change'));
+            }, 10);
           });
         } else {
           var insertType = currentComponent.paragraphType;
@@ -927,9 +959,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             -inBetweenComponents.length));
         if (prevComponent) {
           this.article.transaction(ops);
+          offset = 0;
+          if (prevComponent instanceof Paragraph) {
+            offset = prevComponent.getLength();
+          }
           selection.setCursor({
             component: prevComponent,
-            offset: prevComponent.getLength()
+            offset: offset
           });
         } else if (nextComponent) {
           this.article.transaction(ops);
@@ -1526,8 +1562,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-
-},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formatting":7,"./extensions/shortcutsManager":9,"./extensions/toolbelt":10,"./extensions/uploadExtension":11,"./figure":13,"./list":14,"./paragraph":16,"./section":17,"./toolbars/toolbar":21,"./utils":22}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formatting":7,"./extensions/shortcutsManager":9,"./extensions/toolbelt":10,"./extensions/uploadExtension":11,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./toolbars/toolbar":22,"./utils":23}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1623,7 +1658,7 @@ Attachment.prototype.setAttributes = function(attrs) {
   this.figure.updateAttributes(attrs);
 };
 
-},{"../utils":22}],6:[function(require,module,exports){
+},{"../utils":23}],6:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -2374,12 +2409,13 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":16,"../selection":18,"../toolbars/button":19,"../toolbars/textField":20,"../utils":22}],8:[function(require,module,exports){
+},{"../paragraph":17,"../selection":19,"../toolbars/button":20,"../toolbars/textField":21,"../utils":23}],8:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
 var Selection = require('../selection');
 var Component = require('../component');
+var Loader = require('../loader');
 
 /**
  * GiphyComponent main.
@@ -2459,6 +2495,7 @@ module.exports = GiphyComponent;
  * @type {string}
  */
 GiphyComponent.CLASS_NAME = 'GiphyComponent';
+Loader.register(GiphyComponent.CLASS_NAME, GiphyComponent);
 
 
 /**
@@ -2487,7 +2524,7 @@ GiphyComponent.CAPTION_TAG_NAME = 'figcaption';
  * @type {Array.<string>}
  */
 GiphyComponent.GIPHY_SEARCH_REGEXS = [
-    '/giphy\\s(.+[a-zA-Z])'
+    '^/giphy\\s(.+[a-zA-Z])$'
 ];
 
 
@@ -2499,6 +2536,16 @@ GiphyComponent.GIPHY_SEARCH_REGEXS = [
 GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
       'api_key=dc6zaTOxFJmzC&' +
       'tag=';
+
+
+/**
+ * Create and initiate a giphy object from JSON.
+ * @param  {Object} json JSON representation of the giphy.
+ * @return {GiphyComponent} GiphyComponent object representing the JSON data.
+ */
+GiphyComponent.fromJSON = function (json) {
+  return new GiphyComponent(json);
+};
 
 
 /**
@@ -2571,8 +2618,10 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
  */
 GiphyComponent.prototype.getJSONModel = function() {
   var image = {
+    component: GiphyComponent.CLASS_NAME,
     name: this.name,
     src: this.src,
+    width: this.width,
     caption: this.caption
   };
 
@@ -2656,7 +2705,7 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../selection":18,"../utils":22}],9:[function(require,module,exports){
+},{"../component":2,"../loader":15,"../selection":19,"../utils":23}],9:[function(require,module,exports){
 'use strict';
 
 
@@ -2904,7 +2953,7 @@ Toolbelt.prototype.handleButtonAdded = function () {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":18,"../toolbars/button":19,"../toolbars/toolbar":21}],11:[function(require,module,exports){
+},{"../selection":19,"../toolbars/button":20,"../toolbars/toolbar":22}],11:[function(require,module,exports){
 'use strict';
 
 var Button = require('../toolbars/button');
@@ -3070,12 +3119,14 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":13,"../toolbars/button":19,"../utils":22,"./attachment":5}],12:[function(require,module,exports){
+},{"../figure":13,"../toolbars/button":20,"../utils":23,"./attachment":5}],12:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
 var Selection = require('../selection');
 var Component = require('../component');
+var Paragrarph = require('../paragraph');
+var Loader = require('../loader');
 
 /**
  * YouTubeComponent main.
@@ -3129,25 +3180,34 @@ var YouTubeComponent = function(optParams) {
    * DOM element tied to this object.
    * @type {HTMLElement}
    */
-  this.dom = document.createElement(YouTubeComponent.CONTAINER_TAG_NAME);
+  this.dom = document.createElement(YouTubeComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+
+  this.containerDom = document.createElement(
+      YouTubeComponent.CONTAINER_TAG_NAME);
+  this.containerDom.className = YouTubeComponent.CONTAINER_CLASS_NAME;
 
   this.overlayDom = document.createElement(
       YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
   this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
-  this.dom.appendChild(this.overlayDom);
+  this.containerDom.appendChild(this.overlayDom);
   this.overlayDom.addEventListener('click', this.handleClick.bind(this));
 
-  this.captionDom = document.createElement(YouTubeComponent.CAPTION_TAG_NAME);
-  this.captionDom.setAttribute('contenteditable', true);
-
   this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
+  this.containerDom.appendChild(this.videoDom);
 
-  if (this.caption) {
-    this.captionDom.innerText = this.caption;
-    this.dom.appendChild(this.captionDom);
-  }
+  /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.captionParagraph = new Paragrarph({
+    placeholderText: 'Type caption for video',
+    text: this.caption,
+    paragraphType: Paragrarph.Types.Caption,
+    parentComponent: this,
+    inline: true
+  });
 
   if (this.src) {
     this.videoDom.setAttribute('src', this.src);
@@ -3159,25 +3219,44 @@ var YouTubeComponent = function(optParams) {
     if (this.height) {
       this.videoDom.setAttribute('height', this.height);
     }
-    this.dom.appendChild(this.videoDom);
+    this.containerDom.appendChild(this.videoDom);
   }
+
+  this.captionDom = this.captionParagraph.dom;
+  this.captionDom.setAttribute('contenteditable', true);
+  this.dom.appendChild(this.containerDom);
+  this.dom.appendChild(this.captionDom);
 };
 YouTubeComponent.prototype = new Component();
 module.exports = YouTubeComponent;
-
 
 /**
  * String name for the component class.
  * @type {string}
  */
 YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
+Loader.register(YouTubeComponent.CLASS_NAME, YouTubeComponent);
 
 
 /**
- * YouTubeComponent component container element tag name.
+ * YouTubeComponent component element tag name.
  * @type {string}
  */
-YouTubeComponent.CONTAINER_TAG_NAME = 'figure';
+YouTubeComponent.TAG_NAME = 'figure';
+
+
+/**
+ * YouTubeComponent component inner container element tag name.
+ * @type {string}
+ */
+YouTubeComponent.CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * YouTubeComponent component inner container element class name.
+ * @type {string}
+ */
+YouTubeComponent.CONTAINER_CLASS_NAME = 'inner-container';
 
 
 /**
@@ -3220,6 +3299,16 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
 
 
 /**
+ * Create and initiate a youtube object from JSON.
+ * @param  {Object} json JSON representation of the youtube.
+ * @return {YouTubeComponent} YouTubeComponent object representing JSON data.
+ */
+YouTubeComponent.fromJSON = function (json) {
+  return new YouTubeComponent(json);
+};
+
+
+/**
  * Handles onInstall when the YouTubeComponent module installed in an editor.
  * @param  {Editor} editor Instance of the editor that installed the module.
  */
@@ -3249,7 +3338,7 @@ YouTubeComponent.registerRegexes_ = function(editor) {
  * @param  {string} link YouTube video URL.
  * @return {YouTubeComponent} YouTubeComponent component created from the link.
  */
-YouTubeComponent.createYouTubeComponentFromLink = function (link) {
+YouTubeComponent.createYouTubeComponentFromLink = function (link, attrs) {
   var src = link;
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
@@ -3259,7 +3348,7 @@ YouTubeComponent.createYouTubeComponentFromLink = function (link) {
       break;
     }
   }
-  return new YouTubeComponent({src: src});
+  return new YouTubeComponent(Utils.extend({src: src}, attrs));
 };
 
 
@@ -3272,7 +3361,7 @@ YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
   var ytComponent = YouTubeComponent.createYouTubeComponentFromLink(
-      matchedComponent.text);
+      matchedComponent.text, {});
   ytComponent.section = matchedComponent.section;
 
   // Delete current matched component with its text.
@@ -3302,9 +3391,12 @@ YouTubeComponent.createEmbedSrcFromId = function (id) {
  */
 YouTubeComponent.prototype.getJSONModel = function() {
   var video = {
+    component: YouTubeComponent.CLASS_NAME,
     name: this.name,
     src: this.src,
-    caption: this.caption
+    height: this.height,
+    width: this.width,
+    caption: this.captionParagraph.text
   };
 
   return video;
@@ -3391,13 +3483,14 @@ YouTubeComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../selection":18,"../utils":22}],13:[function(require,module,exports){
+},{"../component":2,"../loader":15,"../paragraph":17,"../selection":19,"../utils":23}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
 var Selection = require('./selection');
 var Component = require('./component');
 var Paragrarph = require('./paragraph');
+var Loader = require('./loader');
 
 /**
  * Figure main.
@@ -3430,7 +3523,7 @@ var Figure = function(optParams) {
    * Wether this figure is initialized with Data URL.
    * @type {boolean}
    */
-  this.isDataUrl = !!params.src && params.src.indexOf('http') !== 0;
+  this.isDataUrl = !!params.src && params.src.indexOf('data:image') === 0;
 
   /**
    * Width of the figure.
@@ -3488,6 +3581,7 @@ module.exports = Figure;
  * @type {string}
  */
 Figure.CLASS_NAME = 'Figure';
+Loader.register(Figure.CLASS_NAME, Figure);
 
 
 /**
@@ -3518,6 +3612,16 @@ Figure.CAPTION_TAG_NAME = 'figcaption';
 Figure.IMAGE_URL_REGEXS = [
     'https?://(.*)\.(jpg|png|gif|jpeg)$'
 ];
+
+
+/**
+ * Create and initiate a figure object from JSON.
+ * @param  {Object} json JSON representation of the figure.
+ * @return {Figure} Figure object representing the JSON data.
+ */
+Figure.fromJSON = function (json) {
+  return new Figure(json);
+};
 
 
 /**
@@ -3571,8 +3675,10 @@ Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
  */
 Figure.prototype.getJSONModel = function() {
   var image = {
+    component: Figure.CLASS_NAME,
     name: this.name,
-    caption: this.captionParagraph.getJSONModel()
+    width: this.width,
+    caption: this.captionParagraph.text
   };
 
   if (!this.isDataUrl) {
@@ -3695,13 +3801,13 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./paragraph":16,"./selection":18,"./utils":22}],14:[function(require,module,exports){
+},{"./component":2,"./loader":15,"./paragraph":17,"./selection":19,"./utils":23}],14:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
 var Section = require('./section');
 var Paragrarph = require('./paragraph');
-
+var Loader = require('./loader');
 
 /**
  * List main.
@@ -3732,6 +3838,7 @@ module.exports = List;
  * @type {string}
  */
 List.CLASS_NAME = 'List';
+Loader.register(List.CLASS_NAME, List);
 
 
 /**
@@ -3760,6 +3867,26 @@ List.UNORDERED_LIST_REGEX = '^(?:\\*|-)\\s?(.*)';
  * @type {string}
  */
 List.ORDERED_LIST_REGEX = '^(?:1\\.|-|_|\\))\\s?(.*)';
+
+
+/**
+ * Create and initiate a list object from JSON.
+ * @param  {Object} json JSON representation of the list.
+ * @return {List} List object representing the JSON data.
+ */
+List.fromJSON = function (json) {
+  var components = [];
+  for (var i = 0; i < json.components.length; i++) {
+    var className = json.components[i].component;
+    var ComponentClass = Loader.load(className);
+    components.push(ComponentClass.fromJSON(json.components[i]));
+  }
+
+  return new List({
+    name: json.name,
+    components: components
+  });
+};
 
 
 /**
@@ -3958,7 +4085,86 @@ List.prototype.getLength = function () {
   return this.components.length;
 };
 
-},{"./paragraph":16,"./section":17,"./utils":22}],15:[function(require,module,exports){
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this list.
+ */
+List.prototype.getJSONModel = function() {
+  var section = {
+    component: List.CLASS_NAME,
+    components: []
+  };
+
+  for (var i = 0; i < this.components.length; i++) {
+    section.components.push(this.components[i].getJSONModel());
+  }
+
+  return section;
+};
+
+},{"./loader":15,"./paragraph":17,"./section":18,"./utils":23}],15:[function(require,module,exports){
+'use strict';
+
+var Errors = require('./errors');
+
+/**
+ * Loader A loader to register modules and load them on runtime.
+ * e.g. Loader.register('YouTubeComponent', YouTubeComponent);
+ * var YC = Loader.load('YouTubeComponent');
+ */
+var Loader = (function() {
+
+  var Loader = function () {
+    /**
+     * The registery for the components and its modules.
+     * @type {Object}
+     */
+    this.registery = {};
+  };
+
+
+  /**
+   * Registers a module with the loader.
+   * @param  {string} name Name of module to register.
+   * @param  {Function} module The module.
+   * @param  {boolean=} optForce Forcing registering even when its already
+   * registered.
+   */
+  Loader.prototype.register = function(name, module, optForce) {
+    if (this.registery[name] && !optForce) {
+      throw Errors.AlreadyRegisteredError(
+          'The module name "' + name + '" has already been registered.');
+    }
+
+    this.registery[name] = module;
+  };
+
+
+  /**
+   * Returns the module registered to the name.
+   * @param {string} name Module's name to load.
+   * @return {Function} The module requested.
+   */
+  Loader.prototype.load = function(name) {
+    return this.registery[name];
+  };
+
+  var instance = new Loader();
+  return {
+    register: function (name, module, optForce) {
+      instance.register(name, module, optForce);
+    },
+
+    load: function (name) {
+      return instance.load(name);
+    }
+
+  };
+})();
+module.exports = Loader;
+
+},{"./errors":4}],16:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -3975,11 +4181,12 @@ module.exports.Formatting = require('./extensions/formatting');
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
 
-},{"./article":1,"./editor":3,"./extensions/formatting":7,"./extensions/giphyComponent":8,"./extensions/youtubeComponent":12,"./figure":13,"./list":14,"./paragraph":16,"./section":17,"./selection":18}],16:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/formatting":7,"./extensions/giphyComponent":8,"./extensions/youtubeComponent":12,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./selection":19}],17:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
 var Component = require('./component');
+var Loader = require('./loader');
 
 /**
  * Paragraph main.
@@ -4063,6 +4270,7 @@ module.exports = Paragraph;
  * @type {string}
  */
 Paragraph.CLASS_NAME = 'Paragraph';
+Loader.register(Paragraph.CLASS_NAME, Paragraph);
 
 
 /**
@@ -4078,6 +4286,16 @@ Paragraph.Types = {
   Code: 'pre',
   Caption: 'figcaption',
   ListItem: 'li'
+};
+
+
+/**
+ * Create and initiate a paragraph object from JSON.
+ * @param  {Object} json JSON representation of the paragraph.
+ * @return {Paragraph} Paragraph object representing the JSON data.
+ */
+Paragraph.fromJSON = function (json) {
+  return new Paragraph(json);
 };
 
 
@@ -4450,12 +4668,13 @@ Paragraph.prototype.addNewFormatting = function(format) {
  */
 Paragraph.prototype.getJSONModel = function() {
   var paragraph = {
+    component: Paragraph.CLASS_NAME,
     name: this.name,
     text: this.text,
     paragraphType: this.paragraphType
   };
 
-  if (this.formats) {
+  if (this.formats && this.formats.length) {
     paragraph.formats = this.formats;
   }
 
@@ -4610,12 +4829,14 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./utils":22}],17:[function(require,module,exports){
+},{"./component":2,"./loader":15,"./utils":23}],18:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
 var Utils = require('./utils');
 var Component = require('./component');
+var Loader = require('./loader');
+
 
 /**
  * Section main.
@@ -4677,6 +4898,34 @@ module.exports = Section;
  * @type {String}
  */
 Section.TAG_NAME = 'section';
+
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+Section.CLASS_NAME = 'Section';
+Loader.register(Section.CLASS_NAME, Section);
+
+
+/**
+ * Create and initiate an Article object from JSON.
+ * @param  {Object} json JSON representation of the article.
+ * @return {Section} Section object representing the JSON data.
+ */
+Section.fromJSON = function (json) {
+  var components = [];
+  for (var i = 0; i < json.components.length; i++) {
+    var className = json.components[i].component;
+    var ComponentClass = Loader.load(className);
+    components.push(ComponentClass.fromJSON(json.components[i]));
+  }
+
+  return new Section({
+    name: json.name,
+    components: components
+  });
+};
 
 
 /**
@@ -4774,6 +5023,7 @@ Section.prototype.getComponentsBetween = function(
  */
 Section.prototype.getJSONModel = function() {
   var section = {
+    component: Section.CLASS_NAME,
     components: []
   };
 
@@ -4784,7 +5034,16 @@ Section.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./component":2,"./selection":18,"./utils":22}],18:[function(require,module,exports){
+
+/**
+ * Called when the module is installed on in an editor.
+ * @param  {Editor} editor Editor instance which installed the module.
+ */
+Section.onInstall = function (editor) {
+  // jshint unused: false
+};
+
+},{"./component":2,"./loader":15,"./selection":19,"./utils":23}],19:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5313,7 +5572,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":16,"./utils":22}],19:[function(require,module,exports){
+},{"./paragraph":17,"./utils":23}],20:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -5520,7 +5779,7 @@ Button.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":22}],20:[function(require,module,exports){
+},{"../utils":23}],21:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -5621,7 +5880,7 @@ TextField.prototype.setValue = function (value) {
   this.dom.value = value;
 };
 
-},{"../utils":22}],21:[function(require,module,exports){
+},{"../utils":23}],22:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -5929,7 +6188,7 @@ Toolbar.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":22}],22:[function(require,module,exports){
+},{"../utils":23}],23:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -6210,5 +6469,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[15])(15)
+},{}]},{},[16])(16)
 });

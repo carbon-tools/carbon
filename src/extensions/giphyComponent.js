@@ -3,6 +3,7 @@
 var Utils = require('../utils');
 var Selection = require('../selection');
 var Component = require('../component');
+var Loader = require('../loader');
 
 /**
  * GiphyComponent main.
@@ -82,6 +83,7 @@ module.exports = GiphyComponent;
  * @type {string}
  */
 GiphyComponent.CLASS_NAME = 'GiphyComponent';
+Loader.register(GiphyComponent.CLASS_NAME, GiphyComponent);
 
 
 /**
@@ -110,7 +112,7 @@ GiphyComponent.CAPTION_TAG_NAME = 'figcaption';
  * @type {Array.<string>}
  */
 GiphyComponent.GIPHY_SEARCH_REGEXS = [
-    '/giphy\\s(.+[a-zA-Z])'
+    '^/giphy\\s(.+[a-zA-Z])$'
 ];
 
 
@@ -122,6 +124,16 @@ GiphyComponent.GIPHY_SEARCH_REGEXS = [
 GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
       'api_key=dc6zaTOxFJmzC&' +
       'tag=';
+
+
+/**
+ * Create and initiate a giphy object from JSON.
+ * @param  {Object} json JSON representation of the giphy.
+ * @return {GiphyComponent} GiphyComponent object representing the JSON data.
+ */
+GiphyComponent.fromJSON = function (json) {
+  return new GiphyComponent(json);
+};
 
 
 /**
@@ -194,8 +206,10 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
  */
 GiphyComponent.prototype.getJSONModel = function() {
   var image = {
+    component: GiphyComponent.CLASS_NAME,
     name: this.name,
     src: this.src,
+    width: this.width,
     caption: this.caption
   };
 

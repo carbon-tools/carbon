@@ -3,6 +3,8 @@
 var Selection = require('./selection');
 var Utils = require('./utils');
 var Component = require('./component');
+var Loader = require('./loader');
+
 
 /**
  * Section main.
@@ -64,6 +66,34 @@ module.exports = Section;
  * @type {String}
  */
 Section.TAG_NAME = 'section';
+
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+Section.CLASS_NAME = 'Section';
+Loader.register(Section.CLASS_NAME, Section);
+
+
+/**
+ * Create and initiate an Article object from JSON.
+ * @param  {Object} json JSON representation of the article.
+ * @return {Section} Section object representing the JSON data.
+ */
+Section.fromJSON = function (json) {
+  var components = [];
+  for (var i = 0; i < json.components.length; i++) {
+    var className = json.components[i].component;
+    var ComponentClass = Loader.load(className);
+    components.push(ComponentClass.fromJSON(json.components[i]));
+  }
+
+  return new Section({
+    name: json.name,
+    components: components
+  });
+};
 
 
 /**
@@ -161,6 +191,7 @@ Section.prototype.getComponentsBetween = function(
  */
 Section.prototype.getJSONModel = function() {
   var section = {
+    component: Section.CLASS_NAME,
     components: []
   };
 
@@ -169,4 +200,13 @@ Section.prototype.getJSONModel = function() {
   }
 
   return section;
+};
+
+
+/**
+ * Called when the module is installed on in an editor.
+ * @param  {Editor} editor Editor instance which installed the module.
+ */
+Section.onInstall = function (editor) {
+  // jshint unused: false
 };

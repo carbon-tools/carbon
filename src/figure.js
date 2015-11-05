@@ -4,6 +4,7 @@ var Utils = require('./utils');
 var Selection = require('./selection');
 var Component = require('./component');
 var Paragrarph = require('./paragraph');
+var Loader = require('./loader');
 
 /**
  * Figure main.
@@ -36,7 +37,7 @@ var Figure = function(optParams) {
    * Wether this figure is initialized with Data URL.
    * @type {boolean}
    */
-  this.isDataUrl = !!params.src && params.src.indexOf('http') !== 0;
+  this.isDataUrl = !!params.src && params.src.indexOf('data:image') === 0;
 
   /**
    * Width of the figure.
@@ -94,6 +95,7 @@ module.exports = Figure;
  * @type {string}
  */
 Figure.CLASS_NAME = 'Figure';
+Loader.register(Figure.CLASS_NAME, Figure);
 
 
 /**
@@ -124,6 +126,16 @@ Figure.CAPTION_TAG_NAME = 'figcaption';
 Figure.IMAGE_URL_REGEXS = [
     'https?://(.*)\.(jpg|png|gif|jpeg)$'
 ];
+
+
+/**
+ * Create and initiate a figure object from JSON.
+ * @param  {Object} json JSON representation of the figure.
+ * @return {Figure} Figure object representing the JSON data.
+ */
+Figure.fromJSON = function (json) {
+  return new Figure(json);
+};
 
 
 /**
@@ -177,8 +189,10 @@ Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
  */
 Figure.prototype.getJSONModel = function() {
   var image = {
+    component: Figure.CLASS_NAME,
     name: this.name,
-    caption: this.captionParagraph.getJSONModel()
+    width: this.width,
+    caption: this.captionParagraph.text
   };
 
   if (!this.isDataUrl) {

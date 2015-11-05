@@ -2,6 +2,7 @@
 
 var Utils = require('./utils');
 var Component = require('./component');
+var Loader = require('./loader');
 
 /**
  * Paragraph main.
@@ -85,6 +86,7 @@ module.exports = Paragraph;
  * @type {string}
  */
 Paragraph.CLASS_NAME = 'Paragraph';
+Loader.register(Paragraph.CLASS_NAME, Paragraph);
 
 
 /**
@@ -100,6 +102,16 @@ Paragraph.Types = {
   Code: 'pre',
   Caption: 'figcaption',
   ListItem: 'li'
+};
+
+
+/**
+ * Create and initiate a paragraph object from JSON.
+ * @param  {Object} json JSON representation of the paragraph.
+ * @return {Paragraph} Paragraph object representing the JSON data.
+ */
+Paragraph.fromJSON = function (json) {
+  return new Paragraph(json);
 };
 
 
@@ -472,12 +484,13 @@ Paragraph.prototype.addNewFormatting = function(format) {
  */
 Paragraph.prototype.getJSONModel = function() {
   var paragraph = {
+    component: Paragraph.CLASS_NAME,
     name: this.name,
     text: this.text,
     paragraphType: this.paragraphType
   };
 
-  if (this.formats) {
+  if (this.formats && this.formats.length) {
     paragraph.formats = this.formats;
   }
 
