@@ -120,7 +120,6 @@ ShortcutsManager.prototype.handleKeyDownEvent = function(event) {
  * existing shortcut listener.
  */
 ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
-
   // If the shortcut already registered throw an error.
   if (this.registery[shortcutId] && !optForce) {
     throw '"' + shortcutId + '" shortcut has already been registered.';

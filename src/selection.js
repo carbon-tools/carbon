@@ -40,7 +40,7 @@ var Selection = (function() {
      * @type {Enum}
      */
     Selection.Events = {
-      SELECTION_CHANGED: 'selectionchanged'
+      SELECTION_CHANGED: 'selection-changed'
     };
 
     /**

@@ -1,17 +1,18 @@
 'use strict';
 
 var Article = require('./article');
+var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
 var Errors = require('./errors');
-var FormattingExtension = require('./extensions/formatting');
+var FormattingExtension = require('./extensions/formattingExtension');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
 var Toolbar = require('./toolbars/toolbar');
-var ToolbeltExtension = require('./extensions/toolbelt');
+var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
 
 
@@ -31,20 +32,12 @@ var Editor = function (element, optParams) {
     modules: [],
     rtl: false,
     article: new Article({
-      editor: this,
       sections: [new Section({
         components: [new Paragraph({
-          placeholder: 'Editor',
-          paragraphType: Paragraph.Types.MainHeader
+          placeholder: 'Editor'
         })]
       })]
     }),
-    // The extensions enabled in this editor.
-    extensions: [
-        new FormattingExtension(),
-        new ToolbeltExtension(),
-        new UploadExtension()
-    ]
   }, optParams);
 
   /**
@@ -52,19 +45,6 @@ var Editor = function (element, optParams) {
    * @type {ComponentFactory}
    */
   this.componentFactory = new ComponentFactory();
-
-  /**
-   * Components installed and enabled in the editor.
-   * @type {Object.<string, Function>}
-   */
-  this.installedModules = {};
-  this.install(Section);
-  this.install(Paragraph);
-  this.install(List);
-  this.install(Figure);
-  for (var i = 0; i < params.modules.length; i++) {
-    this.install(params.modules[i]);
-  }
 
   /**
    * Unique name to identify the editor.
@@ -77,12 +57,6 @@ var Editor = function (element, optParams) {
    * @type {boolean}
    */
   this.rtl = params.rtl;
-
-  /**
-   * Extensions enabled in the editor.
-   * @type {Array.<Object>}
-   */
-  this.extensions = params.extensions;
 
   /**
    * Element to decorate the editor on.
@@ -129,6 +103,28 @@ var Editor = function (element, optParams) {
     classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME]
   });
   this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
+
+  /**
+   * Components installed and enabled in the editor.
+   * @type {Object.<string, Function>}
+   */
+  this.installedModules = {};
+
+  // Install built-in Components.
+  this.install(Section);
+  this.install(Paragraph);
+  this.install(List);
+  this.install(Figure);
+
+  // Install built-in extensions.
+  this.install(FormattingExtension);
+  this.install(ToolbeltExtension);
+  this.install(UploadExtension);
+
+  // Install user provided components and extensions.
+  for (var i = 0; i < params.modules.length; i++) {
+    this.install(params.modules[i]);
+  }
 
   this.init();
 };
@@ -206,6 +202,10 @@ Editor.prototype.init = function() {
     component: this.article.sections[0].components[0],
     offset: 0
   });
+
+  this.article.selection.addEventListener(
+      Selection.Events.SELECTON_CHANGED,
+      this.handleSelectionChanged.bind(this));
 };
 
 
@@ -220,6 +220,44 @@ Editor.prototype.install = function(ModuleClass) {
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
   ModuleClass.onInstall(this);
+};
+
+
+/**
+ * Registers a keyboard shortcut in the editor.
+ * @param  {string} shortcutId Shortcut string e.g. 'ctrl+b'.
+ * @param  {Function} handler Callback handler for handling the shortcut.
+ * @param  {boolean=} optForce Whether to override an already registered one.
+ */
+Editor.prototype.registerShrotcut = function(shortcutId, handler, optForce) {
+  this.shortcutsManager.register(shortcutId, handler, optForce);
+};
+
+
+/**
+ * Returns true if the editor is empty.
+ * @return {boolean} True if the editor is empty
+ */
+Editor.prototype.isEmpty = function() {
+  return this.article.getLength() === 0;
+};
+
+
+/**
+ * Returns the first header paragraph in the article.
+ * @return {string} First header of the article.
+ */
+Editor.prototype.getTitle = function() {
+  return this.article.getTitle();
+};
+
+
+/**
+ * Returns the first non-header paragraph in the article.
+ * @return {string} First non-header paragraph of the article.
+ */
+Editor.prototype.getSnippet = function() {
+  return this.article.getSnippet();
 };
 
 
@@ -248,7 +286,7 @@ Editor.prototype.getToolbar = function (name) {
  * @param  {string} name Name of the function.
  * @return {Function} Class function for the component.
  */
-Editor.prototype.getComponentClassByName = function (name) {
+Editor.prototype.getModule = function (name) {
   return this.installedModules[name];
 };
 
@@ -262,6 +300,15 @@ Editor.prototype.getComponentClassByName = function (name) {
  */
 Editor.prototype.registerRegex = function (regex, factoryMethod, optForce) {
   this.componentFactory.registerRegex(regex, factoryMethod, optForce);
+};
+
+
+/**
+ * Dipatches the selection changed event to its listeners.
+ * @param  {Event} event Selection changed event.
+ */
+Editor.prototype.handleSelectionChanged = function(event) {
+  this.dispatchEvent(event);
 };
 
 
@@ -780,6 +827,16 @@ Editor.prototype.handlePaste = function(event) {
 Editor.prototype.getJSONModel = function() {
   return this.article.getJSONModel();
 };
+
+
+/**
+ * Returns the HTML for the article.
+ * @return {string} Rendered HTML of the article.
+ */
+Editor.prototype.getHTML = function() {
+  return this.article.dom.outerHTML;
+};
+
 
 
 /**

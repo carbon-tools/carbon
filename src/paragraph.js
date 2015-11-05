@@ -125,6 +125,19 @@ Paragraph.onInstall = function (editor) {
 
 
 /**
+ * Returns true if the paragraph type is a header.
+ * @return {boolean} True if the paragraph is a header.
+ */
+Paragraph.prototype.isHeader = function() {
+  return [
+      Paragraph.Types.MainHeader,
+      Paragraph.Types.SecondaryHeader,
+      Paragraph.Types.ThirdHeader
+  ].indexOf(this.paragraphType) !== -1;
+};
+
+
+/**
  * Updates the text for the paragraph.
  * @param {string} text Text to update to.
  */

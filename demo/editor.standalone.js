@@ -183,6 +183,38 @@ Article.prototype.getJSONModel = function() {
 
 
 /**
+ * Returns the length of the article.
+ * @return {number} Length of article.
+ */
+Article.prototype.getLength = function() {
+  var length = 0;
+  for (var i = 0; i < this.sections.length; i++) {
+    length += this.sections[i].getLength();
+  }
+  return length;
+};
+
+
+
+/**
+ * Returns the first header paragraph in the article.
+ * @return {string} First header of the article.
+ */
+Article.prototype.getTitle = function() {
+  return this.sections[0].getTitle();
+};
+
+
+/**
+ * Returns the first non-header paragraph in the article.
+ * @return {string} First non-header paragraph of the article.
+ */
+Article.prototype.getSnippet = function() {
+  return this.sections[0].getSnippet();
+};
+
+
+/**
  * Apply list of operations to the article model.
  * @param  {Array.<Object>} ops List of operations to apply.
  */
@@ -314,7 +346,7 @@ Article.prototype.exec = function(operation, action) {
     }, operation[action].attrs || {});
 
     var constructorName = operation[action].componentClass;
-    var ComponentClass = this.editor.getComponentClassByName(constructorName);
+    var ComponentClass = this.editor.getModule(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
   }
@@ -400,18 +432,6 @@ Loader.register(Component.CLASS_NAME);
  */
 Component.onInstall = function (editor) {
   // jshint unused: false
-};
-
-
-/**
- * Registers regular experessions to handle if matched in the editor.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
- */
-Component.registerRegexes = function(componentFactory) {
-  // jshint unused: false
-  throw Errors.NotImplementedError(
-      this.constructor.name + '.registerRegexes is not implmeneted.');
 };
 
 
@@ -557,24 +577,25 @@ Component.prototype.getUpdateOps = function(
  * @return {number} Length of the component content.
  */
 Component.prototype.getLength = function () {
-  return 0;
+  return 1;
 };
 
 },{"./errors":4,"./loader":15,"./utils":23}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
+var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
 var Errors = require('./errors');
-var FormattingExtension = require('./extensions/formatting');
+var FormattingExtension = require('./extensions/formattingExtension');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
 var Toolbar = require('./toolbars/toolbar');
-var ToolbeltExtension = require('./extensions/toolbelt');
+var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
 
 
@@ -594,20 +615,12 @@ var Editor = function (element, optParams) {
     modules: [],
     rtl: false,
     article: new Article({
-      editor: this,
       sections: [new Section({
         components: [new Paragraph({
-          placeholder: 'Editor',
-          paragraphType: Paragraph.Types.MainHeader
+          placeholder: 'Editor'
         })]
       })]
     }),
-    // The extensions enabled in this editor.
-    extensions: [
-        new FormattingExtension(),
-        new ToolbeltExtension(),
-        new UploadExtension()
-    ]
   }, optParams);
 
   /**
@@ -615,19 +628,6 @@ var Editor = function (element, optParams) {
    * @type {ComponentFactory}
    */
   this.componentFactory = new ComponentFactory();
-
-  /**
-   * Components installed and enabled in the editor.
-   * @type {Object.<string, Function>}
-   */
-  this.installedModules = {};
-  this.install(Section);
-  this.install(Paragraph);
-  this.install(List);
-  this.install(Figure);
-  for (var i = 0; i < params.modules.length; i++) {
-    this.install(params.modules[i]);
-  }
 
   /**
    * Unique name to identify the editor.
@@ -640,12 +640,6 @@ var Editor = function (element, optParams) {
    * @type {boolean}
    */
   this.rtl = params.rtl;
-
-  /**
-   * Extensions enabled in the editor.
-   * @type {Array.<Object>}
-   */
-  this.extensions = params.extensions;
 
   /**
    * Element to decorate the editor on.
@@ -692,6 +686,28 @@ var Editor = function (element, optParams) {
     classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME]
   });
   this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
+
+  /**
+   * Components installed and enabled in the editor.
+   * @type {Object.<string, Function>}
+   */
+  this.installedModules = {};
+
+  // Install built-in Components.
+  this.install(Section);
+  this.install(Paragraph);
+  this.install(List);
+  this.install(Figure);
+
+  // Install built-in extensions.
+  this.install(FormattingExtension);
+  this.install(ToolbeltExtension);
+  this.install(UploadExtension);
+
+  // Install user provided components and extensions.
+  for (var i = 0; i < params.modules.length; i++) {
+    this.install(params.modules[i]);
+  }
 
   this.init();
 };
@@ -769,6 +785,10 @@ Editor.prototype.init = function() {
     component: this.article.sections[0].components[0],
     offset: 0
   });
+
+  this.article.selection.addEventListener(
+      Selection.Events.SELECTON_CHANGED,
+      this.handleSelectionChanged.bind(this));
 };
 
 
@@ -783,6 +803,44 @@ Editor.prototype.install = function(ModuleClass) {
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
   ModuleClass.onInstall(this);
+};
+
+
+/**
+ * Registers a keyboard shortcut in the editor.
+ * @param  {string} shortcutId Shortcut string e.g. 'ctrl+b'.
+ * @param  {Function} handler Callback handler for handling the shortcut.
+ * @param  {boolean=} optForce Whether to override an already registered one.
+ */
+Editor.prototype.registerShrotcut = function(shortcutId, handler, optForce) {
+  this.shortcutsManager.register(shortcutId, handler, optForce);
+};
+
+
+/**
+ * Returns true if the editor is empty.
+ * @return {boolean} True if the editor is empty
+ */
+Editor.prototype.isEmpty = function() {
+  return this.article.getLength() === 0;
+};
+
+
+/**
+ * Returns the first header paragraph in the article.
+ * @return {string} First header of the article.
+ */
+Editor.prototype.getTitle = function() {
+  return this.article.getTitle();
+};
+
+
+/**
+ * Returns the first non-header paragraph in the article.
+ * @return {string} First non-header paragraph of the article.
+ */
+Editor.prototype.getSnippet = function() {
+  return this.article.getSnippet();
 };
 
 
@@ -811,7 +869,7 @@ Editor.prototype.getToolbar = function (name) {
  * @param  {string} name Name of the function.
  * @return {Function} Class function for the component.
  */
-Editor.prototype.getComponentClassByName = function (name) {
+Editor.prototype.getModule = function (name) {
   return this.installedModules[name];
 };
 
@@ -825,6 +883,15 @@ Editor.prototype.getComponentClassByName = function (name) {
  */
 Editor.prototype.registerRegex = function (regex, factoryMethod, optForce) {
   this.componentFactory.registerRegex(regex, factoryMethod, optForce);
+};
+
+
+/**
+ * Dipatches the selection changed event to its listeners.
+ * @param  {Event} event Selection changed event.
+ */
+Editor.prototype.handleSelectionChanged = function(event) {
+  this.dispatchEvent(event);
 };
 
 
@@ -1346,6 +1413,16 @@ Editor.prototype.getJSONModel = function() {
 
 
 /**
+ * Returns the HTML for the article.
+ * @return {string} Rendered HTML of the article.
+ */
+Editor.prototype.getHTML = function() {
+  return this.article.dom.outerHTML;
+};
+
+
+
+/**
  * Sanitizes and generates list of operations to properly insert pasted
  * content into the article.
  *
@@ -1562,7 +1639,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formatting":7,"./extensions/shortcutsManager":9,"./extensions/toolbelt":10,"./extensions/uploadExtension":11,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./toolbars/toolbar":22,"./utils":23}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formattingExtension":7,"./extensions/shortcutsManager":9,"./extensions/toolbeltExtension":10,"./extensions/uploadExtension":11,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./selection":19,"./toolbars/toolbar":22,"./utils":23}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1762,6 +1839,13 @@ module.exports = Formatting;
 
 
 /**
+ * Extension class name.
+ * @type {string}
+ */
+Formatting.CLASS_NAME = 'Formatting';
+
+
+/**
  * Active button class name.
  * @type {string}
  */
@@ -1869,6 +1953,16 @@ Formatting.BLOCK_TOOLBAR_NAME = 'block-toolbar';
  * @type {string}
  */
 Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
+
+
+/**
+ * Initializes the formatting extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+Formatting.onInstall = function(editor) {
+  var formattingExtension = new Formatting();
+  formattingExtension.init(editor);
+};
 
 
 /**
@@ -2828,7 +2922,6 @@ ShortcutsManager.prototype.handleKeyDownEvent = function(event) {
  * existing shortcut listener.
  */
 ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
-
   // If the shortcut already registered throw an error.
   if (this.registery[shortcutId] && !optForce) {
     throw '"' + shortcutId + '" shortcut has already been registered.';
@@ -2879,6 +2972,23 @@ var Toolbelt = function () {
       'click', this.handleInsertClick.bind(this));
 };
 module.exports = Toolbelt;
+
+
+/**
+ * Extension class name.
+ * @type {string}
+ */
+Toolbelt.CLASS_NAME = 'Toolbelt';
+
+
+/**
+ * Initializes the toolbelt extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+Toolbelt.onInstall = function(editor) {
+  var toolbeltExtension = new Toolbelt();
+  toolbeltExtension.init(editor);
+};
 
 
 /**
@@ -3035,6 +3145,13 @@ module.exports = UploadExtension;
 
 
 /**
+ * Extension class name.
+ * @type {string}
+ */
+UploadExtension.CLASS_NAME = 'UploadExtension';
+
+
+/**
  * Toolbar name for the toolbelt toolbar.
  * @type {string}
  */
@@ -3046,6 +3163,16 @@ UploadExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
  * @type {string}
  */
 UploadExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
+
+
+/**
+ * Initializes the upload extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+UploadExtension.onInstall = function(editor) {
+  var uploadExtension = new UploadExtension();
+  uploadExtension.init(editor);
+};
 
 
 /**
@@ -3508,6 +3635,7 @@ var Figure = function(optParams) {
   var params = Utils.extend({
     src: '',
     caption: null,
+    captionPlaceholder: 'Type caption for image',
     width: '100%',
   }, optParams);
 
@@ -3542,7 +3670,7 @@ var Figure = function(optParams) {
    * @type {string}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: 'Type caption for image',
+    placeholderText: params.captionPlaceholder,
     text: params.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
@@ -4175,13 +4303,12 @@ module.exports.Figure = require('./figure');
 module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
-module.exports.Formatting = require('./extensions/formatting');
 
 // TODO(mkhatib): Find a better way to expose the classes and without making
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
 
-},{"./article":1,"./editor":3,"./extensions/formatting":7,"./extensions/giphyComponent":8,"./extensions/youtubeComponent":12,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./selection":19}],17:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/giphyComponent":8,"./extensions/youtubeComponent":12,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./selection":19}],17:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4305,6 +4432,19 @@ Paragraph.fromJSON = function (json) {
  */
 Paragraph.onInstall = function (editor) {
   // jshint unused: false
+};
+
+
+/**
+ * Returns true if the paragraph type is a header.
+ * @return {boolean} True if the paragraph is a header.
+ */
+Paragraph.prototype.isHeader = function() {
+  return [
+      Paragraph.Types.MainHeader,
+      Paragraph.Types.SecondaryHeader,
+      Paragraph.Types.ThirdHeader
+  ].indexOf(this.paragraphType) !== -1;
 };
 
 
@@ -5036,6 +5176,47 @@ Section.prototype.getJSONModel = function() {
 
 
 /**
+ * Returns the length of the section.
+ * @return {number} Length of section.
+ */
+Section.prototype.getLength = function() {
+  var length = 0;
+  for (var i = 0; i < this.components.length; i++) {
+    length += this.components[i].getLength();
+  }
+  return length;
+};
+
+
+/**
+ * Returns the first header paragraph in the article.
+ * @return {string} First header of the article.
+ */
+Section.prototype.getTitle = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].isHeader && this.components[i].isHeader()) {
+      return this.components[i].text;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns the first non-header paragraph in the article.
+ * @return {string} First non-header paragraph of the article.
+ */
+Section.prototype.getSnippet = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].isHeader && !this.components[i].isHeader()) {
+      return this.components[i].text;
+    }
+  }
+  return null;
+};
+
+
+/**
  * Called when the module is installed on in an editor.
  * @param  {Editor} editor Editor instance which installed the module.
  */
@@ -5086,7 +5267,7 @@ var Selection = (function() {
      * @type {Enum}
      */
     Selection.Events = {
-      SELECTION_CHANGED: 'selectionchanged'
+      SELECTION_CHANGED: 'selection-changed'
     };
 
     /**

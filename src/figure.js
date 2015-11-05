@@ -22,6 +22,7 @@ var Figure = function(optParams) {
   var params = Utils.extend({
     src: '',
     caption: null,
+    captionPlaceholder: 'Type caption for image',
     width: '100%',
   }, optParams);
 
@@ -56,7 +57,7 @@ var Figure = function(optParams) {
    * @type {string}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: 'Type caption for image',
+    placeholderText: params.captionPlaceholder,
     text: params.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,

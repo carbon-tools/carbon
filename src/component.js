@@ -81,18 +81,6 @@ Component.onInstall = function (editor) {
 
 
 /**
- * Registers regular experessions to handle if matched in the editor.
- * @param  {ComponentFactory} componentFactory The component factory to register
- * the regex with.
- */
-Component.registerRegexes = function(componentFactory) {
-  // jshint unused: false
-  throw Errors.NotImplementedError(
-      this.constructor.name + '.registerRegexes is not implmeneted.');
-};
-
-
-/**
  * Get the next Component if any.
  * @return {Component} Next sibling Component.
  */
@@ -234,5 +222,5 @@ Component.prototype.getUpdateOps = function(
  * @return {number} Length of the component content.
  */
 Component.prototype.getLength = function () {
-  return 0;
+  return 1;
 };
