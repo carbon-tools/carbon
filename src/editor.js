@@ -58,6 +58,7 @@ var Editor = function (element, optParams) {
    * @type {Object.<string, Function>}
    */
   this.installedModules = {};
+  this.install(Section);
   this.install(Paragraph);
   this.install(List);
   this.install(Figure);
@@ -171,6 +172,16 @@ Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
+ * Create and initiate an editor from JSON.
+ * @param  {Object} json JSON representation of the editor.
+ * @return {Article} Article object representing the JSON data.
+ */
+Editor.fromJSON = function (json) {
+  return Article.fromJSON(json);
+};
+
+
+/**
  * Initialize the editor article model and event listeners.
  */
 Editor.prototype.init = function() {
@@ -265,6 +276,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var ops = [];
   var inBetweenComponents = [];
   var offset, currentOffset;
+  var that = this;
 
   if (Utils.isUndo(event)) {
     this.article.undo();
@@ -275,10 +287,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   } else if (Utils.isSelectAll(event)) {
     selection.select({
       component: article.getFirstComponent(),
-      cursor: 0
+      offset: 0
     }, {
       component: article.getLastComponent(),
-      cursor: article.getLastComponent().getLength()
+      offset: article.getLastComponent().getLength()
     });
     preventDefault = true;
   }
@@ -336,6 +348,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         if (factoryMethod) {
           factoryMethod(currentComponent, function(ops) {
             article.transaction(ops);
+            setTimeout(function() {
+              that.dispatchEvent(new Event('change'));
+            }, 10);
           });
         } else {
           var insertType = currentComponent.paragraphType;
@@ -381,9 +396,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             -inBetweenComponents.length));
         if (prevComponent) {
           this.article.transaction(ops);
+          offset = 0;
+          if (prevComponent instanceof Paragraph) {
+            offset = prevComponent.getLength();
+          }
           selection.setCursor({
             component: prevComponent,
-            offset: prevComponent.getLength()
+            offset: offset
           });
         } else if (nextComponent) {
           this.article.transaction(ops);
@@ -979,4 +998,3 @@ Editor.prototype.handleCut = function() {
     dispatchEvent(new Event('change'));
   }, 20);
 };
-

@@ -3,6 +3,8 @@
 var Utils = require('../utils');
 var Selection = require('../selection');
 var Component = require('../component');
+var Paragrarph = require('../paragraph');
+var Loader = require('../loader');
 
 /**
  * YouTubeComponent main.
@@ -56,25 +58,34 @@ var YouTubeComponent = function(optParams) {
    * DOM element tied to this object.
    * @type {HTMLElement}
    */
-  this.dom = document.createElement(YouTubeComponent.CONTAINER_TAG_NAME);
+  this.dom = document.createElement(YouTubeComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+
+  this.containerDom = document.createElement(
+      YouTubeComponent.CONTAINER_TAG_NAME);
+  this.containerDom.className = YouTubeComponent.CONTAINER_CLASS_NAME;
 
   this.overlayDom = document.createElement(
       YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
   this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
-  this.dom.appendChild(this.overlayDom);
+  this.containerDom.appendChild(this.overlayDom);
   this.overlayDom.addEventListener('click', this.handleClick.bind(this));
 
-  this.captionDom = document.createElement(YouTubeComponent.CAPTION_TAG_NAME);
-  this.captionDom.setAttribute('contenteditable', true);
-
   this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
+  this.containerDom.appendChild(this.videoDom);
 
-  if (this.caption) {
-    this.captionDom.innerText = this.caption;
-    this.dom.appendChild(this.captionDom);
-  }
+  /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.captionParagraph = new Paragrarph({
+    placeholderText: 'Type caption for video',
+    text: this.caption,
+    paragraphType: Paragrarph.Types.Caption,
+    parentComponent: this,
+    inline: true
+  });
 
   if (this.src) {
     this.videoDom.setAttribute('src', this.src);
@@ -86,25 +97,44 @@ var YouTubeComponent = function(optParams) {
     if (this.height) {
       this.videoDom.setAttribute('height', this.height);
     }
-    this.dom.appendChild(this.videoDom);
+    this.containerDom.appendChild(this.videoDom);
   }
+
+  this.captionDom = this.captionParagraph.dom;
+  this.captionDom.setAttribute('contenteditable', true);
+  this.dom.appendChild(this.containerDom);
+  this.dom.appendChild(this.captionDom);
 };
 YouTubeComponent.prototype = new Component();
 module.exports = YouTubeComponent;
-
 
 /**
  * String name for the component class.
  * @type {string}
  */
 YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
+Loader.register(YouTubeComponent.CLASS_NAME, YouTubeComponent);
 
 
 /**
- * YouTubeComponent component container element tag name.
+ * YouTubeComponent component element tag name.
  * @type {string}
  */
-YouTubeComponent.CONTAINER_TAG_NAME = 'figure';
+YouTubeComponent.TAG_NAME = 'figure';
+
+
+/**
+ * YouTubeComponent component inner container element tag name.
+ * @type {string}
+ */
+YouTubeComponent.CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * YouTubeComponent component inner container element class name.
+ * @type {string}
+ */
+YouTubeComponent.CONTAINER_CLASS_NAME = 'inner-container';
 
 
 /**
@@ -147,6 +177,16 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
 
 
 /**
+ * Create and initiate a youtube object from JSON.
+ * @param  {Object} json JSON representation of the youtube.
+ * @return {YouTubeComponent} YouTubeComponent object representing JSON data.
+ */
+YouTubeComponent.fromJSON = function (json) {
+  return new YouTubeComponent(json);
+};
+
+
+/**
  * Handles onInstall when the YouTubeComponent module installed in an editor.
  * @param  {Editor} editor Instance of the editor that installed the module.
  */
@@ -176,7 +216,7 @@ YouTubeComponent.registerRegexes_ = function(editor) {
  * @param  {string} link YouTube video URL.
  * @return {YouTubeComponent} YouTubeComponent component created from the link.
  */
-YouTubeComponent.createYouTubeComponentFromLink = function (link) {
+YouTubeComponent.createYouTubeComponentFromLink = function (link, attrs) {
   var src = link;
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
@@ -186,7 +226,7 @@ YouTubeComponent.createYouTubeComponentFromLink = function (link) {
       break;
     }
   }
-  return new YouTubeComponent({src: src});
+  return new YouTubeComponent(Utils.extend({src: src}, attrs));
 };
 
 
@@ -199,7 +239,7 @@ YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
   var ytComponent = YouTubeComponent.createYouTubeComponentFromLink(
-      matchedComponent.text);
+      matchedComponent.text, {});
   ytComponent.section = matchedComponent.section;
 
   // Delete current matched component with its text.
@@ -229,9 +269,12 @@ YouTubeComponent.createEmbedSrcFromId = function (id) {
  */
 YouTubeComponent.prototype.getJSONModel = function() {
   var video = {
+    component: YouTubeComponent.CLASS_NAME,
     name: this.name,
     src: this.src,
-    caption: this.caption
+    height: this.height,
+    width: this.width,
+    caption: this.captionParagraph.text
   };
 
   return video;

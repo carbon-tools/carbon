@@ -61,7 +61,6 @@ body {
 
 .manshar-editor figure {
   margin: 2em 0;
-  position: relative;
 }
 
 .manshar-editor figure figcaption {
@@ -69,6 +68,10 @@ body {
   font-style: italic;
   font-size: 0.8em;
   outline: none;
+}
+
+.manshar-editor figure .inner-container {
+  position: relative;
 }
 
 .manshar-editor figure .video-overlay {

@@ -3,7 +3,7 @@
 var Utils = require('./utils');
 var Section = require('./section');
 var Paragrarph = require('./paragraph');
-
+var Loader = require('./loader');
 
 /**
  * List main.
@@ -34,6 +34,7 @@ module.exports = List;
  * @type {string}
  */
 List.CLASS_NAME = 'List';
+Loader.register(List.CLASS_NAME, List);
 
 
 /**
@@ -62,6 +63,26 @@ List.UNORDERED_LIST_REGEX = '^(?:\\*|-)\\s?(.*)';
  * @type {string}
  */
 List.ORDERED_LIST_REGEX = '^(?:1\\.|-|_|\\))\\s?(.*)';
+
+
+/**
+ * Create and initiate a list object from JSON.
+ * @param  {Object} json JSON representation of the list.
+ * @return {List} List object representing the JSON data.
+ */
+List.fromJSON = function (json) {
+  var components = [];
+  for (var i = 0; i < json.components.length; i++) {
+    var className = json.components[i].component;
+    var ComponentClass = Loader.load(className);
+    components.push(ComponentClass.fromJSON(json.components[i]));
+  }
+
+  return new List({
+    name: json.name,
+    components: components
+  });
+};
 
 
 /**
@@ -258,4 +279,22 @@ List.prototype.getSplitOps = function (atIndex) {
  */
 List.prototype.getLength = function () {
   return this.components.length;
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this list.
+ */
+List.prototype.getJSONModel = function() {
+  var section = {
+    component: List.CLASS_NAME,
+    components: []
+  };
+
+  for (var i = 0; i < this.components.length; i++) {
+    section.components.push(this.components[i].getJSONModel());
+  }
+
+  return section;
 };

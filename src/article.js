@@ -2,6 +2,7 @@
 
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
+var Section = require('./section');
 var Utils = require('./utils');
 
 
@@ -67,6 +68,23 @@ module.exports = Article;
  * @type {String}
  */
 Article.TAG_NAME = 'article';
+
+
+/**
+ * Create and initiate an Article object from JSON.
+ * @param  {Object} json JSON representation of the article.
+ * @return {Article} Article object representing the JSON data.
+ */
+Article.fromJSON = function (json) {
+  var sections = [];
+  for (var i = 0; i < json.sections.length; i++) {
+    sections.push(Section.fromJSON(json.sections[i]));
+  }
+
+  return new Article({
+    sections: sections
+  });
+};
 
 
 /**
