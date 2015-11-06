@@ -79,6 +79,13 @@ module.exports = UploadExtension;
 
 
 /**
+ * Extension class name.
+ * @type {string}
+ */
+UploadExtension.CLASS_NAME = 'UploadExtension';
+
+
+/**
  * Toolbar name for the toolbelt toolbar.
  * @type {string}
  */
@@ -90,6 +97,16 @@ UploadExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
  * @type {string}
  */
 UploadExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
+
+
+/**
+ * Initializes the upload extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+UploadExtension.onInstall = function(editor) {
+  var uploadExtension = new UploadExtension();
+  uploadExtension.init(editor);
+};
 
 
 /**

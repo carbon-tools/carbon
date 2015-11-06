@@ -42,6 +42,23 @@ module.exports = Toolbelt;
 
 
 /**
+ * Extension class name.
+ * @type {string}
+ */
+Toolbelt.CLASS_NAME = 'Toolbelt';
+
+
+/**
+ * Initializes the toolbelt extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+Toolbelt.onInstall = function(editor) {
+  var toolbeltExtension = new Toolbelt();
+  toolbeltExtension.init(editor);
+};
+
+
+/**
  * Initiates the toolbelt extension.
  * @param  {Editor} editor The editor to initialize the extension for.
  */

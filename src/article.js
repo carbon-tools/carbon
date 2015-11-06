@@ -182,6 +182,38 @@ Article.prototype.getJSONModel = function() {
 
 
 /**
+ * Returns the length of the article.
+ * @return {number} Length of article.
+ */
+Article.prototype.getLength = function() {
+  var length = 0;
+  for (var i = 0; i < this.sections.length; i++) {
+    length += this.sections[i].getLength();
+  }
+  return length;
+};
+
+
+
+/**
+ * Returns the first header paragraph in the article.
+ * @return {string} First header of the article.
+ */
+Article.prototype.getTitle = function() {
+  return this.sections[0].getTitle();
+};
+
+
+/**
+ * Returns the first non-header paragraph in the article.
+ * @return {string} First non-header paragraph of the article.
+ */
+Article.prototype.getSnippet = function() {
+  return this.sections[0].getSnippet();
+};
+
+
+/**
  * Apply list of operations to the article model.
  * @param  {Array.<Object>} ops List of operations to apply.
  */
@@ -313,7 +345,7 @@ Article.prototype.exec = function(operation, action) {
     }, operation[action].attrs || {});
 
     var constructorName = operation[action].componentClass;
-    var ComponentClass = this.editor.getComponentClassByName(constructorName);
+    var ComponentClass = this.editor.getModule(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
   }

@@ -48,6 +48,13 @@ module.exports = Formatting;
 
 
 /**
+ * Extension class name.
+ * @type {string}
+ */
+Formatting.CLASS_NAME = 'Formatting';
+
+
+/**
  * Active button class name.
  * @type {string}
  */
@@ -155,6 +162,16 @@ Formatting.BLOCK_TOOLBAR_NAME = 'block-toolbar';
  * @type {string}
  */
 Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
+
+
+/**
+ * Initializes the formatting extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+Formatting.onInstall = function(editor) {
+  var formattingExtension = new Formatting();
+  formattingExtension.init(editor);
+};
 
 
 /**

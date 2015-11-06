@@ -204,6 +204,47 @@ Section.prototype.getJSONModel = function() {
 
 
 /**
+ * Returns the length of the section.
+ * @return {number} Length of section.
+ */
+Section.prototype.getLength = function() {
+  var length = 0;
+  for (var i = 0; i < this.components.length; i++) {
+    length += this.components[i].getLength();
+  }
+  return length;
+};
+
+
+/**
+ * Returns the first header paragraph in the article.
+ * @return {string} First header of the article.
+ */
+Section.prototype.getTitle = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].isHeader && this.components[i].isHeader()) {
+      return this.components[i].text;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns the first non-header paragraph in the article.
+ * @return {string} First non-header paragraph of the article.
+ */
+Section.prototype.getSnippet = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].isHeader && !this.components[i].isHeader()) {
+      return this.components[i].text;
+    }
+  }
+  return null;
+};
+
+
+/**
  * Called when the module is installed on in an editor.
  * @param  {Editor} editor Editor instance which installed the module.
  */
