@@ -62,7 +62,7 @@ var GiphyComponent = function(optParams) {
   this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
 
   if (this.caption) {
-    this.captionDom.innerText = this.caption;
+    Utils.setTextForElement(this.captionDom, this.caption);
     this.dom.appendChild(this.captionDom);
   }
 

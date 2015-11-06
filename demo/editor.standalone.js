@@ -1199,7 +1199,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     }
 
     setTimeout(function() {
-      var newValue = currentComponent.dom.innerText;
+      var newValue = Utils.getTextFromElement(currentComponent.dom);
       var newOffset = selection.end.offset + cursorOffsetDirection;
 
       if (!isRemoveOp) {
@@ -1437,7 +1437,7 @@ Editor.prototype.getHTML = function() {
 Editor.prototype.processPastedContent = function(element, indexOffset) {
   var ops = [];
   var text, paragraphType, appendOperations, newP;
-  var textPasted = element.innerText;
+  var textPasted = Utils.getTextFromElement(element);
   var children = element.childNodes;
   var component;
   var selection = this.article.selection;
@@ -1445,7 +1445,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var section = selection.getSectionAtStart();
   var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
-  var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
   var INLINE_ELEMENTS = 'B BR BIG I SMALL ABBR ACRONYM CITE EM STRONG A BDO'+
       ' STRIKE S SPAN SUB SUP #text META'.split(' ');
@@ -1458,20 +1457,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       }
     }
     return true;
-  }
-
-  function getTextProp(el) {
-    var textProp;
-
-    if (el.nodeType === Node.TEXT_NODE) {
-      textProp = "data";
-    } else if (isFirefox) {
-      textProp = "textContent";
-    } else {
-      textProp = "innerText";
-    }
-
-    return textProp;
   }
 
   function isInlinePaste(children) {
@@ -1498,7 +1483,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
         textPasted, offsetBeforeOperation));
   } else if (hasOnlyInlineChildNodes(element)) {
-    text = element[getTextProp(element)];
+    text = Utils.getTextFromElement(element);
 
     newP = new Paragraph({
         section: section,
@@ -1609,7 +1594,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         Utils.arrays.extend(ops, appendOperations);
       } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
-        text = el[getTextProp(el)];
+        text = Utils.getTextFromElement(el);
 
         newP = new Paragraph({
             section: section,
@@ -2493,7 +2478,7 @@ Formatting.generateFormatsForNode = function(node) {
       formats.push({
         type: action.value,
         from: offset,
-        to: offset + inlineEl.innerText.length,
+        to: offset + Utils.getTextFromElement(inlineEl).length,
         attrs: attrs
       });
     }
@@ -2568,7 +2553,7 @@ var GiphyComponent = function(optParams) {
   this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
 
   if (this.caption) {
-    this.captionDom.innerText = this.caption;
+    Utils.setTextForElement(this.captionDom, this.caption);
     this.dom.appendChild(this.captionDom);
   }
 
@@ -4457,7 +4442,7 @@ Paragraph.prototype.setText = function(text) {
   if (!this.text.length && !this.placeholderText) {
     this.dom.innerHTML = '&#8203;';
   } else {
-    this.dom.innerText = this.text;
+    Utils.setTextForElement(this.dom, this.text);
   }
 };
 
@@ -4546,7 +4531,8 @@ Paragraph.prototype.updateInnerDom_ = function () {
     for (var attr in this.formats[i].attrs) {
       formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
     }
-    formatEl.innerText = this.text.substring(formatOpen, formatClose);
+    Utils.setTextForElement(
+        formatEl, this.text.substring(formatOpen, formatClose));
     newDom.appendChild(formatEl);
   }
   var length = this.text.length;
@@ -5415,7 +5401,7 @@ var Selection = (function() {
         if (currentNode === node) {
           break;
         }
-        offset += (currentNode.textContent || currentNode.innerText).length;
+        offset += Utils.getTextFromElement(currentNode).length;
       }
       return offset;
     };
@@ -5481,7 +5467,9 @@ var Selection = (function() {
       selection.addRange(range);
 
       // Scroll the selected component into view.
-      this.start.component.dom.scrollIntoViewIfNeeded(false);
+      if (this.start.component.dom.scrollIntoViewIfNeeded) {
+        this.start.component.dom.scrollIntoViewIfNeeded(false);
+      }
       var event = new Event(Selection.Events.SELECTION_CHANGED);
       this.dispatchEvent(event);
     };
@@ -5499,7 +5487,7 @@ var Selection = (function() {
       for (var i = 0; i < parent.childNodes.length; i++) {
         var currentNode = parent.childNodes[i];
 
-        var currentOffset = (currentNode.textContent || currentNode.innerText).length;
+        var currentOffset = Utils.getTextFromElement(currentNode).length;
         // In the wanted offset return the found node.
         if (prevOffset + currentOffset >= offset) {
           // If current node is not a text node.
@@ -5592,7 +5580,7 @@ var Selection = (function() {
         // If not a text node recurse to calculate the offset from there.
         if (currentNode.nodeName !== '#text') {
           var currentOffset = (currentNode.textContent ||
-              currentNode.innerText).length;
+              Utils.getTextFromElement(currentNode)).length;
 
           var childOffset = this.calculatePreviousSiblingsOffset_(
               currentNode, node);
@@ -5606,7 +5594,7 @@ var Selection = (function() {
           }
         }
 
-        offset += (currentNode.textContent || currentNode.innerText).length;
+        offset += Utils.getTextFromElement(currentNode).length;
       }
       return offset;
     };
@@ -5804,7 +5792,7 @@ var Button = function (optParams) {
    */
   this.buttonDom = document.createElement(Button.TAG_NAME);
   this.buttonDom.setAttribute('name', this.name);
-  this.buttonDom.innerText = params.label;
+  Utils.setTextForElement(this.buttonDom, params.label);
   this.buttonDom.addEventListener('click', this.handleClick.bind(this));
   this.dom.appendChild(this.buttonDom);
 
@@ -6524,6 +6512,31 @@ Utils.isRedo = function(event) {
 Utils.isSelectAll = function(event) {
   return !!((event.ctrlKey || event.metaKey) &&
           event.keyCode === 65 && !event.shiftKey);
+};
+
+Utils.isFirefox = function () {
+  return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+};
+
+Utils.getTextProperty = function (element) {
+  var textProp;
+  if (element.nodeType === Node.TEXT_NODE) {
+    textProp = 'data';
+  } else if (Utils.isFirefox()) {
+    textProp = 'textContent';
+  } else {
+    textProp = 'innerText';
+  }
+  return textProp;
+};
+
+
+Utils.setTextForElement = function(element, value) {
+  element[Utils.getTextProperty(element)] = value;
+};
+
+Utils.getTextFromElement = function(element) {
+  return element[Utils.getTextProperty(element)];
 };
 
 

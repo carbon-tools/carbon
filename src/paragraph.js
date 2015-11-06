@@ -146,7 +146,7 @@ Paragraph.prototype.setText = function(text) {
   if (!this.text.length && !this.placeholderText) {
     this.dom.innerHTML = '&#8203;';
   } else {
-    this.dom.innerText = this.text;
+    Utils.setTextForElement(this.dom, this.text);
   }
 };
 
@@ -235,7 +235,8 @@ Paragraph.prototype.updateInnerDom_ = function () {
     for (var attr in this.formats[i].attrs) {
       formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
     }
-    formatEl.innerText = this.text.substring(formatOpen, formatClose);
+    Utils.setTextForElement(
+        formatEl, this.text.substring(formatOpen, formatClose));
     newDom.appendChild(formatEl);
   }
   var length = this.text.length;
