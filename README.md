@@ -100,10 +100,10 @@ callback: A callback function to call when the regex is matched.</td>
     <td>Returns JSON model for the article</td>
   </tr>
   <tr>
-    <td>Editor.fromJSON
+    <td>loadJSON
 classmethod</td>
-    <td>json: JSON model to create the article model from and initialize the editor with</td>
-    <td>Create an editor with the initialized JSON model</td>
+    <td>json: JSON model to create article model from</td>
+    <td>Creates and sets a new article model from JSON format</td>
   </tr>
   <tr>
     <td>install
@@ -521,18 +521,7 @@ See [ToolbeltExtension](https://github.com/manshar/carbon/blob/master/src/extens
 
 ## Serializing and Deserializing Article
 
-You can store and load the article model you can serialize and deserialize the article to and from JSON format using `editor.getJSONModel()` and `Editor.fromJSON(json)`. For example, the following example saves the article in localStorage and loads it back.
-
-```javascript
-var loadBtn = document.getElementById(‘loadBtn’);
-loadBtn.addEventListener(‘click’, function() {
-  var jsonStr = localStorage.getItem(‘article’);
-  article = Editor.fromJSON(JSON.parse(jsonStr));
-  editor = new Editor(document.getElementById(‘editor’, {
-    article: article
-  });
-});
-```
+You can store and load the article model you can serialize and deserialize the article to and from JSON format using `editor.getJSONModel()` and `editor.loadJSON(json)`. For example, the following example saves the article in localStorage and loads it back.
 
 ```javascript
 var saveBtn = document.getElementById(‘saveBtn’);
@@ -541,6 +530,15 @@ saveBtn.addEventListener(‘click’, function() {
   localStorage.setItem(‘article’, JSON.stringify(json));
 });
 ```
+
+```javascript
+var loadBtn = document.getElementById(‘loadBtn’);
+loadBtn.addEventListener(‘click’, function() {
+  var jsonStr = localStorage.getItem(‘article’);
+  editor.loadJSON(JSON.parse(jsonStr));
+});
+```
+
 See [demo/index.html](https://github.com/manshar/carbon/blob/master/demo/index.html) for an example of storing and loading from the `localStorage`.
 
 ## Editor Events

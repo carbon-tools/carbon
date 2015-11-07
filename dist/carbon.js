@@ -666,6 +666,11 @@ var Editor = function (element, optParams) {
    */
   this.toolbars = {};
 
+  /**
+   * Selection instance for the editor.
+   * @type {Selection}
+   */
+  this.selection = Selection.getInstance();
 
   /**
    * Editor's inline toolbar.
@@ -710,6 +715,7 @@ var Editor = function (element, optParams) {
   }
 
   this.init();
+  this.setArticle(this.article);
 };
 Editor.prototype = new Utils.CustomEventTarget();
 module.exports = Editor;
@@ -751,12 +757,12 @@ Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
- * Create and initiate an editor from JSON.
- * @param  {Object} json JSON representation of the editor.
- * @return {Article} Article object representing the JSON data.
+ * Loads Article model from JSON.
+ * @param  {Object} json JSON representation of the article.
  */
-Editor.fromJSON = function (json) {
-  return Article.fromJSON(json);
+Editor.prototype.loadJSON = function (json) {
+  var article = Article.fromJSON(json);
+  this.setArticle(article);
 };
 
 
@@ -764,7 +770,7 @@ Editor.fromJSON = function (json) {
  * Initialize the editor article model and event listeners.
  */
 Editor.prototype.init = function() {
-  this.article.selection.initSelectionListener(this.element);
+  this.selection.initSelectionListener(this.element);
 
   if (this.extensions) {
     for (var i = 0; i < this.extensions.length; i++) {
@@ -779,16 +785,30 @@ Editor.prototype.init = function() {
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.className += ' carbon-editor';
   this.element.setAttribute('contenteditable', true);
-  this.element.appendChild(this.article.dom);
 
-  this.article.selection.setCursor({
-    component: this.article.sections[0].components[0],
+  this.selection.addEventListener(
+      Selection.Events.SELECTON_CHANGED,
+      this.handleSelectionChanged.bind(this));
+};
+
+
+/**
+ * Sets the article model of the editor.
+ * @param {Article} article Article object to use for the editor.
+ */
+Editor.prototype.setArticle = function(article) {
+  this.article = article;
+  while (this.element.firstChild) {
+    this.element.removeChild(this.element.firstChild);
+  }
+
+  this.element.appendChild(article.dom);
+  this.selection.setCursor({
+    component: article.sections[0].components[0],
     offset: 0
   });
 
-  this.article.selection.addEventListener(
-      Selection.Events.SELECTON_CHANGED,
-      this.handleSelectionChanged.bind(this));
+  this.dispatchEvent(new Event('change'));
 };
 
 
