@@ -18,15 +18,15 @@ module.exports = function(grunt) {
 
     // Builds one js file from all require('..') statements.
     browserify: {
-      // For use in browser. 'manshar' is going to be the name space.
+      // For use in browser. 'carbon' is going to be the name space.
       standalone: {
         options: {
           browserifyOptions: {
-            standalone: 'manshar'
+            standalone: 'carbon'
           }
         },
         files: {
-          '<%= buildDir %>/<%=pkg.name%>.standalone.js': '<%= srcDir %>/main.js'
+          '<%= buildDir %>/<%=pkg.name%>.js': '<%= srcDir %>/main.js'
         }
       },
 
@@ -48,10 +48,23 @@ module.exports = function(grunt) {
       },
       dist: {
         files: {
-          '<%= distDir %>/<%= pkg.name %>.standalone.js': '<%= buildDir %>/<%= pkg.name %>.standalone.js',
-          '<%= demoDir %>/<%= pkg.name %>.standalone.js': '<%= buildDir %>/<%= pkg.name %>.standalone.js',
+          '<%= distDir %>/<%= pkg.name %>.js': '<%= buildDir %>/<%= pkg.name %>.js',
+          '<%= demoDir %>/<%= pkg.name %>.js': '<%= buildDir %>/<%= pkg.name %>.js',
         }
+      },
+      css: {
+        src: 'styles/*.css',
+        dest: '<%= buildDir %>/<%= pkg.name %>.css'
       }
+    },
+
+    copy: {
+      main: {
+        files: [{
+            src: '<%= buildDir %>/<%= pkg.name %>.css',
+            dest: '<%= demoDir %>/<%= pkg.name %>.css'
+        }],
+      },
     },
 
     jshint: {
@@ -73,7 +86,15 @@ module.exports = function(grunt) {
       },
       dist: {
         files: {
-          '<%= distDir %>/<%= pkg.name %>.standalone.min.js': '<%= buildDir %>/<%= pkg.name %>.standalone.js'
+          '<%= distDir %>/<%= pkg.name %>.min.js': '<%= buildDir %>/<%= pkg.name %>.js',
+        }
+      }
+    },
+
+    cssmin: {
+      target: {
+        files: {
+          '<%= distDir %>/<%= pkg.name %>.min.css': '<%= buildDir %>/<%= pkg.name %>.css'
         }
       }
     },
@@ -124,7 +145,7 @@ module.exports = function(grunt) {
         },
         files: [
           '<%= pkg.name %>/{,*/}*.html',
-          '.tmp/styles/{,*/}*.css',
+          '<%= pkg.name %>/styles/{,*/}*.css',
           '<%= pkg.name %>/images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
         ]
       },
@@ -216,8 +237,10 @@ module.exports = function(grunt) {
   grunt.registerTask('build', [
     'clean',
     'browserify:standalone',
-    'uglify',
     'concat',
+    'copy',
+    'uglify',
+    'cssmin',
     'jshint'
   ]);
 

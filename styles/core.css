@@ -1,0 +1,59 @@
+/**
+ * Main Styles for Carbon.
+ */
+.carbon-editor {
+  outline: none;
+}
+
+.carbon-editor h1 {
+  margin: 0;
+}
+
+.carbon-editor p {
+  margin: 2em 0;
+  line-height: 1.5;
+}
+
+.carbon-editor[contenteditable=true] [placeholder]:empty:before {
+  content: attr(placeholder);
+  cursor: text;
+  display: block; /* For Firefox */
+  color: #c0c0c0;
+}
+
+.carbon-editor figure {
+  margin: 2em 0;
+}
+
+.carbon-editor figure figcaption {
+  color: #ccc;
+  font-style: italic;
+  font-size: 0.8em;
+  outline: none;
+}
+
+.carbon-editor figure .inner-container {
+  position: relative;
+}
+
+.carbon-editor figure .video-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.carbon-editor figure.editor-selected .video-overlay {
+  display: none;
+}
+
+.carbon-editor figure img,
+.carbon-editor figure iframe {
+  border: 3px solid transparent;
+}
+
+.carbon-editor figure.editor-selected img,
+.carbon-editor figure.editor-selected iframe {
+  border: 3px solid #FF5722;
+}

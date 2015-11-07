@@ -4,6 +4,7 @@
     <title>Editor demo</title>
     <link rel="stylesheet" href="./assets/normalize.css" />
     <link rel="stylesheet" href="./assets/main.css" />
+    <link rel="stylesheet" href="carbon.css" />
     <link href="libs/json-tree/css/jsontree.css" rel="stylesheet">
     <script src="libs/json-tree/jsontree.js"></script>
   </head>
@@ -13,7 +14,7 @@
       <div id="editor">
       </div>
       <!--
-        Print side by side the internal model to illustrate how Manshar Editor
+        Print side by side the internal model to illustrate how Carbon Editor
         store and updates the model.
 
         TODO(mkhatib):
@@ -24,36 +25,36 @@
       </pre>
     </div>
 
-    <script src="editor.standalone.js"></script>
+    <script src="carbon.js"></script>
     <script>
       var demoArticle;
       var storedArticle = localStorage.getItem('article');
       if (storedArticle) {
-        demoArticle = manshar.Article.fromJSON(JSON.parse(storedArticle));
+        demoArticle = carbon.Article.fromJSON(JSON.parse(storedArticle));
       } else {
-        demoArticle = new manshar.Article({
-          sections: [new manshar.Section({
+        demoArticle = new carbon.Article({
+          sections: [new carbon.Section({
             components: [
-              new manshar.Paragraph({
-                placeholderText: 'Manshar Editor Demo',
-                text: 'Welcome to Editor',
-                paragraphType: manshar.Paragraph.Types.MainHeader
+              new carbon.Paragraph({
+                placeholderText: 'Carbon Editor Demo',
+                text: 'Welcome to Carbon',
+                paragraphType: carbon.Paragraph.Types.MainHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 placeholderText: 'This is just a demo.',
                 text: 'A rich and beautiful editor in the browser',
-                paragraphType: manshar.Paragraph.Types.ThirdHeader
+                paragraphType: carbon.Paragraph.Types.ThirdHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Play around and see the internal model of the' +
                   ' article being displayed to the right. The Editor is still under'+
                   ' development.'
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Inline and Block Formatting',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'You can format the article with inline and block' +
                   ' formatting like bolding, italic, strike, underline and hyperlinks.',
                 formats: [
@@ -61,87 +62,87 @@
                   {type: 'em', from: 74, to: 80},
                   {type: 's', from: 82, to: 88},
                   {type: 'u', from: 90, to: 99},
-                  {type: 'a', attrs: {href: 'https://github.com/manshar/editor'}, from: 104, to: 114}
+                  {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 104, to: 114}
                 ]
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Ordered and Unordered Lists',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.List({
+              new carbon.List({
                 components: [
-                  new manshar.Paragraph({
-                    paragraphType: manshar.Paragraph.Types.ListItem,
+                  new carbon.Paragraph({
+                    paragraphType: carbon.Paragraph.Types.ListItem,
                     text: 'Item One'
                   }),
-                  new manshar.Paragraph({
-                    paragraphType: manshar.Paragraph.Types.ListItem,
+                  new carbon.Paragraph({
+                    paragraphType: carbon.Paragraph.Types.ListItem,
                     text: 'Item Two'
                   }),
-                  new manshar.Paragraph({
-                    paragraphType: manshar.Paragraph.Types.ListItem,
+                  new carbon.Paragraph({
+                    paragraphType: carbon.Paragraph.Types.ListItem,
                     text: 'Item Three'
                   }),
                 ]
               }),
-              new manshar.List({
-                tagName: manshar.List.ORDERED_LIST_TAG,
+              new carbon.List({
+                tagName: carbon.List.ORDERED_LIST_TAG,
                 components: [
-                  new manshar.Paragraph({
-                    paragraphType: manshar.Paragraph.Types.ListItem,
+                  new carbon.Paragraph({
+                    paragraphType: carbon.Paragraph.Types.ListItem,
                     text: 'Item One'
                   }),
-                  new manshar.Paragraph({
-                    paragraphType: manshar.Paragraph.Types.ListItem,
+                  new carbon.Paragraph({
+                    paragraphType: carbon.Paragraph.Types.ListItem,
                     text: 'Item Two'
                   }),
-                  new manshar.Paragraph({
-                    paragraphType: manshar.Paragraph.Types.ListItem,
+                  new carbon.Paragraph({
+                    paragraphType: carbon.Paragraph.Types.ListItem,
                     text: 'Item Three'
                   }),
                 ]
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Images',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.Figure({
+              new carbon.Figure({
                 src: 'https://octodex.github.com/images/daftpunktocat-guy.gif',
                 caption: 'Source: octodex.github.com'
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'You can also insert images by ' +
                   'pasting an image URL in a new line and hitting enter.'
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Undo-Redo Manager',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'The editor also includes a built-in undo-redo' +
                   ' manager so you can work freely without losing edits.'
               }),
-              new manshar.Figure({
+              new carbon.Figure({
                 src: 'https://octodex.github.com/images/mummytocat.gif',
                 caption: 'Source: octodex.github.com'
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Embedding YouTube Videos',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'The editor will also recognize YouTube links pasted in a' +
                   ' new line after you hit enter and insert a YouTube player.'
               }),
-              manshar.YouTubeComponent.createYouTubeComponentFromLink(
+              carbon.YouTubeComponent.createYouTubeComponentFromLink(
                 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
                 {caption: 'Macklemore & Ryan Lewis - Downtown (Official Music Video)'}
               ),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Serializing and Deserializing Article',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'The editor also exposes a getJSONModel and fromJSON methods' +
                     ' to allow clients to persist the article model and recreate it for' +
                     ' further editing. For example, this demo page store changes in' +
@@ -153,11 +154,11 @@
                     {type: 'strong', from: 279, to: 318},
                 ]
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Custom Components and Extensions',
-                paragraphType: manshar.Paragraph.Types.SecondaryHeader
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'Developers can create custom components to extend the editor' +
                     ' two ways you can extend the editor are: RegEx Matching and' +
                     ' Toolbelt Button.',
@@ -166,7 +167,7 @@
                     {type: 'strong', from: 120, to: 135},
                 ]
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'By registering a regex with the editor, your component can' +
                     ' be notified and do custom work. For example, GiphyComponent' +
                     ' (enabled in this demo) allows the users to insert GIFs from' +
@@ -178,10 +179,10 @@
                     {type: 'strong', from: 207, to: 289},
                 ]
               }),
-              new manshar.GiphyComponent({
+              new carbon.GiphyComponent({
                 src : "http://media.giphy.com/media/CnpgcGr2MQbwQ/giphy.gif",
               }),
-              new manshar.Paragraph({
+              new carbon.Paragraph({
                 text: 'A component can also add action(s) to the toolbelt toolbar.' +
                     ' The toolbelt toolbar appears when you click the + button on' +
                     ' the block toolbar that appears above the focused paragraph.' +
@@ -194,12 +195,12 @@
         });
       }
 
-      var editor = new manshar.Editor(
+      var editor = new carbon.Editor(
           document.getElementById('editor'), {
             article: demoArticle,
             modules: [
-              manshar.YouTubeComponent,
-              manshar.GiphyComponent
+              carbon.YouTubeComponent,
+              carbon.GiphyComponent
             ]
           });
 
