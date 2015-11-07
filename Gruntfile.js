@@ -54,14 +54,14 @@ module.exports = function(grunt) {
       },
       css: {
         src: 'styles/*.css',
-        dest: '<%= buildDir %>/<%= pkg.name %>.css'
+        dest: '<%= distDir %>/<%= pkg.name %>.css'
       }
     },
 
     copy: {
       main: {
         files: [{
-            src: '<%= buildDir %>/<%= pkg.name %>.css',
+            src: '<%= distDir %>/<%= pkg.name %>.css',
             dest: '<%= demoDir %>/<%= pkg.name %>.css'
         }],
       },
@@ -94,7 +94,7 @@ module.exports = function(grunt) {
     cssmin: {
       target: {
         files: {
-          '<%= distDir %>/<%= pkg.name %>.min.css': '<%= buildDir %>/<%= pkg.name %>.css'
+          '<%= distDir %>/<%= pkg.name %>.min.css': '<%= distDir %>/<%= pkg.name %>.css'
         }
       }
     },
