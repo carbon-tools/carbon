@@ -13,7 +13,8 @@ var Toolbar = function (optParams) {
   var params = Utils.extend({
     buttons: [],
     classNames: [],
-    name: Utils.getUID()
+    name: Utils.getUID(),
+    rtl: false
   }, optParams);
 
   /**
@@ -33,7 +34,7 @@ var Toolbar = function (optParams) {
    * If the toolbar is added to a right to left editor.
    * @type {boolean}
    */
-  this.rtl = false;
+  this.rtl = params.rtl;
 
   /**
    * List of buttons on the toolbar.

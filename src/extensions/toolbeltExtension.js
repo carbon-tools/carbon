@@ -70,7 +70,8 @@ Toolbelt.prototype.init = function(editor) {
   // Create a new toolbar for the toolbelt.
   this.toolbar = new Toolbar({
     name: Toolbelt.TOOLBELT_TOOLBAR_NAME,
-    classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME]
+    classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME],
+    rtl: this.editor.rtl
   });
   this.toolbar.addEventListener(
       'button-added', this.handleButtonAdded.bind(this));

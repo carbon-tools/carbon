@@ -95,7 +95,8 @@ var Editor = function (element, optParams) {
    */
   var inlineToolbar = new Toolbar({
     name: Editor.INLINE_TOOLBAR_NAME,
-    classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME]
+    classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME],
+    rtl: this.rtl
   });
   this.registerToolbar(Editor.INLINE_TOOLBAR_NAME, inlineToolbar);
 
@@ -105,7 +106,8 @@ var Editor = function (element, optParams) {
    */
   var blockToolbar = new Toolbar({
     name: Editor.BLOCK_TOOLBAR_NAME,
-    classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME]
+    classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME],
+    rtl: this.rtl
   });
   this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
 

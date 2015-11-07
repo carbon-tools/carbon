@@ -678,7 +678,8 @@ var Editor = function (element, optParams) {
    */
   var inlineToolbar = new Toolbar({
     name: Editor.INLINE_TOOLBAR_NAME,
-    classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME]
+    classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME],
+    rtl: this.rtl
   });
   this.registerToolbar(Editor.INLINE_TOOLBAR_NAME, inlineToolbar);
 
@@ -688,7 +689,8 @@ var Editor = function (element, optParams) {
    */
   var blockToolbar = new Toolbar({
     name: Editor.BLOCK_TOOLBAR_NAME,
-    classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME]
+    classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME],
+    rtl: this.rtl
   });
   this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
 
@@ -3008,7 +3010,8 @@ Toolbelt.prototype.init = function(editor) {
   // Create a new toolbar for the toolbelt.
   this.toolbar = new Toolbar({
     name: Toolbelt.TOOLBELT_TOOLBAR_NAME,
-    classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME]
+    classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME],
+    rtl: this.editor.rtl
   });
   this.toolbar.addEventListener(
       'button-added', this.handleButtonAdded.bind(this));
@@ -6085,7 +6088,8 @@ var Toolbar = function (optParams) {
   var params = Utils.extend({
     buttons: [],
     classNames: [],
-    name: Utils.getUID()
+    name: Utils.getUID(),
+    rtl: false
   }, optParams);
 
   /**
@@ -6105,7 +6109,7 @@ var Toolbar = function (optParams) {
    * If the toolbar is added to a right to left editor.
    * @type {boolean}
    */
-  this.rtl = false;
+  this.rtl = params.rtl;
 
   /**
    * List of buttons on the toolbar.
