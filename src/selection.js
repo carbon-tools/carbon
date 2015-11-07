@@ -188,7 +188,7 @@ var Selection = (function() {
         if (currentNode === node) {
           break;
         }
-        offset += (currentNode.textContent || currentNode.innerText).length;
+        offset += Utils.getTextFromElement(currentNode).length;
       }
       return offset;
     };
@@ -254,7 +254,9 @@ var Selection = (function() {
       selection.addRange(range);
 
       // Scroll the selected component into view.
-      this.start.component.dom.scrollIntoViewIfNeeded(false);
+      if (this.start.component.dom.scrollIntoViewIfNeeded) {
+        this.start.component.dom.scrollIntoViewIfNeeded(false);
+      }
       var event = new Event(Selection.Events.SELECTION_CHANGED);
       this.dispatchEvent(event);
     };
@@ -272,7 +274,7 @@ var Selection = (function() {
       for (var i = 0; i < parent.childNodes.length; i++) {
         var currentNode = parent.childNodes[i];
 
-        var currentOffset = (currentNode.textContent || currentNode.innerText).length;
+        var currentOffset = Utils.getTextFromElement(currentNode).length;
         // In the wanted offset return the found node.
         if (prevOffset + currentOffset >= offset) {
           // If current node is not a text node.
@@ -365,7 +367,7 @@ var Selection = (function() {
         // If not a text node recurse to calculate the offset from there.
         if (currentNode.nodeName !== '#text') {
           var currentOffset = (currentNode.textContent ||
-              currentNode.innerText).length;
+              Utils.getTextFromElement(currentNode)).length;
 
           var childOffset = this.calculatePreviousSiblingsOffset_(
               currentNode, node);
@@ -379,7 +381,7 @@ var Selection = (function() {
           }
         }
 
-        offset += (currentNode.textContent || currentNode.innerText).length;
+        offset += Utils.getTextFromElement(currentNode).length;
       }
       return offset;
     };

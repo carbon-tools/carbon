@@ -154,6 +154,31 @@ Utils.isSelectAll = function(event) {
           event.keyCode === 65 && !event.shiftKey);
 };
 
+Utils.isFirefox = function () {
+  return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+};
+
+Utils.getTextProperty = function (element) {
+  var textProp;
+  if (element.nodeType === Node.TEXT_NODE) {
+    textProp = 'data';
+  } else if (Utils.isFirefox()) {
+    textProp = 'textContent';
+  } else {
+    textProp = 'innerText';
+  }
+  return textProp;
+};
+
+
+Utils.setTextForElement = function(element, value) {
+  element[Utils.getTextProperty(element)] = value;
+};
+
+Utils.getTextFromElement = function(element) {
+  return element[Utils.getTextProperty(element)];
+};
+
 
 /**
  * Makes a copy of the passed object.

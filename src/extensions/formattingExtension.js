@@ -702,7 +702,7 @@ Formatting.generateFormatsForNode = function(node) {
       formats.push({
         type: action.value,
         from: offset,
-        to: offset + inlineEl.innerText.length,
+        to: offset + Utils.getTextFromElement(inlineEl).length,
         attrs: attrs
       });
     }

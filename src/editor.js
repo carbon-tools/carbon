@@ -616,7 +616,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     }
 
     setTimeout(function() {
-      var newValue = currentComponent.dom.innerText;
+      var newValue = Utils.getTextFromElement(currentComponent.dom);
       var newOffset = selection.end.offset + cursorOffsetDirection;
 
       if (!isRemoveOp) {
@@ -854,7 +854,7 @@ Editor.prototype.getHTML = function() {
 Editor.prototype.processPastedContent = function(element, indexOffset) {
   var ops = [];
   var text, paragraphType, appendOperations, newP;
-  var textPasted = element.innerText;
+  var textPasted = Utils.getTextFromElement(element);
   var children = element.childNodes;
   var component;
   var selection = this.article.selection;
@@ -862,7 +862,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var section = selection.getSectionAtStart();
   var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
-  var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
   var INLINE_ELEMENTS = 'B BR BIG I SMALL ABBR ACRONYM CITE EM STRONG A BDO'+
       ' STRIKE S SPAN SUB SUP #text META'.split(' ');
@@ -875,20 +874,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       }
     }
     return true;
-  }
-
-  function getTextProp(el) {
-    var textProp;
-
-    if (el.nodeType === Node.TEXT_NODE) {
-      textProp = "data";
-    } else if (isFirefox) {
-      textProp = "textContent";
-    } else {
-      textProp = "innerText";
-    }
-
-    return textProp;
   }
 
   function isInlinePaste(children) {
@@ -915,7 +900,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
         textPasted, offsetBeforeOperation));
   } else if (hasOnlyInlineChildNodes(element)) {
-    text = element[getTextProp(element)];
+    text = Utils.getTextFromElement(element);
 
     newP = new Paragraph({
         section: section,
@@ -1026,7 +1011,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         Utils.arrays.extend(ops, appendOperations);
       } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
-        text = el[getTextProp(el)];
+        text = Utils.getTextFromElement(el);
 
         newP = new Paragraph({
             section: section,

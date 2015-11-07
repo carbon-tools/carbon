@@ -48,7 +48,7 @@ var Button = function (optParams) {
    */
   this.buttonDom = document.createElement(Button.TAG_NAME);
   this.buttonDom.setAttribute('name', this.name);
-  this.buttonDom.innerText = params.label;
+  Utils.setTextForElement(this.buttonDom, params.label);
   this.buttonDom.addEventListener('click', this.handleClick.bind(this));
   this.dom.appendChild(this.buttonDom);
 
