@@ -8,21 +8,21 @@ An open source rich document editor in the browser.
 
 A JavaScript library by Manshar that implements a medium-inspired rich document editor in the browser.
 
-See the [project homepage](http://manshar.github.io/editor).
+See the [project homepage](http://manshar.github.io/carbon).
 
 ## Installation
 
 Using Bower:
 
-    bower install editor
+    bower install carbon
 
-Or grab the [source](https://github.com/manshar/editor/dist/editor.standalone.js) ([minified](https://github.com/manshar/editor/dist/editor.standalone.min.js)).
+Or grab the [source](https://github.com/manshar/carbon/dist/carbon.standalone.js) ([minified](https://github.com/manshar/carbon/dist/carbon.standalone.min.js)).
 
 ## Usage
 
 Basic usage is as follows:
 
-    var editor = manshar.Editor(document.getElementById('editor'));
+    var editor = carbon.Editor(document.getElementById('editor'));
 
 For advanced usage, see the documentation.
 
@@ -45,7 +45,7 @@ We'll do our best to help you out with any contribution issues you may have.
 ### Installation
 ```bash
 # clone
-git clone --recursive git://github.com/manshar/editor.git
+git clone --recursive git://github.com/manshar/carbon.git
 
 # start coding with live reloading
 grunt serve

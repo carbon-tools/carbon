@@ -1,11 +1,11 @@
 {
-  "name": "editor",
+  "name": "carbon",
   "version": "0.0.0",
-  "main": "dist/editor.standalone.min.js",
+  "main": "dist/carbon.min.js",
   "description": "An open source rich document editor in the browser.",
   "repository": {
     "type": "git",
-    "url": "git://github.com/manshar/editor.git"
+    "url": "git://github.com/manshar/carbon.git"
   },
   "keywords": [
     "Rich Editor",
@@ -29,6 +29,8 @@
     "grunt-contrib-clean": "^0.5.0",
     "grunt-contrib-concat": "~0.5.0",
     "grunt-contrib-connect": "^0.8.0",
+    "grunt-contrib-copy": "^0.8.2",
+    "grunt-contrib-cssmin": "^0.14.0",
     "grunt-contrib-jshint": "^0.10.0",
     "grunt-contrib-qunit": "^0.3.0",
     "grunt-contrib-uglify": "^0.5.1",

@@ -28,7 +28,7 @@ describe('Editor', function() {
     expect(div.addEventListener).toHaveBeenCalledWith(
         'paste', jasmine.any(Function));
 
-    expect(div.className.indexOf('manshar-editor') !== -1).toBe(true);
+    expect(div.className.indexOf('carbon-editor') !== -1).toBe(true);
     expect(div.getAttribute('contenteditable')).toBe('true');
   });
 

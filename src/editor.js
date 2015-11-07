@@ -194,7 +194,7 @@ Editor.prototype.init = function() {
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
-  this.element.className += ' manshar-editor';
+  this.element.className += ' carbon-editor';
   this.element.setAttribute('contenteditable', true);
   this.element.appendChild(this.article.dom);
 

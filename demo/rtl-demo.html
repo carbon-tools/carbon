@@ -4,6 +4,7 @@
     <title>Editor demo</title>
     <link rel="stylesheet" href="./assets/normalize.css" />
     <link rel="stylesheet" href="./assets/main.css" />
+    <link rel="stylesheet" href="carbon.css" />
     <link href="libs/json-tree/css/jsontree.css" rel="stylesheet">
     <script src="libs/json-tree/jsontree.js"></script>
   </head>
@@ -24,74 +25,70 @@
       </pre>
     </div>
 
-    <script src="editor.standalone.js"></script>
+    <script src="carbon.js"></script>
     <script>
-      var demoArticle = new manshar.Article({
-        sections: [new manshar.Section({
+      var demoArticle = new carbon.Article({
+        sections: [new carbon.Section({
           components: [
-            new manshar.Figure({
-              src: 'assets/images/editor-logo.png',
-              width: '182px'
-            }),
-            new manshar.Paragraph({
-              placeholderText: 'Manshar Editor Demo',
+            new carbon.Paragraph({
+              placeholderText: 'كاربون',
               text: 'مرحباً بك في المحرر',
-              paragraphType: manshar.Paragraph.Types.MainHeader
+              paragraphType: carbon.Paragraph.Types.MainHeader
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               placeholderText: 'This is just a demo.',
               text: 'محرر مقالات في المتصفح',
-              paragraphType: manshar.Paragraph.Types.ThirdHeader
+              paragraphType: carbon.Paragraph.Types.ThirdHeader
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'بُني المحرر مع نموذج داخلي للمقال، النموذج معروض في الحزء الأيمن' +
                 ' من الصفحة. المحرر ما زال قيد التطوير.'
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'تنسيق الفقرات والنص',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              paragraphType: carbon.Paragraph.Types.SecondaryHeader
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'يمكنك تنسيق الفقرات والنص مثل خط غامق، مائل، مشطوب، مخطط أو إضافة روابط.',
               formats: [
                 {type: 'strong', from: 33, to: 37},
                 {type: 'em', from: 39, to: 44},
                 {type: 's', from: 45, to: 50},
                 {type: 'u', from: 52, to: 56},
-                {type: 'a', attrs: {href: 'https://github.com/manshar/editor'}, from: 65, to: 72}
+                {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 65, to: 72}
               ]
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'صور',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              paragraphType: carbon.Paragraph.Types.SecondaryHeader
             }),
-            new manshar.Figure({
+            new carbon.Figure({
               src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'يمكنك أيضاً ادخال صور عن طريق لصق الرابط في سطر جديد والضغط على إنتر.'
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'إلغاء وإعادة مع تاريخ التعديلات',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              paragraphType: carbon.Paragraph.Types.SecondaryHeader
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'المحرر يتتبع جميع التغييرات ويحتوي على خاصية إلغاى وإعادة عمل الفعل.'
             }),
-            new manshar.Figure({
+            new carbon.Figure({
               src: 'https://octodex.github.com/images/mummytocat.gif'
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'فيديوهات يوتيوب',
-              paragraphType: manshar.Paragraph.Types.SecondaryHeader
+              paragraphType: carbon.Paragraph.Types.SecondaryHeader
             }),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'المحرر سوف يلاحظ عندما تلصق رابط من يوتيوب وسدخل فيديو بدل الرابط عند الضغط إنتر.'
             }),
-            manshar.YouTubeComponent.createYouTubeComponentFromLink(
+            carbon.YouTubeComponent.createYouTubeComponentFromLink(
               'https://www.youtube.com/watch?v=JGhoLcsr8GA'
             ),
-            new manshar.Paragraph({
+            new carbon.Paragraph({
               text: 'مصدر الصور من أكتوديكس',
               formats: [
                 {type: 'em', from: 0, to: 13},
@@ -102,13 +99,13 @@
         })]
       });
 
-      var editor = new manshar.Editor(
+      var editor = new carbon.Editor(
           document.getElementById('editor'), {
             rtl: true,
             article: demoArticle,
             modules: [
-              manshar.YouTubeComponent,
-              manshar.GiphyComponent
+              carbon.YouTubeComponent,
+              carbon.GiphyComponent
             ]
           });
 
