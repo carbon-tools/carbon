@@ -291,6 +291,13 @@ Utils.CustomEventTarget.prototype.removeEventListener = function(
 
 
 /**
+ * Removes all event listeners for object.
+ */
+Utils.CustomEventTarget.prototype.clearEventListeners = function() {
+  this._registrations = {};
+};
+
+/**
  * Dispatches the event
  * @param  {Event} event Event object.
  * @return {boolean} Whether the event has not been defaultPrevented.

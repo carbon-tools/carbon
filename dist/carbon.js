@@ -804,6 +804,10 @@ Editor.prototype.destroy = function () {
       this.installedModules[name].onDestroy();
     }
   }
+
+  this.componentFactory.onDestroy();
+  this.shortcutsManager.onDestroy();
+  this.selection.clearEventListeners();
 };
 
 
@@ -1806,6 +1810,14 @@ ComponentFactory.prototype.match = function(str) {
       return this.regexToFactories[regexStr];
     }
   }
+};
+
+
+/**
+ * Clears all registerations.
+ */
+ComponentFactory.prototype.onDestroy = function () {
+  this.regexToFactories = {};
 };
 
 },{"../errors":4}],7:[function(require,module,exports){
@@ -2949,6 +2961,14 @@ ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
   }
 
   this.registery[shortcutId] = handler;
+};
+
+
+/**
+ * Clears all registerations.
+ */
+ShortcutsManager.prototype.onDestroy = function() {
+  this.registery = {};
 };
 
 },{}],10:[function(require,module,exports){
@@ -6167,7 +6187,6 @@ var Toolbar = function (optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Toolbar.TAG_NAME);
-  this.dom.id = Toolbar.DOM_ID_PREFIX + this.name;
   this.dom.className = this.classNames.join(' ');
 
   /**
@@ -6227,13 +6246,6 @@ Toolbar.FIELDS_CONTAINER_TAG_NAME = 'div';
  * @type {string}
  */
 Toolbar.BUTTONS_CONTAINER_TAG_NAME = 'div';
-
-
-/**
- * Element ID prefix.
- * @type {string}
- */
-Toolbar.DOM_ID_PREFIX = 'editor-inline-toolbar-';
 
 
 /**
@@ -6714,6 +6726,13 @@ Utils.CustomEventTarget.prototype.removeEventListener = function(
     }
 };
 
+
+/**
+ * Removes all event listeners for object.
+ */
+Utils.CustomEventTarget.prototype.clearEventListeners = function() {
+  this._registrations = {};
+};
 
 /**
  * Dispatches the event

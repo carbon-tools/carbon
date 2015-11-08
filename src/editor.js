@@ -219,6 +219,10 @@ Editor.prototype.destroy = function () {
       this.installedModules[name].onDestroy();
     }
   }
+
+  this.componentFactory.onDestroy();
+  this.shortcutsManager.onDestroy();
+  this.selection.clearEventListeners();
 };
 
 

@@ -49,3 +49,11 @@ ComponentFactory.prototype.match = function(str) {
     }
   }
 };
+
+
+/**
+ * Clears all registerations.
+ */
+ComponentFactory.prototype.onDestroy = function () {
+  this.regexToFactories = {};
+};

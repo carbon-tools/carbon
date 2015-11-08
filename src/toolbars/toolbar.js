@@ -59,7 +59,6 @@ var Toolbar = function (optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Toolbar.TAG_NAME);
-  this.dom.id = Toolbar.DOM_ID_PREFIX + this.name;
   this.dom.className = this.classNames.join(' ');
 
   /**
@@ -119,13 +118,6 @@ Toolbar.FIELDS_CONTAINER_TAG_NAME = 'div';
  * @type {string}
  */
 Toolbar.BUTTONS_CONTAINER_TAG_NAME = 'div';
-
-
-/**
- * Element ID prefix.
- * @type {string}
- */
-Toolbar.DOM_ID_PREFIX = 'editor-inline-toolbar-';
 
 
 /**

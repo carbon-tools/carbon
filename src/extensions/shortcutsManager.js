@@ -127,3 +127,11 @@ ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
 
   this.registery[shortcutId] = handler;
 };
+
+
+/**
+ * Clears all registerations.
+ */
+ShortcutsManager.prototype.onDestroy = function() {
+  this.registery = {};
+};
