@@ -24,20 +24,12 @@ var YouTubeComponent = function(optParams) {
     src: '',
     caption: null,
     width: '100%',
-
     // TODO(mkhatib): Implement and auto-height mode where it can calculate
     // the best ratio for the player.
     height: '360px',
-    // Generate a UID as a reference for this YouTubeComponent.
-    name: Utils.getUID()
   }, optParams);
 
-  /**
-   * Name to reference this YouTubeComponent.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this YouTubeComponent.
@@ -105,7 +97,7 @@ var YouTubeComponent = function(optParams) {
   this.dom.appendChild(this.containerDom);
   this.dom.appendChild(this.captionDom);
 };
-YouTubeComponent.prototype = new Component();
+YouTubeComponent.prototype = Object.create(Component.prototype);
 module.exports = YouTubeComponent;
 
 /**

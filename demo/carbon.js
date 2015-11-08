@@ -2556,16 +2556,9 @@ var GiphyComponent = function(optParams) {
     src: '',
     caption: null,
     width: '100%',
-    // Generate a UID as a reference for this GiphyComponent.
-    name: Utils.getUID()
   }, optParams);
 
-  /**
-   * Name to reference this GiphyComponent.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this GiphyComponent.
@@ -2608,7 +2601,7 @@ var GiphyComponent = function(optParams) {
     this.dom.appendChild(this.imgDom);
   }
 };
-GiphyComponent.prototype = new Component();
+GiphyComponent.prototype = Object.create(Component.prototype);
 module.exports = GiphyComponent;
 
 
@@ -3318,20 +3311,12 @@ var YouTubeComponent = function(optParams) {
     src: '',
     caption: null,
     width: '100%',
-
     // TODO(mkhatib): Implement and auto-height mode where it can calculate
     // the best ratio for the player.
     height: '360px',
-    // Generate a UID as a reference for this YouTubeComponent.
-    name: Utils.getUID()
   }, optParams);
 
-  /**
-   * Name to reference this YouTubeComponent.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this YouTubeComponent.
@@ -3399,7 +3384,7 @@ var YouTubeComponent = function(optParams) {
   this.dom.appendChild(this.containerDom);
   this.dom.appendChild(this.captionDom);
 };
-YouTubeComponent.prototype = new Component();
+YouTubeComponent.prototype = Object.create(Component.prototype);
 module.exports = YouTubeComponent;
 
 /**
@@ -4056,6 +4041,7 @@ List.fromJSON = function (json) {
   }
 
   return new List({
+    tagName: json.tagName,
     name: json.name,
     components: components
   });
@@ -4265,6 +4251,8 @@ List.prototype.getLength = function () {
  */
 List.prototype.getJSONModel = function() {
   var section = {
+    name: this.name,
+    tagName: this.tagName,
     component: List.CLASS_NAME,
     components: []
   };
@@ -6520,7 +6508,7 @@ Utils.getReference = function(key) {
  * @return {string} Random alphanumeric ID.
  */
 Utils.getUID = function(optLength) {
-  var length = optLength || 4;
+  var length = optLength || 8;
   var chars = [];
   var sourceSet = "abcdefghijklmnopqrstuvwxyz0123456789";
 

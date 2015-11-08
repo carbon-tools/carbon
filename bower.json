@@ -1,6 +1,6 @@
 {
   "name": "carbon",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "author": "Manshar",
   "main": "dist/carbon.min.js",
   "license": "Simplified BSD",

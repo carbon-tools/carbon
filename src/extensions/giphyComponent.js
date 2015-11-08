@@ -22,16 +22,9 @@ var GiphyComponent = function(optParams) {
     src: '',
     caption: null,
     width: '100%',
-    // Generate a UID as a reference for this GiphyComponent.
-    name: Utils.getUID()
   }, optParams);
 
-  /**
-   * Name to reference this GiphyComponent.
-   * @type {string}
-   */
-  this.name = params.name;
-  Utils.setReference(this.name, this);
+  Component.call(this, params);
 
   /**
    * Internal model text in this GiphyComponent.
@@ -74,7 +67,7 @@ var GiphyComponent = function(optParams) {
     this.dom.appendChild(this.imgDom);
   }
 };
-GiphyComponent.prototype = new Component();
+GiphyComponent.prototype = Object.create(Component.prototype);
 module.exports = GiphyComponent;
 
 

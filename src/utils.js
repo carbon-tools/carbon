@@ -83,7 +83,7 @@ Utils.getReference = function(key) {
  * @return {string} Random alphanumeric ID.
  */
 Utils.getUID = function(optLength) {
-  var length = optLength || 4;
+  var length = optLength || 8;
   var chars = [];
   var sourceSet = "abcdefghijklmnopqrstuvwxyz0123456789";
 

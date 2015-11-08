@@ -79,6 +79,7 @@ List.fromJSON = function (json) {
   }
 
   return new List({
+    tagName: json.tagName,
     name: json.name,
     components: components
   });
@@ -288,6 +289,8 @@ List.prototype.getLength = function () {
  */
 List.prototype.getJSONModel = function() {
   var section = {
+    name: this.name,
+    tagName: this.tagName,
     component: List.CLASS_NAME,
     components: []
   };
