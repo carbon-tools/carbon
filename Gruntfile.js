@@ -92,6 +92,9 @@ module.exports = function(grunt) {
     },
 
     cssmin: {
+      options: {
+        advanced: false
+      },
       target: {
         files: {
           '<%= distDir %>/<%= pkg.name %>.min.css': '<%= distDir %>/<%= pkg.name %>.css'
