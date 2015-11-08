@@ -216,6 +216,7 @@ Editor.prototype.init = function() {
  * @param {Article} article Article object to use for the editor.
  */
 Editor.prototype.setArticle = function(article) {
+  article.editor = this;
   this.article = article;
   while (this.element.firstChild) {
     this.element.removeChild(this.element.firstChild);

@@ -4,6 +4,7 @@ var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
+var Loader = require('./loader');
 
 
 /**
@@ -18,7 +19,8 @@ var Article = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The sections that is in this article.
-    sections: []
+    sections: [],
+    editor: null
   }, optParams);
 
   /**
@@ -345,7 +347,7 @@ Article.prototype.exec = function(operation, action) {
     }, operation[action].attrs || {});
 
     var constructorName = operation[action].componentClass;
-    var ComponentClass = this.editor.getModule(constructorName);
+    var ComponentClass = Loader.load(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
   }

@@ -5,6 +5,7 @@ var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
+var Loader = require('./loader');
 
 
 /**
@@ -19,7 +20,8 @@ var Article = function(optParams) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The sections that is in this article.
-    sections: []
+    sections: [],
+    editor: null
   }, optParams);
 
   /**
@@ -346,13 +348,13 @@ Article.prototype.exec = function(operation, action) {
     }, operation[action].attrs || {});
 
     var constructorName = operation[action].componentClass;
-    var ComponentClass = this.editor.getModule(constructorName);
+    var ComponentClass = Loader.load(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
   }
 };
 
-},{"./paragraph":17,"./section":18,"./selection":19,"./utils":23}],2:[function(require,module,exports){
+},{"./loader":15,"./paragraph":17,"./section":18,"./selection":19,"./utils":23}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -799,6 +801,7 @@ Editor.prototype.init = function() {
  * @param {Article} article Article object to use for the editor.
  */
 Editor.prototype.setArticle = function(article) {
+  article.editor = this;
   this.article = article;
   while (this.element.firstChild) {
     this.element.removeChild(this.element.firstChild);
