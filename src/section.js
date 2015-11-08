@@ -191,6 +191,7 @@ Section.prototype.getComponentsBetween = function(
  */
 Section.prototype.getJSONModel = function() {
   var section = {
+    name: this.name,
     component: Section.CLASS_NAME,
     components: []
   };

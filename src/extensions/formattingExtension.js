@@ -175,6 +175,14 @@ Formatting.onInstall = function(editor) {
 
 
 /**
+ * Call to destroy instance and cleanup dom and event listeners.
+ */
+Formatting.onDestroy = function() {
+  // pass
+};
+
+
+/**
  * Initializes the formatting extension.
  * @param  {Editor} editor The parent editor for the extension.
  */

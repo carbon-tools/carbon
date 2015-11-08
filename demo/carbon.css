@@ -85,6 +85,7 @@
   font-size: 0.7em;
   color: #fff;
   outline: none;
+  width: 100%;
 }
 
 .editor-toolbar .extra-fields input::-webkit-input-placeholder {

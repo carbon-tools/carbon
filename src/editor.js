@@ -191,23 +191,34 @@ Editor.prototype.loadJSON = function (json) {
 Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
-  if (this.extensions) {
-    for (var i = 0; i < this.extensions.length; i++) {
-      var extension = this.extensions[i];
-      if (typeof extension.init === 'function') {
-        extension.init(this);
-      }
-    }
-  }
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
-  this.element.className += ' carbon-editor';
+  this.element.classList.add('carbon-editor');
   this.element.setAttribute('contenteditable', true);
 
   this.selection.addEventListener(
       Selection.Events.SELECTON_CHANGED,
       this.handleSelectionChanged.bind(this));
+};
+
+
+/**
+ * Call to destroy the editor instance and cleanup dom and event listeners.
+ */
+Editor.prototype.destroy = function () {
+  var name;
+  for (name in this.toolbars) {
+    if (this.toolbars[name].onDestroy) {
+      this.toolbars[name].onDestroy();
+    }
+  }
+
+  for (name in this.installedModules) {
+    if (this.installedModules[name].onDestroy) {
+      this.installedModules[name].onDestroy();
+    }
+  }
 };
 
 
@@ -928,7 +939,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     newP = new Paragraph({
         section: section,
         text: text,
-        paragraphType: paragraphType,
         formats: FormattingExtension.generateFormatsForNode(element)
     });
     Utils.arrays.extend(

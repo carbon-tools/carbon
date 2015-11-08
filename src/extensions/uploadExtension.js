@@ -110,6 +110,14 @@ UploadExtension.onInstall = function(editor) {
 
 
 /**
+ * Call to destroy instance and cleanup dom and event listeners.
+ */
+UploadExtension.onDestroy = function() {
+  // pass
+};
+
+
+/**
  * Initialize the upload button and listener.
  * @param  {Editor} editor The editor to enable the extension on.
  */

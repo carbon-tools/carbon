@@ -171,6 +171,14 @@ Toolbar.EDGE = -999999;
 
 
 /**
+ * Call to destroy instance and cleanup dom and event listeners.
+ */
+Toolbar.prototype.onDestroy = function() {
+  document.body.removeChild(this.dom);
+};
+
+
+/**
  * Adds a button to the toolbar.
  * @param {Button} button The button to add to the toolbar.
  */

@@ -59,6 +59,14 @@ Toolbelt.onInstall = function(editor) {
 
 
 /**
+ * Call to destroy instance and cleanup dom and event listeners.
+ */
+Toolbelt.onDestroy = function() {
+  // pass
+};
+
+
+/**
  * Initiates the toolbelt extension.
  * @param  {Editor} editor The editor to initialize the extension for.
  */

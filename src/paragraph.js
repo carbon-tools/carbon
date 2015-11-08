@@ -520,7 +520,7 @@ Paragraph.prototype.getJSONModel = function() {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -539,6 +539,13 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
       }
     }
   }];
+
+  // If this is ListItem and it's the last element in the
+  if (this.paragraphType === Paragraph.Types.ListItem &&
+      this.section.components.length < 2) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+  return ops;
 };
 
 
