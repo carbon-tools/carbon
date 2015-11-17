@@ -25,6 +25,14 @@
   margin: 2em 0;
 }
 
+.carbon-editor figure .selection-pointer {
+  width: 0;
+  height: 0;
+  content: ' ';
+  z-index: -1;
+  outline: none;
+}
+
 .carbon-editor figure figcaption {
   color: #ccc;
   font-style: italic;

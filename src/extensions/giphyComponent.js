@@ -47,12 +47,18 @@ var GiphyComponent = function(optParams) {
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-  this.dom.addEventListener('click', this.handleClick.bind(this));
+  this.dom.addEventListener('click', this.select.bind(this));
 
   this.captionDom = document.createElement(GiphyComponent.CAPTION_TAG_NAME);
   this.captionDom.setAttribute('contenteditable', true);
 
   this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
 
   if (this.caption) {
     Utils.setTextForElement(this.captionDom, this.caption);
@@ -65,6 +71,7 @@ var GiphyComponent = function(optParams) {
       this.imgDom.setAttribute('width', this.width);
     }
     this.dom.appendChild(this.imgDom);
+    this.dom.appendChild(this.selectionDom);
   }
 };
 GiphyComponent.prototype = Object.create(Component.prototype);
@@ -213,7 +220,7 @@ GiphyComponent.prototype.getJSONModel = function() {
 /**
  * Handles clicking on the GiphyComponent component to update the selection.
  */
-GiphyComponent.prototype.handleClick = function () {
+GiphyComponent.prototype.select = function () {
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,

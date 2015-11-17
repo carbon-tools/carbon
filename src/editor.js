@@ -404,18 +404,20 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var currentIndex = currentComponent.getIndexInSection();
   var nextComponent = currentComponent.getNextComponent();
   var prevComponent = currentComponent.getPreviousComponent();
+  var currentIsParagraph = currentComponent instanceof Paragraph;
+  var nextIsParagraph = nextComponent instanceof Paragraph;
+  var prevIsParagraph = prevComponent instanceof Paragraph;
 
   switch (event.keyCode) {
     // Enter.
     case 13:
       // TODO(mkhatib): I don't like that we keep checking if the component is
       // an instanceof Paragraph. Maybe find a better way to manage this.
-      if (!selection.isCursorAtEnding() &&
-          currentComponent instanceof Paragraph &&
+      if (!selection.isCursorAtEnding() && currentIsParagraph &&
           !currentComponent.inline) {
         Utils.arrays.extend(ops, this.getSplitParagraphOps(
             -inBetweenComponents.length));
-      } else if (nextComponent instanceof Paragraph &&
+      } else if (nextIsParagraph &&
           (nextComponent.isPlaceholder() || currentComponent.inline)) {
         // If the next paragraph is a placeholder, just move the cursor to it
         // and don't insert a new paragraph.
@@ -425,7 +427,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         });
       } else {
         var factoryMethod;
-        if (currentComponent instanceof Paragraph) {
+        if (currentIsParagraph) {
           factoryMethod = this.componentFactory.match(
               currentComponent.text);
         }
@@ -476,13 +478,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Backspace.
     case 8:
-      if (!(currentComponent instanceof Paragraph)) {
+      if (!currentIsParagraph) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length));
         if (prevComponent) {
           this.article.transaction(ops);
           offset = 0;
-          if (prevComponent instanceof Paragraph) {
+          if (prevIsParagraph) {
             offset = prevComponent.getLength();
           }
           selection.setCursor({
@@ -507,7 +509,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         offsetAfterOperation = 0;
         // If the cursor at the beginning of paragraph. Merge Paragraphs if the
         // previous component is a paragraph.
-        if (prevComponent instanceof Paragraph) {
+        if (prevIsParagraph) {
           offsetAfterOperation = prevComponent.text.length;
 
           Utils.arrays.extend(ops, this.getMergeParagraphsOps(
@@ -528,7 +530,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Delete.
     case 46:
-      if (!(currentComponent instanceof Paragraph)) {
+      if (!currentIsParagraph) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length));
         if (prevComponent) {
@@ -554,7 +556,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       } else if (selection.isCursorAtEnding() && nextComponent) {
         // If cursor at the end of the paragraph. Merge Paragraphs if the
         // next component is a paragraph.
-        if (nextComponent instanceof Paragraph) {
+        if (nextIsParagraph) {
           offsetAfterOperation = currentComponent.text.length;
 
           Utils.arrays.extend(ops, this.getMergeParagraphsOps(
@@ -578,9 +580,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Left.
     case 37:
-      if (selection.isCursorAtBeginning() && prevComponent) {
+      if (prevComponent && !currentIsParagraph) {
         offset = 0;
-        if (prevComponent instanceof Paragraph) {
+        if (prevIsParagraph) {
           offset = prevComponent.getLength();
         }
 
@@ -596,15 +598,19 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     case 38:
       if (prevComponent) {
         offset = 0;
-        if (prevComponent instanceof Paragraph) {
-          currentOffset = selection.start.offset;
-          offset = Math.min(prevComponent.getLength(), currentOffset);
+        if (prevIsParagraph && !currentIsParagraph) {
+          if (currentIsParagraph) {
+            currentOffset = selection.start.offset;
+            offset = Math.min(prevComponent.getLength(), currentOffset);
+          } else {
+            offset = prevComponent.getLength();
+          }
+          selection.setCursor({
+            component: prevComponent,
+            offset: offset
+          });
+          preventDefault = true;
         }
-        selection.setCursor({
-          component: prevComponent,
-          offset: offset
-        });
-        preventDefault = true;
       }
       break;
 
@@ -622,16 +628,15 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Down.
     case 40:
       if (nextComponent) {
-        offset = 0;
-        if (nextComponent instanceof Paragraph) {
+        if (nextIsParagraph && !currentIsParagraph) {
           currentOffset = selection.end.offset;
           offset = Math.min(nextComponent.getLength(), currentOffset);
+          selection.setCursor({
+            component: nextComponent,
+            offset: offset
+          });
+          preventDefault = true;
         }
-        selection.setCursor({
-          component: nextComponent,
-          offset: offset
-        });
-        preventDefault = true;
       }
       break;
 

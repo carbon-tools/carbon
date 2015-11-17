@@ -73,7 +73,12 @@ var Figure = function(optParams) {
   this.dom.setAttribute('name', this.name);
 
   this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-  this.imgDom.addEventListener('click', this.handleClick.bind(this));
+  this.imgDom.addEventListener('click', this.select.bind(this));
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
 
   if (this.src) {
     this.imgDom.setAttribute('src', this.src);
@@ -81,6 +86,7 @@ var Figure = function(optParams) {
       this.imgDom.setAttribute('width', this.width);
     }
     this.dom.appendChild(this.imgDom);
+    this.dom.appendChild(this.selectionDom);
   }
 
   this.captionDom = this.captionParagraph.dom;
@@ -205,9 +211,9 @@ Figure.prototype.getJSONModel = function() {
 
 
 /**
- * Handles clicking on the figure component to update the selection.
+ * Select the component.
  */
-Figure.prototype.handleClick = function () {
+Figure.prototype.select = function () {
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,

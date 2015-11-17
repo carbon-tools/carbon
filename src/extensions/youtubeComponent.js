@@ -62,10 +62,16 @@ var YouTubeComponent = function(optParams) {
       YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
   this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
   this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.handleClick.bind(this));
+  this.overlayDom.addEventListener('click', this.select.bind(this));
 
   this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
   this.containerDom.appendChild(this.videoDom);
+
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
 
   /**
    * Placeholder text to show if the Figure is empty.
@@ -90,6 +96,7 @@ var YouTubeComponent = function(optParams) {
       this.videoDom.setAttribute('height', this.height);
     }
     this.containerDom.appendChild(this.videoDom);
+    this.containerDom.appendChild(this.selectionDom);
   }
 
   this.captionDom = this.captionParagraph.dom;
@@ -276,7 +283,7 @@ YouTubeComponent.prototype.getJSONModel = function() {
 /**
  * Handles clicking on the youtube component to update the selection.
  */
-YouTubeComponent.prototype.handleClick = function () {
+YouTubeComponent.prototype.select = function () {
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,

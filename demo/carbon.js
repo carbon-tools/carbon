@@ -989,18 +989,20 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var currentIndex = currentComponent.getIndexInSection();
   var nextComponent = currentComponent.getNextComponent();
   var prevComponent = currentComponent.getPreviousComponent();
+  var currentIsParagraph = currentComponent instanceof Paragraph;
+  var nextIsParagraph = nextComponent instanceof Paragraph;
+  var prevIsParagraph = prevComponent instanceof Paragraph;
 
   switch (event.keyCode) {
     // Enter.
     case 13:
       // TODO(mkhatib): I don't like that we keep checking if the component is
       // an instanceof Paragraph. Maybe find a better way to manage this.
-      if (!selection.isCursorAtEnding() &&
-          currentComponent instanceof Paragraph &&
+      if (!selection.isCursorAtEnding() && currentIsParagraph &&
           !currentComponent.inline) {
         Utils.arrays.extend(ops, this.getSplitParagraphOps(
             -inBetweenComponents.length));
-      } else if (nextComponent instanceof Paragraph &&
+      } else if (nextIsParagraph &&
           (nextComponent.isPlaceholder() || currentComponent.inline)) {
         // If the next paragraph is a placeholder, just move the cursor to it
         // and don't insert a new paragraph.
@@ -1010,7 +1012,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         });
       } else {
         var factoryMethod;
-        if (currentComponent instanceof Paragraph) {
+        if (currentIsParagraph) {
           factoryMethod = this.componentFactory.match(
               currentComponent.text);
         }
@@ -1061,13 +1063,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Backspace.
     case 8:
-      if (!(currentComponent instanceof Paragraph)) {
+      if (!currentIsParagraph) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length));
         if (prevComponent) {
           this.article.transaction(ops);
           offset = 0;
-          if (prevComponent instanceof Paragraph) {
+          if (prevIsParagraph) {
             offset = prevComponent.getLength();
           }
           selection.setCursor({
@@ -1092,7 +1094,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         offsetAfterOperation = 0;
         // If the cursor at the beginning of paragraph. Merge Paragraphs if the
         // previous component is a paragraph.
-        if (prevComponent instanceof Paragraph) {
+        if (prevIsParagraph) {
           offsetAfterOperation = prevComponent.text.length;
 
           Utils.arrays.extend(ops, this.getMergeParagraphsOps(
@@ -1113,7 +1115,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Delete.
     case 46:
-      if (!(currentComponent instanceof Paragraph)) {
+      if (!currentIsParagraph) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length));
         if (prevComponent) {
@@ -1139,7 +1141,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       } else if (selection.isCursorAtEnding() && nextComponent) {
         // If cursor at the end of the paragraph. Merge Paragraphs if the
         // next component is a paragraph.
-        if (nextComponent instanceof Paragraph) {
+        if (nextIsParagraph) {
           offsetAfterOperation = currentComponent.text.length;
 
           Utils.arrays.extend(ops, this.getMergeParagraphsOps(
@@ -1163,9 +1165,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Left.
     case 37:
-      if (selection.isCursorAtBeginning() && prevComponent) {
+      if (prevComponent && !currentIsParagraph) {
         offset = 0;
-        if (prevComponent instanceof Paragraph) {
+        if (prevIsParagraph) {
           offset = prevComponent.getLength();
         }
 
@@ -1181,15 +1183,19 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     case 38:
       if (prevComponent) {
         offset = 0;
-        if (prevComponent instanceof Paragraph) {
-          currentOffset = selection.start.offset;
-          offset = Math.min(prevComponent.getLength(), currentOffset);
+        if (prevIsParagraph && !currentIsParagraph) {
+          if (currentIsParagraph) {
+            currentOffset = selection.start.offset;
+            offset = Math.min(prevComponent.getLength(), currentOffset);
+          } else {
+            offset = prevComponent.getLength();
+          }
+          selection.setCursor({
+            component: prevComponent,
+            offset: offset
+          });
+          preventDefault = true;
         }
-        selection.setCursor({
-          component: prevComponent,
-          offset: offset
-        });
-        preventDefault = true;
       }
       break;
 
@@ -1207,16 +1213,15 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Down.
     case 40:
       if (nextComponent) {
-        offset = 0;
-        if (nextComponent instanceof Paragraph) {
+        if (nextIsParagraph && !currentIsParagraph) {
           currentOffset = selection.end.offset;
           offset = Math.min(nextComponent.getLength(), currentOffset);
+          selection.setCursor({
+            component: nextComponent,
+            offset: offset
+          });
+          preventDefault = true;
         }
-        selection.setCursor({
-          component: nextComponent,
-          offset: offset
-        });
-        preventDefault = true;
       }
       break;
 
@@ -2593,12 +2598,18 @@ var GiphyComponent = function(optParams) {
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-  this.dom.addEventListener('click', this.handleClick.bind(this));
+  this.dom.addEventListener('click', this.select.bind(this));
 
   this.captionDom = document.createElement(GiphyComponent.CAPTION_TAG_NAME);
   this.captionDom.setAttribute('contenteditable', true);
 
   this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
 
   if (this.caption) {
     Utils.setTextForElement(this.captionDom, this.caption);
@@ -2611,6 +2622,7 @@ var GiphyComponent = function(optParams) {
       this.imgDom.setAttribute('width', this.width);
     }
     this.dom.appendChild(this.imgDom);
+    this.dom.appendChild(this.selectionDom);
   }
 };
 GiphyComponent.prototype = Object.create(Component.prototype);
@@ -2759,7 +2771,7 @@ GiphyComponent.prototype.getJSONModel = function() {
 /**
  * Handles clicking on the GiphyComponent component to update the selection.
  */
-GiphyComponent.prototype.handleClick = function () {
+GiphyComponent.prototype.select = function () {
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,
@@ -3369,10 +3381,16 @@ var YouTubeComponent = function(optParams) {
       YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
   this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
   this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.handleClick.bind(this));
+  this.overlayDom.addEventListener('click', this.select.bind(this));
 
   this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
   this.containerDom.appendChild(this.videoDom);
+
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
 
   /**
    * Placeholder text to show if the Figure is empty.
@@ -3397,6 +3415,7 @@ var YouTubeComponent = function(optParams) {
       this.videoDom.setAttribute('height', this.height);
     }
     this.containerDom.appendChild(this.videoDom);
+    this.containerDom.appendChild(this.selectionDom);
   }
 
   this.captionDom = this.captionParagraph.dom;
@@ -3583,7 +3602,7 @@ YouTubeComponent.prototype.getJSONModel = function() {
 /**
  * Handles clicking on the youtube component to update the selection.
  */
-YouTubeComponent.prototype.handleClick = function () {
+YouTubeComponent.prototype.select = function () {
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,
@@ -3736,7 +3755,12 @@ var Figure = function(optParams) {
   this.dom.setAttribute('name', this.name);
 
   this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-  this.imgDom.addEventListener('click', this.handleClick.bind(this));
+  this.imgDom.addEventListener('click', this.select.bind(this));
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
 
   if (this.src) {
     this.imgDom.setAttribute('src', this.src);
@@ -3744,6 +3768,7 @@ var Figure = function(optParams) {
       this.imgDom.setAttribute('width', this.width);
     }
     this.dom.appendChild(this.imgDom);
+    this.dom.appendChild(this.selectionDom);
   }
 
   this.captionDom = this.captionParagraph.dom;
@@ -3868,9 +3893,9 @@ Figure.prototype.getJSONModel = function() {
 
 
 /**
- * Handles clicking on the figure component to update the selection.
+ * Select the component.
  */
-Figure.prototype.handleClick = function () {
+Figure.prototype.select = function () {
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,
