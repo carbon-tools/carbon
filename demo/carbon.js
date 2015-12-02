@@ -718,6 +718,14 @@ var Editor = function (element, optParams) {
     this.install(params.modules[i]);
   }
 
+
+  this.composition_ = {
+    component: null,
+    start: null,
+    update: null,
+    end: null
+  };
+
   this.init();
   this.setArticle(this.article);
 };
@@ -777,6 +785,7 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('input', this.handleInputEvent.bind(this));
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.classList.add('carbon-editor');
@@ -936,10 +945,68 @@ Editor.prototype.handleSelectionChanged = function(event) {
 
 
 /**
+ * Handles input event and updates the current word.
+ * This allows us to add some support for editing on mobile though very buggy
+ * and not snappy.
+ *
+ * TODO(mkhatib): Revisit this and think of a better way to handle editing
+ * on mobile!
+ *
+ */
+Editor.prototype.handleInputEvent = function() {
+  var currentLength = this.selection.start.component.getLength();
+  var self = this;
+  var offset = this.selection.start.offset;
+
+  // HACK: A very ugly hack to allow us to update the entire
+  // paragraph after the event happens. Because we can't preventDefault
+  // the composition event to avoid duplicates and because of another bug
+  // that changes selections sometimes to the previous component we have to
+  // set the cursor to select the correct component again.
+  var cursor = {
+    component: this.selection.start.component,
+    offset: this.selection.start.offset
+  };
+  self.selection.setCursor(cursor);
+  setTimeout(function() {
+    var component = self.selection.start.component;
+    var newLength = Utils.getTextFromElement(component.dom).length;
+    var direction = 1;
+    if (newLength < currentLength) {
+      direction = -1;
+    }
+    var ops = component.getUpdateOps(
+        {}, offset + direction, undefined,
+        Utils.getTextFromElement(component.dom));
+    self.article.transaction(ops);
+  }, 3);
+
+  // Another way to do this is to use the following in compositionupdate event.
+  // Though found this to be slightly buggier from the above.
+  // The nice thing about this is it doesn't require updating the whole model,
+  // instead it only update the touched word.
+  // var ops = this.selection.start.component.getUpdateWordOps(
+  //     event.data, this.selection.end.offset);
+  // var self = this;
+  // var cursor = {
+  //   component: this.selection.start.component,
+  //   offset: this.selection.start.offset
+  // };
+  // setTimeout(function() {
+  //   self.selection.setCursor(cursor);
+  //   setTimeout(function() {
+  //     self.article.transaction(ops);
+  //   }, 2);
+  // }, 1);
+};
+
+
+/**
  * Handels `keydown` events.
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
+  console.log('keydown', event.keyCode);
   var selection = this.article.selection, newP;
   var article = this.article;
   var preventDefault = false;
@@ -1229,12 +1296,17 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       break;
   }
 
-  if (preventDefault) {
+  // On chrome mobile, 229 event is fired on every keydown.
+  // Just ignore it.
+  if (event.keyCode === 229) {
+    // pass
+  } else if (preventDefault) {
     event.preventDefault();
     event.stopPropagation();
   } else if (currentComponent && Utils.willTypeCharacter(event)) {
     // Update current paragraph internal text model.
     var oldValue = currentComponent.text;
+    var oldOffset = selection.end.offset;
     var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
     var cursorOffsetDirection = 1;
     if (event.keyCode === 8) {
@@ -1245,13 +1317,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     setTimeout(function() {
       var newValue = Utils.getTextFromElement(currentComponent.dom);
-      var newOffset = selection.end.offset + cursorOffsetDirection;
+      var newOffset = oldOffset + cursorOffsetDirection;
 
       if (!isRemoveOp) {
         var insertedChar = newValue.charAt(
             Math.min(newOffset, newValue.length) - 1);
         Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
-            insertedChar, selection.end.offset));
+            insertedChar, oldOffset));
       } else if (oldValue) {
         var deletedChar = oldValue.charAt(newOffset);
         Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
@@ -4541,6 +4613,52 @@ Paragraph.prototype.setText = function(text) {
 
 
 /**
+ * Returns the word at the given index.
+ * @param  {number} index Index to return the word at.
+ * @return {string} Word at the index passed.
+ */
+Paragraph.prototype.getWordAt_ = function(index) {
+  var start = this.getWordStart_(index);
+  var end = this.getWordEnd_(index);
+  if (start < end) {
+    return this.text.substring(start, end);
+  }
+};
+
+
+/**
+ * Returns the start index of the start of the word.
+ * @param  {number} index Index that touches a word.
+ * @return {number} Start index of the word.
+ */
+Paragraph.prototype.getWordStart_ = function(index) {
+  var start;
+  for (start = index - 1; start > 0; start--) {
+    if (this.text[start] && this.text[start].match(/\s/)) {
+      break;
+    }
+  }
+  return start === 0 ? 0 : start + 1;
+};
+
+
+/**
+ * Returns the end index of the end of the word.
+ * @param  {number} index Index that touches a word.
+ * @return {number} End index of the word.
+ */
+Paragraph.prototype.getWordEnd_ = function(index) {
+  var end;
+  for (end = index; end < this.getLength(); end++) {
+    if (this.text[end] && this.text[end].match(/\s/)) {
+      break;
+    }
+  }
+  return end === 0 ? 0 : end;
+};
+
+
+/**
  * Inserts characters at a specific index.
  * @param  {string} chars A string representing the characters to insert.
  * @param  {number} index Start index to insert characters at.
@@ -5020,28 +5138,51 @@ Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
 
 
 /**
+ * Returns operations needed to update a word at index to another.
+ * @param  {string} newWord The new word to update to.
+ * @param  {number} index Index of the word to update.
+ * @return {Array.<Object>} Operations for updating a word.
+ */
+Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
+  var currentWord = this.getWordAt_(index);
+  var wordStart = this.getWordStart_(index);
+  var ops = [];
+  if (currentWord) {
+    Utils.arrays.extend(ops, this.getRemoveCharsOps(
+        currentWord, wordStart));
+  }
+  Utils.arrays.extend(ops, this.getInsertCharsOps(
+      newWord, wordStart));
+  return ops;
+};
+
+
+/**
  * Returns the operations to execute updating a paragraph attributes.
  * @param  {Object} attrs Attributes to update for the paragraph.
  * @param  {number=} optCursorOffset Optional cursor offset.
  * @param  {number=} optSelectRange Optional selecting range.
+ * @param  {string=} optValue Optional value to update the component with.
  * @return {Array.<Object>} Operations for updating a paragraph attributes.
  */
 Paragraph.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange) {
+    attrs, optCursorOffset, optSelectRange, optValue) {
   return [{
     do: {
       op: 'updateComponent',
       component: this.name,
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
-      formats: attrs.formats
+      formats: attrs.formats,
+      value: optValue
     },
     undo: {
       op: 'updateComponent',
       component: this.name,
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
-      formats: attrs.formats
+      formats: attrs.formats,
+      value: optValue ? this.text : undefined
     }
   }];
 };

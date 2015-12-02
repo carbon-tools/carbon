@@ -152,6 +152,52 @@ Paragraph.prototype.setText = function(text) {
 
 
 /**
+ * Returns the word at the given index.
+ * @param  {number} index Index to return the word at.
+ * @return {string} Word at the index passed.
+ */
+Paragraph.prototype.getWordAt_ = function(index) {
+  var start = this.getWordStart_(index);
+  var end = this.getWordEnd_(index);
+  if (start < end) {
+    return this.text.substring(start, end);
+  }
+};
+
+
+/**
+ * Returns the start index of the start of the word.
+ * @param  {number} index Index that touches a word.
+ * @return {number} Start index of the word.
+ */
+Paragraph.prototype.getWordStart_ = function(index) {
+  var start;
+  for (start = index - 1; start > 0; start--) {
+    if (this.text[start] && this.text[start].match(/\s/)) {
+      break;
+    }
+  }
+  return start === 0 ? 0 : start + 1;
+};
+
+
+/**
+ * Returns the end index of the end of the word.
+ * @param  {number} index Index that touches a word.
+ * @return {number} End index of the word.
+ */
+Paragraph.prototype.getWordEnd_ = function(index) {
+  var end;
+  for (end = index; end < this.getLength(); end++) {
+    if (this.text[end] && this.text[end].match(/\s/)) {
+      break;
+    }
+  }
+  return end === 0 ? 0 : end;
+};
+
+
+/**
  * Inserts characters at a specific index.
  * @param  {string} chars A string representing the characters to insert.
  * @param  {number} index Start index to insert characters at.
@@ -631,28 +677,51 @@ Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
 
 
 /**
+ * Returns operations needed to update a word at index to another.
+ * @param  {string} newWord The new word to update to.
+ * @param  {number} index Index of the word to update.
+ * @return {Array.<Object>} Operations for updating a word.
+ */
+Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
+  var currentWord = this.getWordAt_(index);
+  var wordStart = this.getWordStart_(index);
+  var ops = [];
+  if (currentWord) {
+    Utils.arrays.extend(ops, this.getRemoveCharsOps(
+        currentWord, wordStart));
+  }
+  Utils.arrays.extend(ops, this.getInsertCharsOps(
+      newWord, wordStart));
+  return ops;
+};
+
+
+/**
  * Returns the operations to execute updating a paragraph attributes.
  * @param  {Object} attrs Attributes to update for the paragraph.
  * @param  {number=} optCursorOffset Optional cursor offset.
  * @param  {number=} optSelectRange Optional selecting range.
+ * @param  {string=} optValue Optional value to update the component with.
  * @return {Array.<Object>} Operations for updating a paragraph attributes.
  */
 Paragraph.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange) {
+    attrs, optCursorOffset, optSelectRange, optValue) {
   return [{
     do: {
       op: 'updateComponent',
       component: this.name,
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
-      formats: attrs.formats
+      formats: attrs.formats,
+      value: optValue
     },
     undo: {
       op: 'updateComponent',
       component: this.name,
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
-      formats: attrs.formats
+      formats: attrs.formats,
+      value: optValue ? this.text : undefined
     }
   }];
 };
