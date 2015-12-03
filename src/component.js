@@ -68,7 +68,7 @@ module.exports = Component;
  * @type {string}
  */
 Component.CLASS_NAME = 'Component';
-Loader.register(Component.CLASS_NAME);
+Loader.register(Component.CLASS_NAME, Component);
 
 
 /**
@@ -125,16 +125,16 @@ Component.prototype.getPreviousComponent = function() {
  * @return {Object} JSON representation of this Component.
  */
 Component.prototype.getJSONModel = function() {
-  var Component = {
+  var component = {
     component: Component.CLASS_NAME,
     name: this.name,
   };
 
   if (this.formats) {
-    Component.formats = this.formats;
+    component.formats = this.formats;
   }
 
-  return Component;
+  return component;
 };
 
 

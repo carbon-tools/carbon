@@ -6,6 +6,8 @@ module.exports.Paragraph = require('./paragraph');
 module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
+module.exports.VineComponent = require('./extensions/vineComponent');
+module.exports.VimeoComponent = require('./extensions/vimeoComponent');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 

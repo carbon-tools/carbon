@@ -1,9 +1,7 @@
 'use strict';
 
 var Utils = require('../utils');
-var Selection = require('../selection');
-var Component = require('../component');
-var Paragrarph = require('../paragraph');
+var IFrameComponent = require('./iframeComponent');
 var Loader = require('../loader');
 
 /**
@@ -29,82 +27,9 @@ var YouTubeComponent = function(optParams) {
     height: '360px',
   }, optParams);
 
-  Component.call(this, params);
-
-  /**
-   * Internal model text in this YouTubeComponent.
-   * @type {string}
-   */
-  this.src = params.src;
-
-  this.width = params.width;
-  this.height = params.height;
-
-  /**
-   * Placeholder text to show if the YouTubeComponent is empty.
-   * @type {string}
-   */
-  this.caption = params.caption;
-
-  /**
-   * DOM element tied to this object.
-   * @type {HTMLElement}
-   */
-  this.dom = document.createElement(YouTubeComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
-  this.dom.setAttribute('name', this.name);
-
-  this.containerDom = document.createElement(
-      YouTubeComponent.CONTAINER_TAG_NAME);
-  this.containerDom.className = YouTubeComponent.CONTAINER_CLASS_NAME;
-
-  this.overlayDom = document.createElement(
-      YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
-  this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
-  this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.select.bind(this));
-
-  this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
-  this.containerDom.appendChild(this.videoDom);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  /**
-   * Placeholder text to show if the Figure is empty.
-   * @type {string}
-   */
-  this.captionParagraph = new Paragrarph({
-    placeholderText: 'Type caption for video',
-    text: this.caption,
-    paragraphType: Paragrarph.Types.Caption,
-    parentComponent: this,
-    inline: true
-  });
-
-  if (this.src) {
-    this.videoDom.setAttribute('src', this.src);
-    this.videoDom.setAttribute('frameborder', 0);
-    this.videoDom.setAttribute('allowfullscreen', true);
-    if (this.width) {
-      this.videoDom.setAttribute('width', this.width);
-    }
-    if (this.height) {
-      this.videoDom.setAttribute('height', this.height);
-    }
-    this.containerDom.appendChild(this.videoDom);
-    this.containerDom.appendChild(this.selectionDom);
-  }
-
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.containerDom);
-  this.dom.appendChild(this.captionDom);
+  IFrameComponent.call(this, params);
 };
-YouTubeComponent.prototype = Object.create(Component.prototype);
+YouTubeComponent.prototype = Object.create(IFrameComponent.prototype);
 module.exports = YouTubeComponent;
 
 /**
@@ -113,55 +38,6 @@ module.exports = YouTubeComponent;
  */
 YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
 Loader.register(YouTubeComponent.CLASS_NAME, YouTubeComponent);
-
-
-/**
- * YouTubeComponent component element tag name.
- * @type {string}
- */
-YouTubeComponent.TAG_NAME = 'figure';
-
-
-/**
- * YouTubeComponent component inner container element tag name.
- * @type {string}
- */
-YouTubeComponent.CONTAINER_TAG_NAME = 'div';
-
-
-/**
- * YouTubeComponent component inner container element class name.
- * @type {string}
- */
-YouTubeComponent.CONTAINER_CLASS_NAME = 'inner-container';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-YouTubeComponent.VIDEO_OVERLAY_TAG_NAME = 'div';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-YouTubeComponent.VIDEO_TAG_NAME = 'iframe';
-
-
-/**
- * Caption element tag name.
- * @type {string}
- */
-YouTubeComponent.CAPTION_TAG_NAME = 'figcaption';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME = 'video-overlay';
 
 
 /**
@@ -174,6 +50,14 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
     'youtu\.be/)([^"&?/ ]{11})'
 ];
 
+
+/**
+ * Returns the class name of the component.
+ * @return {string} Class name of the component.
+ */
+YouTubeComponent.prototype.getComponentClassName = function() {
+  return YouTubeComponent.CLASS_NAME;
+};
 
 /**
  * Create and initiate a youtube object from JSON.
@@ -259,96 +143,6 @@ YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
 YouTubeComponent.createEmbedSrcFromId = function (id) {
   return 'https://www.youtube.com/embed/' + id +
     '?rel=0&amp;showinfo=0&amp;iv_load_policy=3';
-};
-
-
-/**
- * Creates and return a JSON representation of the model.
- * @return {Object} JSON representation of this YouTubeComponent.
- */
-YouTubeComponent.prototype.getJSONModel = function() {
-  var video = {
-    component: YouTubeComponent.CLASS_NAME,
-    name: this.name,
-    src: this.src,
-    height: this.height,
-    width: this.width,
-    caption: this.captionParagraph.text
-  };
-
-  return video;
-};
-
-
-/**
- * Handles clicking on the youtube component to update the selection.
- */
-YouTubeComponent.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
-
-  // TODO(mkhatib): Unselect the component when the video plays to allow the
-  // user to select it again and delete it.
-  return false;
-};
-
-
-/**
- * Returns the operations to execute a deletion of the YouTube component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @return {Array.<Object>} List of operations needed to be executed.
- */
-YouTubeComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
-    do: {
-      op: 'deleteComponent',
-      component: this.name
-    },
-    undo: {
-      op: 'insertComponent',
-      componentClass: 'YouTubeComponent',
-      section: this.section.name,
-      component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
-      attrs: {
-        src: this.src,
-        caption: this.caption,
-        width: this.width
-      }
-    }
-  }];
-};
-
-
-/**
- * Returns the operations to execute inserting a youtube component.
- * @param {number} index Index to insert the youtube component at.
- * @return {Array.<Object>} Operations for inserting the youtube component.
- */
-YouTubeComponent.prototype.getInsertOps = function (index) {
-  return [{
-    do: {
-      op: 'insertComponent',
-      componentClass: 'YouTubeComponent',
-      section: this.section.name,
-      cursorOffset: 0,
-      component: this.name,
-      index: index,
-      attrs: {
-        src: this.src,
-        width: this.width,
-        caption: this.caption
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: this.name
-    }
-  }];
 };
 
 

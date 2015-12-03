@@ -354,7 +354,7 @@ Article.prototype.exec = function(operation, action) {
   }
 };
 
-},{"./loader":15,"./paragraph":17,"./section":18,"./selection":19,"./utils":23}],2:[function(require,module,exports){
+},{"./loader":18,"./paragraph":20,"./section":21,"./selection":22,"./utils":26}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -425,7 +425,7 @@ module.exports = Component;
  * @type {string}
  */
 Component.CLASS_NAME = 'Component';
-Loader.register(Component.CLASS_NAME);
+Loader.register(Component.CLASS_NAME, Component);
 
 
 /**
@@ -482,16 +482,16 @@ Component.prototype.getPreviousComponent = function() {
  * @return {Object} JSON representation of this Component.
  */
 Component.prototype.getJSONModel = function() {
-  var Component = {
+  var component = {
     component: Component.CLASS_NAME,
     name: this.name,
   };
 
   if (this.formats) {
-    Component.formats = this.formats;
+    component.formats = this.formats;
   }
 
-  return Component;
+  return component;
 };
 
 
@@ -582,7 +582,7 @@ Component.prototype.getLength = function () {
   return 1;
 };
 
-},{"./errors":4,"./loader":15,"./utils":23}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":18,"./utils":26}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -1740,7 +1740,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formattingExtension":7,"./extensions/shortcutsManager":9,"./extensions/toolbeltExtension":10,"./extensions/uploadExtension":11,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./selection":19,"./toolbars/toolbar":22,"./utils":23}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formattingExtension":7,"./extensions/shortcutsManager":10,"./extensions/toolbeltExtension":11,"./extensions/uploadExtension":12,"./figure":16,"./list":17,"./paragraph":20,"./section":21,"./selection":22,"./toolbars/toolbar":25,"./utils":26}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1836,7 +1836,7 @@ Attachment.prototype.setAttributes = function(attrs) {
   this.figure.updateAttributes(attrs);
 };
 
-},{"../utils":23}],6:[function(require,module,exports){
+},{"../utils":26}],6:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -2620,7 +2620,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":17,"../selection":19,"../toolbars/button":20,"../toolbars/textField":21,"../utils":23}],8:[function(require,module,exports){
+},{"../paragraph":20,"../selection":22,"../toolbars/button":23,"../toolbars/textField":24,"../utils":26}],8:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2916,7 +2916,298 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":15,"../selection":19,"../utils":23}],9:[function(require,module,exports){
+},{"../component":2,"../loader":18,"../selection":22,"../utils":26}],9:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var Selection = require('../selection');
+var Component = require('../component');
+var Paragrarph = require('../paragraph');
+var Loader = require('../loader');
+
+/**
+ * IFrameComponent main.
+ * @param {Object} optParams Optional params to initialize the object.
+ * Default:
+ *   {
+ *     src: '',
+ *     caption: null,
+ *     width: '100%',
+ *     height: '360px',
+ *     name: Utils.getUID()
+ *   }
+ */
+var IFrameComponent = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    src: '',
+    caption: null,
+    width: '100%',
+    // TODO(mkhatib): Implement and auto-height mode where it can calculate
+    // the best ratio for the player.
+    height: '360px',
+  }, optParams);
+
+  Component.call(this, params);
+
+  /**
+   * Internal model text in this IFrameComponent.
+   * @type {string}
+   */
+  this.src = params.src;
+
+  this.width = params.width;
+  this.height = params.height;
+
+  /**
+   * Placeholder text to show if the IFrameComponent is empty.
+   * @type {string}
+   */
+  this.caption = params.caption;
+
+  /**
+   * DOM element tied to this object.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(IFrameComponent.TAG_NAME);
+  this.dom.setAttribute('contenteditable', false);
+  this.dom.setAttribute('name', this.name);
+
+  this.containerDom = document.createElement(
+      IFrameComponent.CONTAINER_TAG_NAME);
+  this.containerDom.className = IFrameComponent.CONTAINER_CLASS_NAME;
+
+  this.overlayDom = document.createElement(
+      IFrameComponent.IFRAME_OVERLAY_TAG_NAME);
+  this.overlayDom.className = IFrameComponent.IFRAME_OVERLAY_CLASS_NAME;
+  this.containerDom.appendChild(this.overlayDom);
+  this.overlayDom.addEventListener('click', this.select.bind(this));
+
+  this.iframeDom = document.createElement(IFrameComponent.IFRAME_TAG_NAME);
+  this.containerDom.appendChild(this.iframeDom);
+
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
+
+  /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.captionParagraph = new Paragrarph({
+    placeholderText: 'Caption for embedded component',
+    text: this.caption,
+    paragraphType: Paragrarph.Types.Caption,
+    parentComponent: this,
+    inline: true
+  });
+
+  if (this.src) {
+    this.iframeDom.setAttribute('src', this.src);
+    this.iframeDom.setAttribute('frameborder', 0);
+    this.iframeDom.setAttribute('allowfullscreen', true);
+    if (this.width) {
+      this.iframeDom.setAttribute('width', this.width);
+    }
+    if (this.height) {
+      this.iframeDom.setAttribute('height', this.height);
+    }
+    this.containerDom.appendChild(this.iframeDom);
+    this.containerDom.appendChild(this.selectionDom);
+  }
+
+  this.captionDom = this.captionParagraph.dom;
+  this.captionDom.setAttribute('contenteditable', true);
+  this.dom.appendChild(this.containerDom);
+  this.dom.appendChild(this.captionDom);
+};
+IFrameComponent.prototype = Object.create(Component.prototype);
+module.exports = IFrameComponent;
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+IFrameComponent.CLASS_NAME = 'IFrameComponent';
+Loader.register(IFrameComponent.CLASS_NAME, IFrameComponent);
+
+
+/**
+ * IFrameComponent component element tag name.
+ * @type {string}
+ */
+IFrameComponent.TAG_NAME = 'figure';
+
+
+/**
+ * IFrameComponent component inner container element tag name.
+ * @type {string}
+ */
+IFrameComponent.CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * IFrameComponent component inner container element class name.
+ * @type {string}
+ */
+IFrameComponent.CONTAINER_CLASS_NAME = 'inner-container';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+IFrameComponent.IFRAME_OVERLAY_TAG_NAME = 'div';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+IFrameComponent.IFRAME_TAG_NAME = 'iframe';
+
+
+/**
+ * Caption element tag name.
+ * @type {string}
+ */
+IFrameComponent.CAPTION_TAG_NAME = 'figcaption';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+IFrameComponent.IFRAME_OVERLAY_CLASS_NAME = 'video-overlay';
+
+
+/**
+ * Returns the class name of the component.
+ * @return {string} Class name of the component.
+ */
+IFrameComponent.prototype.getComponentClassName = function() {
+  return IFrameComponent.CLASS_NAME;
+};
+
+/**
+ * Create and initiate a youtube object from JSON.
+ * @param  {Object} json JSON representation of the youtube.
+ * @return {IFrameComponent} IFrameComponent object representing JSON data.
+ */
+IFrameComponent.fromJSON = function (json) {
+  return new IFrameComponent(json);
+};
+
+
+/**
+ * Handles onInstall when the IFrameComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+IFrameComponent.onInstall = function() {
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this IFrameComponent.
+ */
+IFrameComponent.prototype.getJSONModel = function() {
+  var video = {
+    component: this.getComponentClassName(),
+    name: this.name,
+    src: this.src,
+    height: this.height,
+    width: this.width,
+    caption: this.captionParagraph.text
+  };
+
+  return video;
+};
+
+
+/**
+ * Handles clicking on the youtube component to update the selection.
+ */
+IFrameComponent.prototype.select = function () {
+  var selection = Selection.getInstance();
+  selection.setCursor({
+    component: this,
+    offset: 0
+  });
+
+  // TODO(mkhatib): Unselect the component when the video plays to allow the
+  // user to select it again and delete it.
+  return false;
+};
+
+
+
+/**
+ * Returns the operations to execute a deletion of the YouTube component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+IFrameComponent.prototype.getDeleteOps = function (optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: this.getComponentClassName(),
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        src: this.src,
+        caption: this.caption,
+        width: this.width
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a youtube component.
+ * @param {number} index Index to insert the youtube component at.
+ * @return {Array.<Object>} Operations for inserting the youtube component.
+ */
+IFrameComponent.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: this.getComponentClassName(),
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        src: this.src,
+        width: this.width,
+        caption: this.caption
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+/**
+ * Returns the length of the youtube component content.
+ * @return {number} Length of the youtube component content.
+ */
+IFrameComponent.prototype.getLength = function () {
+  return 1;
+};
+
+},{"../component":2,"../loader":18,"../paragraph":20,"../selection":22,"../utils":26}],10:[function(require,module,exports){
 'use strict';
 
 
@@ -3055,7 +3346,7 @@ ShortcutsManager.prototype.onDestroy = function() {
   this.registery = {};
 };
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 
 var Selection = require('../selection');
@@ -3197,7 +3488,7 @@ Toolbelt.prototype.handleButtonAdded = function () {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":19,"../toolbars/button":20,"../toolbars/toolbar":22}],11:[function(require,module,exports){
+},{"../selection":22,"../toolbars/button":23,"../toolbars/toolbar":25}],12:[function(require,module,exports){
 'use strict';
 
 var Button = require('../toolbars/button');
@@ -3388,13 +3679,317 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":13,"../toolbars/button":20,"../utils":23,"./attachment":5}],12:[function(require,module,exports){
+},{"../figure":16,"../toolbars/button":23,"../utils":26,"./attachment":5}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
-var Selection = require('../selection');
-var Component = require('../component');
-var Paragrarph = require('../paragraph');
+var IFrameComponent = require('./iframeComponent');
+var Loader = require('../loader');
+
+/**
+ * VimeoComponent main.
+ * @param {Object} optParams Optional params to initialize the object.
+ * Default:
+ *   {
+ *     src: '',
+ *     caption: null,
+ *     width: '100%',
+ *     height: '360px',
+ *     name: Utils.getUID()
+ *   }
+ */
+var VimeoComponent = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    src: '',
+    caption: null,
+    width: '100%',
+    // TODO(mkhatib): Implement and auto-height mode where it can calculate
+    // the best ratio for the player.
+    height: '380px',
+  }, optParams);
+
+  IFrameComponent.call(this, params);
+};
+VimeoComponent.prototype = Object.create(IFrameComponent.prototype);
+module.exports = VimeoComponent;
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+VimeoComponent.CLASS_NAME = 'VimeoComponent';
+Loader.register(VimeoComponent.CLASS_NAME, VimeoComponent);
+
+
+/**
+ * Regex strings list that for matching Vimeo URLs.
+ * @type {Array.<string>}
+ */
+VimeoComponent.VIMEO_URL_REGEXS = [
+    '^http(?:s?):\/\/(?:www\.)?vimeo\.com\/([0-9]+)'
+];
+
+/**
+ * Returns the class name of the component.
+ * @return {string} Class name of the component.
+ */
+VimeoComponent.prototype.getComponentClassName = function() {
+  return VimeoComponent.CLASS_NAME;
+};
+
+/**
+ * Create and initiate a youtube object from JSON.
+ * @param  {Object} json JSON representation of the youtube.
+ * @return {VimeoComponent} VimeoComponent object representing JSON data.
+ */
+VimeoComponent.fromJSON = function (json) {
+  return new VimeoComponent(json);
+};
+
+
+/**
+ * Handles onInstall when the VimeoComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+VimeoComponent.onInstall = function(editor) {
+  VimeoComponent.registerRegexes_(editor);
+
+  // TODO(mkhatib): Initialize a toolbar for all Vimeo components instances.
+};
+
+
+/**
+ * Registers regular experessions to create Vimeo component from if matched.
+ * @param  {Editor} editor The editor to register regexes with.
+ * @private
+ */
+VimeoComponent.registerRegexes_ = function(editor) {
+  for (var i = 0; i < VimeoComponent.VIMEO_URL_REGEXS.length; i++) {
+    editor.registerRegex(
+        VimeoComponent.VIMEO_URL_REGEXS[i],
+        VimeoComponent.handleMatchedRegex);
+  }
+};
+
+
+/**
+ * Creates a Vimeo video component from a link.
+ * @param  {string} link Vimeo video URL.
+ * @return {VimeoComponent} VimeoComponent component created from the link.
+ */
+VimeoComponent.createVimeoComponentFromLink = function (link, attrs) {
+  var src = link;
+  for (var i = 0; i < VimeoComponent.VIMEO_URL_REGEXS.length; i++) {
+    var regex = new RegExp(VimeoComponent.VIMEO_URL_REGEXS);
+    var matches = regex.exec(src);
+    if (matches) {
+      src = VimeoComponent.createEmbedSrcFromId(matches[1]);
+      break;
+    }
+  }
+  return new VimeoComponent(Utils.extend({src: src}, attrs));
+};
+
+
+/**
+ * Creates a Vimeo video component from a link.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+VimeoComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var ytComponent = VimeoComponent.createVimeoComponentFromLink(
+      matchedComponent.text, {});
+  ytComponent.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
+
+  opsCallback(ops);
+};
+
+
+/**
+ * Returns the embed src URL for the id.
+ * @param  {string} id Vimeo video ID.
+ * @return {string} Embed src URL.
+ */
+VimeoComponent.createEmbedSrcFromId = function (id) {
+  return 'https://player.vimeo.com/video/' + id + '?title=0&byline=0&portrait=0';
+};
+
+
+/**
+ * Returns the length of the youtube component content.
+ * @return {number} Length of the youtube component content.
+ */
+VimeoComponent.prototype.getLength = function () {
+  return 1;
+};
+
+},{"../loader":18,"../utils":26,"./iframeComponent":9}],14:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var IFrameComponent = require('./iframeComponent');
+var Loader = require('../loader');
+
+/**
+ * VineComponent main.
+ * @param {Object} optParams Optional params to initialize the object.
+ * Default:
+ *   {
+ *     src: '',
+ *     caption: null,
+ *     width: '100%',
+ *     height: '360px',
+ *     name: Utils.getUID()
+ *   }
+ */
+var VineComponent = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    src: '',
+    caption: null,
+    width: '350px',
+    // TODO(mkhatib): Implement and auto-height mode where it can calculate
+    // the best ratio for the player.
+    height: '350px',
+  }, optParams);
+
+  IFrameComponent.call(this, params);
+};
+VineComponent.prototype = Object.create(IFrameComponent.prototype);
+module.exports = VineComponent;
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+VineComponent.CLASS_NAME = 'VineComponent';
+Loader.register(VineComponent.CLASS_NAME, VineComponent);
+
+
+/**
+ * Regex strings list that for matching Vine URLs.
+ * @type {Array.<string>}
+ */
+VineComponent.VINE_URL_REGEXS = [
+    '^http(?:s?):\/\/(?:www\.)?vine\.co\/v\/([a-zA-Z0-9]{1,13})'
+];
+
+/**
+ * Returns the class name of the component.
+ * @return {string} Class name of the component.
+ */
+VineComponent.prototype.getComponentClassName = function() {
+  return VineComponent.CLASS_NAME;
+};
+
+/**
+ * Create and initiate a youtube object from JSON.
+ * @param  {Object} json JSON representation of the youtube.
+ * @return {VineComponent} VineComponent object representing JSON data.
+ */
+VineComponent.fromJSON = function (json) {
+  return new VineComponent(json);
+};
+
+
+/**
+ * Handles onInstall when the VineComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+VineComponent.onInstall = function(editor) {
+  VineComponent.registerRegexes_(editor);
+
+  // TODO(mkhatib): Initialize a toolbar for all Vine components instances.
+};
+
+
+/**
+ * Registers regular experessions to create Vine component from if matched.
+ * @param  {Editor} editor The editor to register regexes with.
+ * @private
+ */
+VineComponent.registerRegexes_ = function(editor) {
+  for (var i = 0; i < VineComponent.VINE_URL_REGEXS.length; i++) {
+    editor.registerRegex(
+        VineComponent.VINE_URL_REGEXS[i],
+        VineComponent.handleMatchedRegex);
+  }
+};
+
+
+/**
+ * Creates a Vine video component from a link.
+ * @param  {string} link Vine video URL.
+ * @return {VineComponent} VineComponent component created from the link.
+ */
+VineComponent.createVineComponentFromLink = function (link, attrs) {
+  var src = link;
+  for (var i = 0; i < VineComponent.VINE_URL_REGEXS.length; i++) {
+    var regex = new RegExp(VineComponent.VINE_URL_REGEXS);
+    var matches = regex.exec(src);
+    if (matches) {
+      src = VineComponent.createEmbedSrcFromId(matches[1]);
+      break;
+    }
+  }
+  return new VineComponent(Utils.extend({src: src}, attrs));
+};
+
+
+/**
+ * Creates a Vine video component from a link.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+VineComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var ytComponent = VineComponent.createVineComponentFromLink(
+      matchedComponent.text, {});
+  ytComponent.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
+
+  opsCallback(ops);
+};
+
+
+/**
+ * Returns the embed src URL for the id.
+ * @param  {string} id Vine video ID.
+ * @return {string} Embed src URL.
+ */
+VineComponent.createEmbedSrcFromId = function (id) {
+  return 'https://vine.co/v/'+ id +'/embed/simple';
+};
+
+
+/**
+ * Returns the length of the youtube component content.
+ * @return {number} Length of the youtube component content.
+ */
+VineComponent.prototype.getLength = function () {
+  return 1;
+};
+
+},{"../loader":18,"../utils":26,"./iframeComponent":9}],15:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var IFrameComponent = require('./iframeComponent');
 var Loader = require('../loader');
 
 /**
@@ -3420,82 +4015,9 @@ var YouTubeComponent = function(optParams) {
     height: '360px',
   }, optParams);
 
-  Component.call(this, params);
-
-  /**
-   * Internal model text in this YouTubeComponent.
-   * @type {string}
-   */
-  this.src = params.src;
-
-  this.width = params.width;
-  this.height = params.height;
-
-  /**
-   * Placeholder text to show if the YouTubeComponent is empty.
-   * @type {string}
-   */
-  this.caption = params.caption;
-
-  /**
-   * DOM element tied to this object.
-   * @type {HTMLElement}
-   */
-  this.dom = document.createElement(YouTubeComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
-  this.dom.setAttribute('name', this.name);
-
-  this.containerDom = document.createElement(
-      YouTubeComponent.CONTAINER_TAG_NAME);
-  this.containerDom.className = YouTubeComponent.CONTAINER_CLASS_NAME;
-
-  this.overlayDom = document.createElement(
-      YouTubeComponent.VIDEO_OVERLAY_TAG_NAME);
-  this.overlayDom.className = YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME;
-  this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.select.bind(this));
-
-  this.videoDom = document.createElement(YouTubeComponent.VIDEO_TAG_NAME);
-  this.containerDom.appendChild(this.videoDom);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  /**
-   * Placeholder text to show if the Figure is empty.
-   * @type {string}
-   */
-  this.captionParagraph = new Paragrarph({
-    placeholderText: 'Type caption for video',
-    text: this.caption,
-    paragraphType: Paragrarph.Types.Caption,
-    parentComponent: this,
-    inline: true
-  });
-
-  if (this.src) {
-    this.videoDom.setAttribute('src', this.src);
-    this.videoDom.setAttribute('frameborder', 0);
-    this.videoDom.setAttribute('allowfullscreen', true);
-    if (this.width) {
-      this.videoDom.setAttribute('width', this.width);
-    }
-    if (this.height) {
-      this.videoDom.setAttribute('height', this.height);
-    }
-    this.containerDom.appendChild(this.videoDom);
-    this.containerDom.appendChild(this.selectionDom);
-  }
-
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.containerDom);
-  this.dom.appendChild(this.captionDom);
+  IFrameComponent.call(this, params);
 };
-YouTubeComponent.prototype = Object.create(Component.prototype);
+YouTubeComponent.prototype = Object.create(IFrameComponent.prototype);
 module.exports = YouTubeComponent;
 
 /**
@@ -3504,55 +4026,6 @@ module.exports = YouTubeComponent;
  */
 YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
 Loader.register(YouTubeComponent.CLASS_NAME, YouTubeComponent);
-
-
-/**
- * YouTubeComponent component element tag name.
- * @type {string}
- */
-YouTubeComponent.TAG_NAME = 'figure';
-
-
-/**
- * YouTubeComponent component inner container element tag name.
- * @type {string}
- */
-YouTubeComponent.CONTAINER_TAG_NAME = 'div';
-
-
-/**
- * YouTubeComponent component inner container element class name.
- * @type {string}
- */
-YouTubeComponent.CONTAINER_CLASS_NAME = 'inner-container';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-YouTubeComponent.VIDEO_OVERLAY_TAG_NAME = 'div';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-YouTubeComponent.VIDEO_TAG_NAME = 'iframe';
-
-
-/**
- * Caption element tag name.
- * @type {string}
- */
-YouTubeComponent.CAPTION_TAG_NAME = 'figcaption';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-YouTubeComponent.VIDEO_OVERLAY_CLASS_NAME = 'video-overlay';
 
 
 /**
@@ -3565,6 +4038,14 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
     'youtu\.be/)([^"&?/ ]{11})'
 ];
 
+
+/**
+ * Returns the class name of the component.
+ * @return {string} Class name of the component.
+ */
+YouTubeComponent.prototype.getComponentClassName = function() {
+  return YouTubeComponent.CLASS_NAME;
+};
 
 /**
  * Create and initiate a youtube object from JSON.
@@ -3654,96 +4135,6 @@ YouTubeComponent.createEmbedSrcFromId = function (id) {
 
 
 /**
- * Creates and return a JSON representation of the model.
- * @return {Object} JSON representation of this YouTubeComponent.
- */
-YouTubeComponent.prototype.getJSONModel = function() {
-  var video = {
-    component: YouTubeComponent.CLASS_NAME,
-    name: this.name,
-    src: this.src,
-    height: this.height,
-    width: this.width,
-    caption: this.captionParagraph.text
-  };
-
-  return video;
-};
-
-
-/**
- * Handles clicking on the youtube component to update the selection.
- */
-YouTubeComponent.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
-
-  // TODO(mkhatib): Unselect the component when the video plays to allow the
-  // user to select it again and delete it.
-  return false;
-};
-
-
-/**
- * Returns the operations to execute a deletion of the YouTube component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @return {Array.<Object>} List of operations needed to be executed.
- */
-YouTubeComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
-    do: {
-      op: 'deleteComponent',
-      component: this.name
-    },
-    undo: {
-      op: 'insertComponent',
-      componentClass: 'YouTubeComponent',
-      section: this.section.name,
-      component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
-      attrs: {
-        src: this.src,
-        caption: this.caption,
-        width: this.width
-      }
-    }
-  }];
-};
-
-
-/**
- * Returns the operations to execute inserting a youtube component.
- * @param {number} index Index to insert the youtube component at.
- * @return {Array.<Object>} Operations for inserting the youtube component.
- */
-YouTubeComponent.prototype.getInsertOps = function (index) {
-  return [{
-    do: {
-      op: 'insertComponent',
-      componentClass: 'YouTubeComponent',
-      section: this.section.name,
-      cursorOffset: 0,
-      component: this.name,
-      index: index,
-      attrs: {
-        src: this.src,
-        width: this.width,
-        caption: this.caption
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: this.name
-    }
-  }];
-};
-
-
-/**
  * Returns the length of the youtube component content.
  * @return {number} Length of the youtube component content.
  */
@@ -3751,7 +4142,7 @@ YouTubeComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":15,"../paragraph":17,"../selection":19,"../utils":23}],13:[function(require,module,exports){
+},{"../loader":18,"../utils":26,"./iframeComponent":9}],16:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4076,7 +4467,7 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./loader":15,"./paragraph":17,"./selection":19,"./utils":23}],14:[function(require,module,exports){
+},{"./component":2,"./loader":18,"./paragraph":20,"./selection":22,"./utils":26}],17:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4381,7 +4772,7 @@ List.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./loader":15,"./paragraph":17,"./section":18,"./utils":23}],15:[function(require,module,exports){
+},{"./loader":18,"./paragraph":20,"./section":21,"./utils":26}],18:[function(require,module,exports){
 'use strict';
 
 var Errors = require('./errors');
@@ -4442,7 +4833,7 @@ var Loader = (function() {
 })();
 module.exports = Loader;
 
-},{"./errors":4}],16:[function(require,module,exports){
+},{"./errors":4}],19:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -4451,6 +4842,8 @@ module.exports.Paragraph = require('./paragraph');
 module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
+module.exports.VineComponent = require('./extensions/vineComponent');
+module.exports.VimeoComponent = require('./extensions/vimeoComponent');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 
@@ -4458,7 +4851,7 @@ module.exports.Selection = require('./selection');
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
 
-},{"./article":1,"./editor":3,"./extensions/giphyComponent":8,"./extensions/youtubeComponent":12,"./figure":13,"./list":14,"./paragraph":17,"./section":18,"./selection":19}],17:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/giphyComponent":8,"./extensions/vimeoComponent":13,"./extensions/vineComponent":14,"./extensions/youtubeComponent":15,"./figure":16,"./list":17,"./paragraph":20,"./section":21,"./selection":22}],20:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5196,7 +5589,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./loader":15,"./utils":23}],18:[function(require,module,exports){
+},{"./component":2,"./loader":18,"./utils":26}],21:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -5452,7 +5845,7 @@ Section.onInstall = function (editor) {
   // jshint unused: false
 };
 
-},{"./component":2,"./loader":15,"./selection":19,"./utils":23}],19:[function(require,module,exports){
+},{"./component":2,"./loader":18,"./selection":22,"./utils":26}],22:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5983,7 +6376,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":17,"./utils":23}],20:[function(require,module,exports){
+},{"./paragraph":20,"./utils":26}],23:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6190,7 +6583,7 @@ Button.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":23}],21:[function(require,module,exports){
+},{"../utils":26}],24:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6291,7 +6684,7 @@ TextField.prototype.setValue = function (value) {
   this.dom.value = value;
 };
 
-},{"../utils":23}],22:[function(require,module,exports){
+},{"../utils":26}],25:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6600,7 +6993,7 @@ Toolbar.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":23}],23:[function(require,module,exports){
+},{"../utils":26}],26:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -6913,5 +7306,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[16])(16)
+},{}]},{},[19])(19)
 });
