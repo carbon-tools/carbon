@@ -4110,6 +4110,7 @@ var UploadButton = function (optParams) {
   this.uploadButtonDom = document.createElement(UploadButton.TAG_NAME);
   this.uploadButtonDom.setAttribute('type', 'file');
   this.uploadButtonDom.setAttribute('name', this.name);
+  this.uploadButtonDom.setAttribute('multiple', true);
   this.uploadButtonDom.addEventListener('change', this.handleChange.bind(this));
 
   this.dom.appendChild(this.uploadButtonDom);
@@ -4225,10 +4226,9 @@ UploadExtension.prototype.init = function(editor) {
 UploadExtension.prototype.handleUpload = function(event) {
   var that = this;
   // TODO(mkhatib): Create attachment per supported file.
-  var file = event.detail.files[0];
+  var files = event.detail.files;
 
-  // Read the file as Data URL.
-  this.readFileAsDataUrl_(file, function(dataUrl) {
+  var fileLoaded = function(dataUrl, file) {
     var selection = that.editor.article.selection;
     var component = selection.getComponentAtStart();
 
@@ -4252,7 +4252,12 @@ UploadExtension.prototype.handleUpload = function(event) {
         detail: { attachment: attachment }
     });
     that.editor.dispatchEvent(newEvent);
-  });
+  };
+
+  for (var i = 0; i < files.length; i++) {
+    // Read the file as Data URL.
+    this.readFileAsDataUrl_(files[i], fileLoaded);
+  }
 };
 
 
@@ -4264,9 +4269,8 @@ UploadExtension.prototype.handleUpload = function(event) {
 UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   var reader = new FileReader();
   reader.onload = (function(f) {
-    // jshint unused: false
     return function(e) {
-      callback(e.target.result);
+      callback(e.target.result, f);
     };
   }(file));
   reader.readAsDataURL(file);
