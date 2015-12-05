@@ -62,6 +62,11 @@ var Article = function(optParams) {
    */
   this.historyAt = 0;
 
+  /**
+   * Whether the article is already rendered.
+   */
+  this.isRendered = false;
+
 };
 module.exports = Article;
 
@@ -101,7 +106,9 @@ Article.prototype.insertSection = function(section) {
   }
 
   this.sections.push(section);
-  this.dom.appendChild(section.dom);
+  if (this.isRendered) {
+    section.render(this.dom);
+  }
   return section;
 };
 
@@ -163,6 +170,18 @@ Article.prototype.getFirstComponent = function() {
  */
 Article.prototype.getLastComponent = function() {
   return this.sections[this.sections.length - 1].getLastComponent();
+};
+
+
+/**
+ * Renders the article inside the element.
+ */
+Article.prototype.render = function(element) {
+  element.appendChild(this.dom);
+  this.isRendered = true;
+  for (var i = 0; i < this.sections.length; i++) {
+    this.sections[i].render(this.dom);
+  }
 };
 
 

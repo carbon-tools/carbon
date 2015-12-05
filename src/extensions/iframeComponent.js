@@ -161,7 +161,7 @@ IFrameComponent.CAPTION_TAG_NAME = 'figcaption';
  * Video element tag name.
  * @type {string}
  */
-IFrameComponent.IFRAME_OVERLAY_CLASS_NAME = 'video-overlay';
+IFrameComponent.IFRAME_OVERLAY_CLASS_NAME = 'embed-overlay';
 
 
 /**

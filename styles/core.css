@@ -43,26 +43,79 @@
 
 .carbon-editor figure .inner-container {
   position: relative;
+  margin: 1em 0;
 }
 
-.carbon-editor figure .video-overlay {
+.carbon-editor figure .embed-overlay {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 9;
 }
 
-.carbon-editor figure.editor-selected .video-overlay {
+.carbon-editor figure.editor-selected .embed-overlay {
   display: none;
 }
 
-.carbon-editor figure img,
 .carbon-editor figure iframe {
-  border: 3px solid transparent;
+  display: inline-block !important;
+}
+
+.carbon-editor figure .noembed-embed .noembed-wrapper {
+  box-shadow: 0 1px 5px -2px #333;
+}
+
+.carbon-editor figure .noembed-gist h3 {
+  background: #DDDDDD;
+  margin: 0;
+  padding: 0.1em 0 1em;
+}
+
+.carbon-editor figure .noembed-embed .gist-file {
+  box-shadow: 0 1px 5px -2px #333;
+  padding: 1em;
+  font-size: 0.55em;
+  text-align: left;
+  background-color: #f5f5f5;
+}
+
+.carbon-editor figure .noembed-embed .gist-description {
+  font-size: 0.9em;
+  text-align: center;
+  padding: 1em;
+  background: #ddd;
+  color: #333;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.carbon-editor figure .noembed-embed .noembed-meta-info {
+  text-align: center;
+  width: 100%;
+  background: #ddd;
+  font-size: 0.7em;
+  box-shadow: 0 1px 5px -1px #333;
+}
+
+.carbon-editor figure .noembed-embed a {
+  color: #333;
+}
+
+.carbon-editor figure .noembed-embed img,
+.carbon-editor figure.editor-selected .noembed-embed img {
+  border: none !important;
+}
+
+.carbon-editor figure img,
+.carbon-editor figure iframe,
+.carbon-editor figure .noembed-embed {
+  border: 3px solid transparent !important;
 }
 
 .carbon-editor figure.editor-selected img,
-.carbon-editor figure.editor-selected iframe {
-  border: 3px solid #FF5722;
+.carbon-editor figure.editor-selected iframe,
+.carbon-editor figure.editor-selected .noembed-embed {
+  border: 3px solid #FF5722 !important;
 }

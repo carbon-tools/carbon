@@ -59,6 +59,18 @@ var Component = function(optParams) {
    */
   this.section = params.section;
 
+  /**
+   * Component DOM.
+   * @type {HTMLElement}
+   */
+  this.dom = null;
+
+  /**
+   * Whether the component is already rendered.
+   * @type {boolean}
+   */
+  this.isRendered = false;
+
 };
 module.exports = Component;
 
@@ -155,6 +167,23 @@ Component.prototype.getIndexInSection = function() {
   return null;
 };
 
+
+/**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ */
+Component.prototype.render = function(element, options) {
+  if (!this.isRendered && this.dom) {
+    this.isRendered = true;
+    if (options && options.insertBefore) {
+      element.insertBefore(this.dom, options.insertBefore);
+    } else {
+      element.appendChild(this.dom);
+    }
+  }
+};
 
 /**
  * Returns the operations to execute a deletion of the component.

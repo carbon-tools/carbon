@@ -63,6 +63,11 @@ var Article = function(optParams) {
    */
   this.historyAt = 0;
 
+  /**
+   * Whether the article is already rendered.
+   */
+  this.isRendered = false;
+
 };
 module.exports = Article;
 
@@ -102,7 +107,9 @@ Article.prototype.insertSection = function(section) {
   }
 
   this.sections.push(section);
-  this.dom.appendChild(section.dom);
+  if (this.isRendered) {
+    section.render(this.dom);
+  }
   return section;
 };
 
@@ -164,6 +171,18 @@ Article.prototype.getFirstComponent = function() {
  */
 Article.prototype.getLastComponent = function() {
   return this.sections[this.sections.length - 1].getLastComponent();
+};
+
+
+/**
+ * Renders the article inside the element.
+ */
+Article.prototype.render = function(element) {
+  element.appendChild(this.dom);
+  this.isRendered = true;
+  for (var i = 0; i < this.sections.length; i++) {
+    this.sections[i].render(this.dom);
+  }
 };
 
 
@@ -354,7 +373,7 @@ Article.prototype.exec = function(operation, action) {
   }
 };
 
-},{"./loader":18,"./paragraph":20,"./section":21,"./selection":22,"./utils":26}],2:[function(require,module,exports){
+},{"./loader":19,"./paragraph":21,"./section":22,"./selection":23,"./utils":27}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -415,6 +434,18 @@ var Component = function(optParams) {
    * @type {Section}
    */
   this.section = params.section;
+
+  /**
+   * Component DOM.
+   * @type {HTMLElement}
+   */
+  this.dom = null;
+
+  /**
+   * Whether the component is already rendered.
+   * @type {boolean}
+   */
+  this.isRendered = false;
 
 };
 module.exports = Component;
@@ -514,6 +545,23 @@ Component.prototype.getIndexInSection = function() {
 
 
 /**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ */
+Component.prototype.render = function(element, options) {
+  if (!this.isRendered && this.dom) {
+    this.isRendered = true;
+    if (options && options.insertBefore) {
+      element.insertBefore(this.dom, options.insertBefore);
+    } else {
+      element.appendChild(this.dom);
+    }
+  }
+};
+
+/**
  * Returns the operations to execute a deletion of the component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
@@ -582,7 +630,7 @@ Component.prototype.getLength = function () {
   return 1;
 };
 
-},{"./errors":4,"./loader":18,"./utils":26}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":19,"./utils":27}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -827,16 +875,24 @@ Editor.prototype.destroy = function () {
 Editor.prototype.setArticle = function(article) {
   article.editor = this;
   this.article = article;
+};
+
+
+/**
+ * Renders the editor and article inside the element.
+ */
+Editor.prototype.render = function() {
+  // TODO(mkhatib): Maybe implement a destroy on components to cleanup
+  // and remove their DOM, listeners, in progress XHR or others.
   while (this.element.firstChild) {
     this.element.removeChild(this.element.firstChild);
   }
-
-  this.element.appendChild(article.dom);
+  this.article.render(this.element);
+  // this.element.appendChild(this.article.dom);
   this.selection.setCursor({
-    component: article.sections[0].components[0],
+    component: this.article.sections[0].components[0],
     offset: 0
   });
-
   this.dispatchEvent(new Event('change'));
 };
 
@@ -844,14 +900,15 @@ Editor.prototype.setArticle = function(article) {
 /**
  * Installs and activate a component type to use in the editor.
  * @param  {Function} ModuleClass The component class.
+ * @param  {Object=} optArgs Optional arguments to pass to onInstall of module.
  */
-Editor.prototype.install = function(ModuleClass) {
+Editor.prototype.install = function(ModuleClass, optArgs) {
   if (this.installedModules[ModuleClass.CLASS_NAME]) {
     throw Errors.AlreadyRegisteredError(ModuleClass.CLASS_NAME +
         ' module has already been installed in this editor.');
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
-  ModuleClass.onInstall(this);
+  ModuleClass.onInstall(this, optArgs);
 };
 
 
@@ -1740,7 +1797,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":6,"./extensions/formattingExtension":7,"./extensions/shortcutsManager":10,"./extensions/toolbeltExtension":11,"./extensions/uploadExtension":12,"./figure":16,"./list":17,"./paragraph":20,"./section":21,"./selection":22,"./toolbars/toolbar":25,"./utils":26}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":14,"./extensions/toolbeltExtension":15,"./extensions/uploadExtension":16,"./figure":17,"./list":18,"./paragraph":21,"./section":22,"./selection":23,"./toolbars/toolbar":26,"./utils":27}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1768,7 +1825,52 @@ Errors.AlreadyRegisteredError = function (message) {
 };
 Errors.AlreadyRegisteredError.prototype = Error.prototype;
 
+
+Errors.ConfigrationError = function (message) {
+  this.name = 'ConfigrationError';
+  this.message = (message || '');
+};
+Errors.ConfigrationError.prototype = Error.prototype;
+
 },{}],5:[function(require,module,exports){
+'use strict';
+
+var Errors = require('../errors');
+
+/**
+ * An abstract class for embed providers to subclass and implement its methods.
+ */
+var AbstractEmbedProvider = function() {
+};
+module.exports = AbstractEmbedProvider;
+
+
+/**
+ * Call the proper endpoint for the passed URL and send the response back
+ * by passing it to a callabck.
+ * @param {string} url Url to get the oembed response for.
+ * @param {Function} callback A callback function to call with the result.
+ * @param {Object=} optArgs Optional arguments to pass with the URL.
+ */
+AbstractEmbedProvider.prototype.getEmbedForUrl = function(
+    url, callback, optArgs) {
+  // jshint unused: false
+  throw Errors.NotImplementedError(
+      'AbstractEmbedProvider need to implement getEmbedForUrl');
+};
+
+
+/**
+ * Returns the regex string this provider want to provide the embed for.
+ * @return {string}
+ */
+AbstractEmbedProvider.prototype.getUrlsRegex = function() {
+  // jshint unused: false
+  throw Errors.NotImplementedError(
+      'AbstractEmbedProvider need to implement getUrlsRegexStr');
+};
+
+},{"../errors":4}],6:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -1836,7 +1938,214 @@ Attachment.prototype.setAttributes = function(attrs) {
   this.figure.updateAttributes(attrs);
 };
 
-},{"../utils":26}],6:[function(require,module,exports){
+},{"../utils":27}],7:[function(require,module,exports){
+'use strict';
+
+var AbstractEmbedProvider = require('./abstractEmbedProvider');
+var Utils = require('../utils');
+
+/**
+ * Carbon embed provider uses different providers to provide support for
+ * differnet URLs - uses the offical service when possible
+ * (e.g. supports CORS or jsonp) and uses noembed as alternative.
+ * @param {Object=} optParams Optional params to configure the provider with.
+ */
+var CarbonEmbedProvider = function (optParams) {
+  var params = Utils.extend({
+    servicesConfig: {
+      facebookNotes: true,
+      twitter: true,
+      instagram: true,
+      github: true,
+      soundcloud: false,
+      youtube: false,
+      vimeo: false,
+      vine: false,
+      slideshare: false,
+      facebookPosts: false,
+      facebookVideos: false,
+    }
+  }, optParams);
+
+  AbstractEmbedProvider.call(this, params);
+
+  /**
+   * The different services enabled or disabled configuration.
+   * @type {Object}
+   */
+  this.servicesConfig = params.servicesConfig;
+
+};
+CarbonEmbedProvider.prototype = Object.create(AbstractEmbedProvider.prototype);
+module.exports = CarbonEmbedProvider;
+
+
+/**
+ * Mapping Providers URL RegExes and their matching oEmbed endpoints.
+ * @type {Object}
+ */
+CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
+  // Ref: https://developers.facebook.com/docs/plugins/oembed-endpoints
+  facebookVideos: {
+    // Matches Facebook Video URLs.
+    '^(https?://(?:www\.)facebook\.com/(?:video\.php\?v=\\d+|.*?/videos/\\d+))$':
+        // oEmbed endpoint for facebook videos.
+        'https://apps.facebook.com/plugins/video/oembed.json/',
+        // 'https://noembed.com/embed',
+  },
+  facebookPosts: {
+    // Matches Facebook Posts URLs. (incl. posts, photos, story...etc)
+    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?fbid=\\d+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|activity)\/\\d+|permalink\.php\?story_fbid=\\d+|media\/set\?set=\\d+|questions\/\\d+))$':
+        // oEmbed endpoint for facebook posts.
+        'https://apps.facebook.com/plugins/post/oembed.json/'
+        // 'https://noembed.com/embed'
+  },
+  facebookNotes: {
+    // Matches Facebook Notes URLs.
+    '^(https?:\/\/www\.facebook\.com\/notes\/[a-zA-Z0-9\-.]+\/[a-zA-Z0-9\-.]+\/\\d+)':
+        // oEmbed endpoint for facebook posts.
+        'https://apps.facebook.com/plugins/post/oembed.json/'
+        // 'https://noembed.com/embed'
+  },
+  soundcloud: {
+    '^https?://soundcloud.com/.*/.*$':
+        'https://soundcloud.com/oembed?format=js'
+  },
+  youtube: {
+    '^(?:https?://(?:www\.)?youtube\.com/(?:[^\/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})$':
+        'https://www.youtube.com/oembed?format=json'
+  },
+  vimeo: {
+    '^http(?:s?)://(?:www\.)?vimeo\.com/(([0-9]+)|channels/.+/.+|groups/.+/videos/.+)':
+        'https://vimeo.com/api/oembed.json'
+  },
+  vine: {
+    '^http(?:s?)://(?:www\.)?vine\.co/v/([a-zA-Z0-9]{1,13})$':
+        'https://vine.co/oembed.json'
+  },
+  twitter: {
+    // Moments - doesn't seem to support jsonp!
+    // '^https?://(?:www\.)?twitter\.com/i/moments/[a-zA-Z0-9_]+/?$':
+        // 'https://publish.twitter.com/oembed.json',
+
+    // Statuses.
+    '^https?://(?:www\.)?twitter\.com/[a-zA-Z0-9_]+/status/\\d+$':
+        'https://api.twitter.com/1/statuses/oembed.json'
+  },
+  instagram: {
+    '^https?://(?:www\.)?instagr\.?am(?:\.com)?/p/[a-zA-Z0-9_\-]+/?':
+        'https://www.instagram.com/publicapi/oembed/'
+  },
+  slideshare: {
+    '^https?://(?:www\.)?slideshare\.net/[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+':
+        'https://www.slideshare.net/api/oembed/2?format=jsonp'
+  },
+  github: {
+    '^https?://gist\.github\.com/.*':
+        'https://noembed.com/embed?format=json'
+  }
+};
+
+
+/**
+ * Returns the URL to call for oembed response.
+ * @param {string} url URL to create the url for.
+ * @param {Object} optArgs Arguments to pass with the URL.
+ * @return {string}
+ */
+CarbonEmbedProvider.prototype.getOEmbedEndpointForUrl = function(url, optArgs) {
+  var urlParams = Utils.extend({
+    url: url
+  }, optArgs);
+
+  var queryParts = [];
+  for (var name in urlParams) {
+    queryParts.push([name, urlParams[name]].join('='));
+  }
+
+  var endpoint = this.getOEmbedBaseForUrl_(url);
+  if (!endpoint) {
+    console.error('Could not find oembed endpoint for url: ', url);
+    return;
+  }
+  var separator = endpoint.indexOf('?') === -1 ? '?' : '&';
+  return [endpoint, queryParts.join('&')].join(separator);
+};
+
+
+/**
+ * Returns the regex string this provider want to provide the embed for.
+ * @return {string}
+ */
+CarbonEmbedProvider.prototype.getUrlsRegex = function() {
+  var Services = CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP;
+  var regexStringParts = [];
+  for (var service in Services) {
+    // If the service is enabled.
+    if (this.servicesConfig[service]) {
+      // Add its regexes to the global regex match.
+      for (var regexStr in Services[service]) {
+        regexStringParts.push(regexStr);
+      }
+    }
+  }
+  return regexStringParts.join('|');
+};
+
+
+
+/**
+ * Call the proper endpoint for the passed URL and send the response back
+ * by passing it to a callabck.
+ * @param {string} url Url to get the oembed response for.
+ * @param {Function} callback A callback function to call with the result.
+ * @param {Object=} optArgs Optional arguments to pass with the URL.
+ */
+CarbonEmbedProvider.prototype.getEmbedForUrl = function(url, callback, optArgs) {
+  var oEmbedEndpoint = this.getOEmbedEndpointForUrl(url, optArgs);
+  // jshint unused: false
+  function jsonp(url, jsonpCallback) {
+    var callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+    window[callbackName] = function(data) {
+      delete window[callbackName];
+      document.body.removeChild(script);
+      jsonpCallback(data);
+    };
+
+    var script = document.createElement('script');
+    script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
+    document.body.appendChild(script);
+  }
+
+  jsonp(oEmbedEndpoint, callback);
+};
+
+
+/**
+ * Matches URL to the service and its oembed endpoint.
+ * @param  {string} url URL.
+ * @return {string} OEmbed endpoint for the url service.
+ * @private
+ */
+CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {
+  var Services = CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP;
+  for (var service in Services) {
+    // If the service is enabled.
+    if (this.servicesConfig[service]) {
+      // Add its regexes to the global regex match.
+      for (var regexStr in Services[service]) {
+        var regex = new RegExp(regexStr, 'i');
+        var match = regex.exec(url);
+        if (match) {
+          return Services[service][regexStr];
+        }
+      }
+    }
+  }
+  return null;
+};
+
+},{"../utils":27,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -1897,7 +2206,582 @@ ComponentFactory.prototype.onDestroy = function () {
   this.regexToFactories = {};
 };
 
-},{"../errors":4}],7:[function(require,module,exports){
+},{"../errors":4}],9:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var Selection = require('../selection');
+var Component = require('../component');
+var Paragrarph = require('../paragraph');
+var Loader = require('../loader');
+
+/**
+ * EmbeddedComponent main.
+ * @param {Object} optParams Optional params to initialize the object.
+ * Default:
+ *   {
+ *     caption: null,
+ *     width: '100%',
+ *     height: '360px',
+ *     name: Utils.getUID()
+ *   }
+ */
+var EmbeddedComponent = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    url: null,
+    provider: null,
+    caption: null,
+    width: '100%',
+    height: '360px',
+  }, optParams);
+
+  Component.call(this, params);
+
+  /**
+   * URL to embed.
+   * @type {string}
+   */
+  this.url = params.url;
+
+  /**
+   * Embed provider name.
+   * @type {string}
+   */
+  this.provider = params.provider;
+
+  this.width = params.width;
+  this.height = params.height;
+
+  /**
+   * Placeholder text to show if the EmbeddedComponent is empty.
+   * @type {string}
+   */
+  this.caption = params.caption;
+
+  /**
+   * DOM element tied to this object.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
+  this.dom.setAttribute('contenteditable', false);
+  this.dom.setAttribute('name', this.name);
+
+  this.containerDom = document.createElement(
+      EmbeddedComponent.CONTAINER_TAG_NAME);
+  this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
+
+  this.overlayDom = document.createElement(
+      EmbeddedComponent.OVERLAY_TAG_NAME);
+  this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
+  this.containerDom.appendChild(this.overlayDom);
+  this.overlayDom.addEventListener('click', this.select.bind(this));
+
+  this.embedDom = document.createElement(EmbeddedComponent.EMBED_TAG_NAME);
+  this.containerDom.appendChild(this.embedDom);
+
+  this.selectionDom = document.createElement('div');
+  this.selectionDom.innerHTML = '&nbsp;';
+  this.selectionDom.className = 'selection-pointer';
+  this.selectionDom.setAttribute('contenteditable', true);
+  this.selectionDom.addEventListener('focus', this.select.bind(this));
+
+  /**
+   * Placeholder text to show if the Figure is empty.
+   * @type {string}
+   */
+  this.captionParagraph = new Paragrarph({
+    placeholderText: 'Caption for embedded component',
+    text: this.caption,
+    paragraphType: Paragrarph.Types.Caption,
+    parentComponent: this,
+    inline: true
+  });
+
+  if (this.url) {
+    if (this.width) {
+      this.embedDom.setAttribute('width', this.width);
+    }
+    if (this.height) {
+      this.embedDom.setAttribute('height', this.height);
+    }
+    this.containerDom.appendChild(this.embedDom);
+    this.containerDom.appendChild(this.selectionDom);
+  }
+
+  this.captionDom = this.captionParagraph.dom;
+  this.captionDom.setAttribute('contenteditable', true);
+  this.dom.appendChild(this.containerDom);
+  this.dom.appendChild(this.captionDom);
+};
+EmbeddedComponent.prototype = Object.create(Component.prototype);
+module.exports = EmbeddedComponent;
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+EmbeddedComponent.CLASS_NAME = 'EmbeddedComponent';
+Loader.register(EmbeddedComponent.CLASS_NAME, EmbeddedComponent);
+
+
+/**
+ * EmbeddedComponent component element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.TAG_NAME = 'figure';
+
+
+/**
+ * EmbeddedComponent component inner container element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * EmbeddedComponent component inner container element class name.
+ * @type {string}
+ */
+EmbeddedComponent.CONTAINER_CLASS_NAME = 'inner-container';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.OVERLAY_TAG_NAME = 'div';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.EMBED_TAG_NAME = 'div';
+
+
+/**
+ * Caption element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.CAPTION_TAG_NAME = 'figcaption';
+
+
+/**
+ * Video element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.OVERLAY_CLASS_NAME = 'embed-overlay';
+
+
+/**
+ * Returns the class name of the component.
+ * @return {string} Class name of the component.
+ */
+EmbeddedComponent.prototype.getComponentClassName = function() {
+  return EmbeddedComponent.CLASS_NAME;
+};
+
+/**
+ * Create and initiate an embedded component from JSON.
+ * @param  {Object} json JSON representation of the embedded component.
+ * @return {EmbeddedComponent} EmbeddedComponent object representing JSON data.
+ */
+EmbeddedComponent.fromJSON = function (json) {
+  return new EmbeddedComponent(json);
+};
+
+
+/**
+ * Handles onInstall when the EmbeddedComponent module installed in an editor.
+ * @param  {Editor} editor Instance of the editor that installed the module.
+ */
+EmbeddedComponent.onInstall = function() {
+};
+
+
+/**
+ * Sets the loaded HTML data on the embedded component.
+ * @param  {Object} oembedData Data returned from oEmbed API.
+ */
+EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
+  if (!oembedData) {
+    console.warn('Cound not find oembed for URL: ', this.url);
+    return;
+  }
+  if (oembedData.html) {
+    this.embedDom.innerHTML = oembedData.html;
+    var scripts = this.embedDom.getElementsByTagName('script');
+    for (var i = 0; i < scripts.length; i++) {
+      /* jshint evil: true */
+      if (!scripts[i].getAttribute('src')) {
+        eval(Utils.getTextFromElement(scripts[i]));
+      } else {
+        var script = document.createElement('script');
+        script.src = scripts[i].getAttribute('src');
+        if (scripts[i].parentNode) {
+          scripts[i].parentNode.replaceChild(script, scripts[i]);
+        } else {
+          document.body.appendChild(script);
+        }
+      }
+    }
+  } else {
+    // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
+    console.error('Embedding non-rich component is not supported yet.');
+  }
+};
+
+
+/**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ * @override
+ */
+EmbeddedComponent.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+    this.loadEmbed_();
+  }
+};
+
+
+/**
+ * Loads the embed from the embed provider.
+ * @private
+ */
+EmbeddedComponent.prototype.loadEmbed_ = function() {
+  var embedProvider = Loader.load('embedProviders')[this.provider];
+  embedProvider.getEmbedForUrl(
+      this.url,
+      this.oEmbedDataLoaded_.bind(this), {
+        width: 600
+      });
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this EmbeddedComponent.
+ */
+EmbeddedComponent.prototype.getJSONModel = function() {
+  var embed = {
+    component: this.getComponentClassName(),
+    name: this.name,
+    url: this.url,
+    provider: this.provider,
+    height: this.height,
+    width: this.width,
+    caption: this.captionParagraph.text
+  };
+
+  return embed;
+};
+
+
+/**
+ * Handles clicking on the embedded component to update the selection.
+ */
+EmbeddedComponent.prototype.select = function () {
+  var selection = Selection.getInstance();
+  selection.setCursor({
+    component: this,
+    offset: 0
+  });
+
+  // TODO(mkhatib): Unselect the component when the embed plays to allow the
+  // user to select it again and delete it.
+  return false;
+};
+
+
+
+/**
+ * Returns the operations to execute a deletion of the embedded component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @return {Array.<Object>} List of operations needed to be executed.
+ */
+EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: this.getComponentClassName(),
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        url: this.url,
+        provider: this.provider,
+        caption: this.caption,
+        width: this.width
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a embedded component.
+ * @param {number} index Index to insert the embedded component at.
+ * @return {Array.<Object>} Operations for inserting the embedded component.
+ */
+EmbeddedComponent.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: this.getComponentClassName(),
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        url: this.url,
+        provider: this.provider,
+        width: this.width,
+        caption: this.caption
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the length of the embedded component content.
+ * @return {number} Length of the embedded component content.
+ */
+EmbeddedComponent.prototype.getLength = function () {
+  return 1;
+};
+
+},{"../component":2,"../loader":19,"../paragraph":21,"../selection":23,"../utils":27}],10:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var Errors = require('../errors');
+var Loader = require('../loader');
+
+
+/**
+ * EmbeddingExtension allows embedding different kind of components using
+ * different providers.
+ * @param {Object} optParams Config params.
+ * @constructor
+ */
+var EmbeddingExtension = function (optParams) {
+  var params = Utils.extend({
+    editor: null,
+    embedProviders: null,
+    ComponentClass: null
+  }, optParams);
+
+  /**
+   * A reference to the editor this extension is enabled in.
+   * @type {Editor}
+   */
+  this.editor = params.editor;
+
+  /**
+   * Maps the different providers with their instances.
+   * @type {Object}
+   */
+  this.embedProviders = params.embedProviders;
+
+  /**
+   * The component class to use for embedding.
+   * @type {Component}
+   */
+  this.ComponentClass = params.ComponentClass;
+};
+module.exports = EmbeddingExtension;
+
+
+/**
+ * Extension class name.
+ * @type {string}
+ */
+EmbeddingExtension.CLASS_NAME = 'EmbeddingExtension';
+
+
+/**
+ * Instantiate an instance of the extension and configure it.
+ * @param  {Editor} editor Instance of the editor installing this extension.
+ * @param  {Object} config Configuration for the extension.
+ * @static
+ */
+EmbeddingExtension.onInstall = function (editor, config) {
+  if (!config.embedProviders || ! config.ComponentClass) {
+    throw Errors.ConfigrationError(
+        'EmbeddingExtension needs "embedProviders" and "ComponentClass"');
+  }
+
+  var extension = new EmbeddingExtension({
+    embedProviders: config.embedProviders,
+    ComponentClass: config.ComponentClass,
+    editor: editor
+  });
+  // Register the embedProviders with the loader to allow components to
+  // access them.
+  Loader.register('embedProviders', config.embedProviders);
+  extension.init();
+};
+
+
+/**
+ * Registers the different regexes for each provider.
+ */
+EmbeddingExtension.prototype.init = function() {
+  var self = this;
+
+  /**
+   * Callback wrapper to allow passing provider for the callback.
+   * @param  {string} provider Provider name.
+   * @return {Function} Regex match handler.
+   */
+  var handleRegexMatchProvider = function(provider) {
+    return function(matchedComponent, opsCallback) {
+      self.handleRegexMatch(matchedComponent, opsCallback, provider);
+    };
+  };
+
+  // Register regexes in each provider.
+  for (var provider in this.embedProviders) {
+    var regexStr = this.embedProviders[provider].getUrlsRegex();
+    this.editor.registerRegex(regexStr, handleRegexMatchProvider(provider));
+  }
+};
+
+
+/**
+ * Handles regex match by instantiating a component.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param  {string} provider Embed provider name.
+ */
+EmbeddingExtension.prototype.handleRegexMatch = function(
+    matchedComponent, opsCallback, provider) {
+  var atIndex = matchedComponent.getIndexInSection();
+  var ops = [];
+  var embeddedComponent = new this.ComponentClass({
+    url: matchedComponent.text,
+    provider: provider
+  });
+  embeddedComponent.section = matchedComponent.section;
+
+  // Delete current matched component with its text.
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  // Add the new component created from the text.
+  Utils.arrays.extend(ops, embeddedComponent.getInsertOps(atIndex));
+
+  opsCallback(ops);
+};
+
+},{"../errors":4,"../loader":19,"../utils":27}],11:[function(require,module,exports){
+'use strict';
+
+var AbstractEmbedProvider = require('./abstractEmbedProvider');
+var Utils = require('../utils');
+
+
+/**
+ * Provides an Embed Provider using Embedly APIs.
+ * @param {Object=} optParams Config params.
+ *   required: apiKey
+ * @constructor
+ */
+var EmbedlyProvider = function (optParams) {
+  var params = Utils.extend({
+    endpoint: 'https://api.embed.ly/1/oembed',
+    apiKey: null,
+  }, optParams);
+
+  /**
+   * Embedly oembed endpoint.
+   * @type {string}
+   */
+  this.endpoint = params.endpoint;
+
+  /**
+   * API Key for embedly app.
+   * @type {string}
+   */
+  this.apiKey = params.apiKey;
+
+  AbstractEmbedProvider.call(this, params);
+};
+EmbedlyProvider.prototype = Object.create(AbstractEmbedProvider.prototype);
+module.exports = EmbedlyProvider;
+
+
+/**
+ * Regex string for all URLs embedly provider can handle.
+ * @constant
+ */
+EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/photos/.*|flic\.kr/.*|.*imgur\.com/.*|.*dribbble\.com/shots/.*|drbl\.in/.*|instagr\.am/p/.*|giphy\.com/gifs/.*|gph\.is/.*|vid\.me/.*|www\.slideshare\.net/.*/.*|www\.slideshare\.net/mobile/.*/.*|.*\.slideshare\.net/.*/.*|slidesha\.re/.*|www\.kickstarter\.com/projects/.*/.*|linkedin\.com/in/.*|linkedin\.com/pub/.*|.*\.linkedin\.com/in/.*|.*\.linkedin\.com/pub/.*|linkedin\.com/in/.*|linkedin\.com/company/.*|.*\.linkedin\.com/company/.*|www\.sliderocket\.com/.*|sliderocket\.com/.*|app\.sliderocket\.com/.*|portal\.sliderocket\.com/.*|beta-sliderocket\.com/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|tumblr\.com/.*|.*\.tumblr\.com/post/.*|pastebin\.com/.*|storify\.com/.*/.*|prezi\.com/.*/.*|www\.wikipedia\.org/wiki/.*|.*\.wikipedia\.org/wiki/.*|www\.behance\.net/gallery/.*|behance\.net/gallery/.*|jsfiddle\.net/.*|www\.gettyimages\.com/detail/photo/.*|gty\.im/.*|jsbin\.com/.*/.*|jsbin\.com/.*|codepen\.io/.*/pen/.*|codepen\.io/.*/pen/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*amazon\..*/gp/product/.*|.*amazon\..*/.*/dp/.*|.*amazon\..*/dp/.*|.*amazon\..*/o/ASIN/.*|.*amazon\..*/gp/offer-listing/.*|.*amazon\..*/.*/ASIN/.*|.*amazon\..*/gp/product/images/.*|.*amazon\..*/gp/aw/d/.*|www\.amzn\.com/.*|amzn\.com/.*|fiverr\.com/.*/.*|www\.fiverr\.com/.*/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/user/.*|.*\.youtube\.com/.*#.*/.*|m\.youtube\.com/watch.*|m\.youtube\.com/index.*|.*\.youtube\.com/profile.*|.*\.youtube\.com/view_play_list.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|.*twitch\.tv/.*|.*twitch\.tv/.*/b/.*|www\.ustream\.tv/recorded/.*|www\.ustream\.tv/channel/.*|www\.ustream\.tv/.*|ustre\.am/.*|.*\.dailymotion\.com/video/.*|.*\.dailymotion\.com/.*/video/.*|www\.livestream\.com/.*|new\.livestream\.com/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|www\.vimeo\.com/groups/.*/videos/.*|www\.vimeo\.com/.*|vimeo\.com/groups/.*/videos/.*|vimeo\.com/.*|vimeo\.com/m/#/.*|player\.vimeo\.com/.*|www\.ted\.com/talks/.*\.html.*|www\.ted\.com/talks/lang/.*/.*\.html.*|www\.ted\.com/index\.php/talks/.*\.html.*|www\.ted\.com/index\.php/talks/lang/.*/.*\.html.*|www\.ted\.com/talks/|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|fb\.com|plus\.google\.com/.*|www\.google\.com/profiles/.*|google\.com/profiles/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*|snd\.sc/.*))|(https://(vidd\.me/.*|vid\.me/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|storify\.com/.*/.*|medium\.com/.*|medium\.com/.*/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|gifs\.com/gif/.*|www\.gifs\.com/gif/.*|gifs\.com/.*|www\.gifs\.com/.*|www\.vimeo\.com/.*|vimeo\.com/.*|player\.vimeo\.com/.*|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|plus\.google\.com/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*)))';
+
+
+/**
+ * Call the proper endpoint for the passed URL and send the response back
+ * by passing it to a callabck.
+ * @param {string} url Url to get the oembed response for.
+ * @param {Function} callback A callback function to call with the result.
+ * @param {Object=} optArgs Optional arguments to pass with the URL.
+ */
+EmbedlyProvider.prototype.getEmbedForUrl = function(
+    url, callback, optArgs) {
+  var endpoint = this.getOEmbedEndpointForUrl(url, optArgs);
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (xhttp.readyState == 4) {
+      var json = JSON.parse(xhttp.responseText);
+      callback(json);
+    }
+  };
+  xhttp.open('GET', endpoint, true);
+  xhttp.send();
+};
+
+
+/**
+ * Returns the URL to call for oembed response.
+ * @param {string} url URL to create the url for.
+ * @param {Object} optArgs Arguments to pass with the URL.
+ * @return {string}
+ */
+EmbedlyProvider.prototype.getOEmbedEndpointForUrl = function(url, optArgs) {
+  var urlParams = Utils.extend({
+    key: this.apiKey,
+    // luxe: 1,
+    url: url
+  }, optArgs);
+  var queryParts = [];
+  for (var name in urlParams) {
+    queryParts.push([name, urlParams[name]].join('='));
+  }
+  return [this.endpoint, queryParts.join('&')].join('?');
+};
+
+
+/**
+ * Returns the regex string this provider want to provide the embed for.
+ * @return {string}
+ */
+EmbedlyProvider.prototype.getUrlsRegex = function() {
+  return EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING;
+};
+
+},{"../utils":27,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -2620,7 +3504,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":20,"../selection":22,"../toolbars/button":23,"../toolbars/textField":24,"../utils":26}],8:[function(require,module,exports){
+},{"../paragraph":21,"../selection":23,"../toolbars/button":24,"../toolbars/textField":25,"../utils":27}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2916,298 +3800,7 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":18,"../selection":22,"../utils":26}],9:[function(require,module,exports){
-'use strict';
-
-var Utils = require('../utils');
-var Selection = require('../selection');
-var Component = require('../component');
-var Paragrarph = require('../paragraph');
-var Loader = require('../loader');
-
-/**
- * IFrameComponent main.
- * @param {Object} optParams Optional params to initialize the object.
- * Default:
- *   {
- *     src: '',
- *     caption: null,
- *     width: '100%',
- *     height: '360px',
- *     name: Utils.getUID()
- *   }
- */
-var IFrameComponent = function(optParams) {
-  // Override default params with passed ones if any.
-  var params = Utils.extend({
-    src: '',
-    caption: null,
-    width: '100%',
-    // TODO(mkhatib): Implement and auto-height mode where it can calculate
-    // the best ratio for the player.
-    height: '360px',
-  }, optParams);
-
-  Component.call(this, params);
-
-  /**
-   * Internal model text in this IFrameComponent.
-   * @type {string}
-   */
-  this.src = params.src;
-
-  this.width = params.width;
-  this.height = params.height;
-
-  /**
-   * Placeholder text to show if the IFrameComponent is empty.
-   * @type {string}
-   */
-  this.caption = params.caption;
-
-  /**
-   * DOM element tied to this object.
-   * @type {HTMLElement}
-   */
-  this.dom = document.createElement(IFrameComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
-  this.dom.setAttribute('name', this.name);
-
-  this.containerDom = document.createElement(
-      IFrameComponent.CONTAINER_TAG_NAME);
-  this.containerDom.className = IFrameComponent.CONTAINER_CLASS_NAME;
-
-  this.overlayDom = document.createElement(
-      IFrameComponent.IFRAME_OVERLAY_TAG_NAME);
-  this.overlayDom.className = IFrameComponent.IFRAME_OVERLAY_CLASS_NAME;
-  this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.select.bind(this));
-
-  this.iframeDom = document.createElement(IFrameComponent.IFRAME_TAG_NAME);
-  this.containerDom.appendChild(this.iframeDom);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  /**
-   * Placeholder text to show if the Figure is empty.
-   * @type {string}
-   */
-  this.captionParagraph = new Paragrarph({
-    placeholderText: 'Caption for embedded component',
-    text: this.caption,
-    paragraphType: Paragrarph.Types.Caption,
-    parentComponent: this,
-    inline: true
-  });
-
-  if (this.src) {
-    this.iframeDom.setAttribute('src', this.src);
-    this.iframeDom.setAttribute('frameborder', 0);
-    this.iframeDom.setAttribute('allowfullscreen', true);
-    if (this.width) {
-      this.iframeDom.setAttribute('width', this.width);
-    }
-    if (this.height) {
-      this.iframeDom.setAttribute('height', this.height);
-    }
-    this.containerDom.appendChild(this.iframeDom);
-    this.containerDom.appendChild(this.selectionDom);
-  }
-
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.containerDom);
-  this.dom.appendChild(this.captionDom);
-};
-IFrameComponent.prototype = Object.create(Component.prototype);
-module.exports = IFrameComponent;
-
-/**
- * String name for the component class.
- * @type {string}
- */
-IFrameComponent.CLASS_NAME = 'IFrameComponent';
-Loader.register(IFrameComponent.CLASS_NAME, IFrameComponent);
-
-
-/**
- * IFrameComponent component element tag name.
- * @type {string}
- */
-IFrameComponent.TAG_NAME = 'figure';
-
-
-/**
- * IFrameComponent component inner container element tag name.
- * @type {string}
- */
-IFrameComponent.CONTAINER_TAG_NAME = 'div';
-
-
-/**
- * IFrameComponent component inner container element class name.
- * @type {string}
- */
-IFrameComponent.CONTAINER_CLASS_NAME = 'inner-container';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-IFrameComponent.IFRAME_OVERLAY_TAG_NAME = 'div';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-IFrameComponent.IFRAME_TAG_NAME = 'iframe';
-
-
-/**
- * Caption element tag name.
- * @type {string}
- */
-IFrameComponent.CAPTION_TAG_NAME = 'figcaption';
-
-
-/**
- * Video element tag name.
- * @type {string}
- */
-IFrameComponent.IFRAME_OVERLAY_CLASS_NAME = 'video-overlay';
-
-
-/**
- * Returns the class name of the component.
- * @return {string} Class name of the component.
- */
-IFrameComponent.prototype.getComponentClassName = function() {
-  return IFrameComponent.CLASS_NAME;
-};
-
-/**
- * Create and initiate a youtube object from JSON.
- * @param  {Object} json JSON representation of the youtube.
- * @return {IFrameComponent} IFrameComponent object representing JSON data.
- */
-IFrameComponent.fromJSON = function (json) {
-  return new IFrameComponent(json);
-};
-
-
-/**
- * Handles onInstall when the IFrameComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
- */
-IFrameComponent.onInstall = function() {
-};
-
-
-/**
- * Creates and return a JSON representation of the model.
- * @return {Object} JSON representation of this IFrameComponent.
- */
-IFrameComponent.prototype.getJSONModel = function() {
-  var video = {
-    component: this.getComponentClassName(),
-    name: this.name,
-    src: this.src,
-    height: this.height,
-    width: this.width,
-    caption: this.captionParagraph.text
-  };
-
-  return video;
-};
-
-
-/**
- * Handles clicking on the youtube component to update the selection.
- */
-IFrameComponent.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
-
-  // TODO(mkhatib): Unselect the component when the video plays to allow the
-  // user to select it again and delete it.
-  return false;
-};
-
-
-
-/**
- * Returns the operations to execute a deletion of the YouTube component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @return {Array.<Object>} List of operations needed to be executed.
- */
-IFrameComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
-    do: {
-      op: 'deleteComponent',
-      component: this.name
-    },
-    undo: {
-      op: 'insertComponent',
-      componentClass: this.getComponentClassName(),
-      section: this.section.name,
-      component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
-      attrs: {
-        src: this.src,
-        caption: this.caption,
-        width: this.width
-      }
-    }
-  }];
-};
-
-
-/**
- * Returns the operations to execute inserting a youtube component.
- * @param {number} index Index to insert the youtube component at.
- * @return {Array.<Object>} Operations for inserting the youtube component.
- */
-IFrameComponent.prototype.getInsertOps = function (index) {
-  return [{
-    do: {
-      op: 'insertComponent',
-      componentClass: this.getComponentClassName(),
-      section: this.section.name,
-      cursorOffset: 0,
-      component: this.name,
-      index: index,
-      attrs: {
-        src: this.src,
-        width: this.width,
-        caption: this.caption
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: this.name
-    }
-  }];
-};
-
-/**
- * Returns the length of the youtube component content.
- * @return {number} Length of the youtube component content.
- */
-IFrameComponent.prototype.getLength = function () {
-  return 1;
-};
-
-},{"../component":2,"../loader":18,"../paragraph":20,"../selection":22,"../utils":26}],10:[function(require,module,exports){
+},{"../component":2,"../loader":19,"../selection":23,"../utils":27}],14:[function(require,module,exports){
 'use strict';
 
 
@@ -3346,7 +3939,7 @@ ShortcutsManager.prototype.onDestroy = function() {
   this.registery = {};
 };
 
-},{}],11:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 'use strict';
 
 var Selection = require('../selection');
@@ -3488,7 +4081,7 @@ Toolbelt.prototype.handleButtonAdded = function () {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":22,"../toolbars/button":23,"../toolbars/toolbar":25}],12:[function(require,module,exports){
+},{"../selection":23,"../toolbars/button":24,"../toolbars/toolbar":26}],16:[function(require,module,exports){
 'use strict';
 
 var Button = require('../toolbars/button');
@@ -3679,470 +4272,7 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":16,"../toolbars/button":23,"../utils":26,"./attachment":5}],13:[function(require,module,exports){
-'use strict';
-
-var Utils = require('../utils');
-var IFrameComponent = require('./iframeComponent');
-var Loader = require('../loader');
-
-/**
- * VimeoComponent main.
- * @param {Object} optParams Optional params to initialize the object.
- * Default:
- *   {
- *     src: '',
- *     caption: null,
- *     width: '100%',
- *     height: '360px',
- *     name: Utils.getUID()
- *   }
- */
-var VimeoComponent = function(optParams) {
-  // Override default params with passed ones if any.
-  var params = Utils.extend({
-    src: '',
-    caption: null,
-    width: '100%',
-    // TODO(mkhatib): Implement and auto-height mode where it can calculate
-    // the best ratio for the player.
-    height: '380px',
-  }, optParams);
-
-  IFrameComponent.call(this, params);
-};
-VimeoComponent.prototype = Object.create(IFrameComponent.prototype);
-module.exports = VimeoComponent;
-
-/**
- * String name for the component class.
- * @type {string}
- */
-VimeoComponent.CLASS_NAME = 'VimeoComponent';
-Loader.register(VimeoComponent.CLASS_NAME, VimeoComponent);
-
-
-/**
- * Regex strings list that for matching Vimeo URLs.
- * @type {Array.<string>}
- */
-VimeoComponent.VIMEO_URL_REGEXS = [
-    '^http(?:s?):\/\/(?:www\.)?vimeo\.com\/([0-9]+)'
-];
-
-/**
- * Returns the class name of the component.
- * @return {string} Class name of the component.
- */
-VimeoComponent.prototype.getComponentClassName = function() {
-  return VimeoComponent.CLASS_NAME;
-};
-
-/**
- * Create and initiate a youtube object from JSON.
- * @param  {Object} json JSON representation of the youtube.
- * @return {VimeoComponent} VimeoComponent object representing JSON data.
- */
-VimeoComponent.fromJSON = function (json) {
-  return new VimeoComponent(json);
-};
-
-
-/**
- * Handles onInstall when the VimeoComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
- */
-VimeoComponent.onInstall = function(editor) {
-  VimeoComponent.registerRegexes_(editor);
-
-  // TODO(mkhatib): Initialize a toolbar for all Vimeo components instances.
-};
-
-
-/**
- * Registers regular experessions to create Vimeo component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
- * @private
- */
-VimeoComponent.registerRegexes_ = function(editor) {
-  for (var i = 0; i < VimeoComponent.VIMEO_URL_REGEXS.length; i++) {
-    editor.registerRegex(
-        VimeoComponent.VIMEO_URL_REGEXS[i],
-        VimeoComponent.handleMatchedRegex);
-  }
-};
-
-
-/**
- * Creates a Vimeo video component from a link.
- * @param  {string} link Vimeo video URL.
- * @return {VimeoComponent} VimeoComponent component created from the link.
- */
-VimeoComponent.createVimeoComponentFromLink = function (link, attrs) {
-  var src = link;
-  for (var i = 0; i < VimeoComponent.VIMEO_URL_REGEXS.length; i++) {
-    var regex = new RegExp(VimeoComponent.VIMEO_URL_REGEXS);
-    var matches = regex.exec(src);
-    if (matches) {
-      src = VimeoComponent.createEmbedSrcFromId(matches[1]);
-      break;
-    }
-  }
-  return new VimeoComponent(Utils.extend({src: src}, attrs));
-};
-
-
-/**
- * Creates a Vimeo video component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
- */
-VimeoComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
-  var atIndex = matchedComponent.getIndexInSection();
-  var ops = [];
-  var ytComponent = VimeoComponent.createVimeoComponentFromLink(
-      matchedComponent.text, {});
-  ytComponent.section = matchedComponent.section;
-
-  // Delete current matched component with its text.
-  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
-
-  // Add the new component created from the text.
-  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
-
-  opsCallback(ops);
-};
-
-
-/**
- * Returns the embed src URL for the id.
- * @param  {string} id Vimeo video ID.
- * @return {string} Embed src URL.
- */
-VimeoComponent.createEmbedSrcFromId = function (id) {
-  return 'https://player.vimeo.com/video/' + id + '?title=0&byline=0&portrait=0';
-};
-
-
-/**
- * Returns the length of the youtube component content.
- * @return {number} Length of the youtube component content.
- */
-VimeoComponent.prototype.getLength = function () {
-  return 1;
-};
-
-},{"../loader":18,"../utils":26,"./iframeComponent":9}],14:[function(require,module,exports){
-'use strict';
-
-var Utils = require('../utils');
-var IFrameComponent = require('./iframeComponent');
-var Loader = require('../loader');
-
-/**
- * VineComponent main.
- * @param {Object} optParams Optional params to initialize the object.
- * Default:
- *   {
- *     src: '',
- *     caption: null,
- *     width: '100%',
- *     height: '360px',
- *     name: Utils.getUID()
- *   }
- */
-var VineComponent = function(optParams) {
-  // Override default params with passed ones if any.
-  var params = Utils.extend({
-    src: '',
-    caption: null,
-    width: '350px',
-    // TODO(mkhatib): Implement and auto-height mode where it can calculate
-    // the best ratio for the player.
-    height: '350px',
-  }, optParams);
-
-  IFrameComponent.call(this, params);
-};
-VineComponent.prototype = Object.create(IFrameComponent.prototype);
-module.exports = VineComponent;
-
-/**
- * String name for the component class.
- * @type {string}
- */
-VineComponent.CLASS_NAME = 'VineComponent';
-Loader.register(VineComponent.CLASS_NAME, VineComponent);
-
-
-/**
- * Regex strings list that for matching Vine URLs.
- * @type {Array.<string>}
- */
-VineComponent.VINE_URL_REGEXS = [
-    '^http(?:s?):\/\/(?:www\.)?vine\.co\/v\/([a-zA-Z0-9]{1,13})'
-];
-
-/**
- * Returns the class name of the component.
- * @return {string} Class name of the component.
- */
-VineComponent.prototype.getComponentClassName = function() {
-  return VineComponent.CLASS_NAME;
-};
-
-/**
- * Create and initiate a youtube object from JSON.
- * @param  {Object} json JSON representation of the youtube.
- * @return {VineComponent} VineComponent object representing JSON data.
- */
-VineComponent.fromJSON = function (json) {
-  return new VineComponent(json);
-};
-
-
-/**
- * Handles onInstall when the VineComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
- */
-VineComponent.onInstall = function(editor) {
-  VineComponent.registerRegexes_(editor);
-
-  // TODO(mkhatib): Initialize a toolbar for all Vine components instances.
-};
-
-
-/**
- * Registers regular experessions to create Vine component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
- * @private
- */
-VineComponent.registerRegexes_ = function(editor) {
-  for (var i = 0; i < VineComponent.VINE_URL_REGEXS.length; i++) {
-    editor.registerRegex(
-        VineComponent.VINE_URL_REGEXS[i],
-        VineComponent.handleMatchedRegex);
-  }
-};
-
-
-/**
- * Creates a Vine video component from a link.
- * @param  {string} link Vine video URL.
- * @return {VineComponent} VineComponent component created from the link.
- */
-VineComponent.createVineComponentFromLink = function (link, attrs) {
-  var src = link;
-  for (var i = 0; i < VineComponent.VINE_URL_REGEXS.length; i++) {
-    var regex = new RegExp(VineComponent.VINE_URL_REGEXS);
-    var matches = regex.exec(src);
-    if (matches) {
-      src = VineComponent.createEmbedSrcFromId(matches[1]);
-      break;
-    }
-  }
-  return new VineComponent(Utils.extend({src: src}, attrs));
-};
-
-
-/**
- * Creates a Vine video component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
- */
-VineComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
-  var atIndex = matchedComponent.getIndexInSection();
-  var ops = [];
-  var ytComponent = VineComponent.createVineComponentFromLink(
-      matchedComponent.text, {});
-  ytComponent.section = matchedComponent.section;
-
-  // Delete current matched component with its text.
-  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
-
-  // Add the new component created from the text.
-  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
-
-  opsCallback(ops);
-};
-
-
-/**
- * Returns the embed src URL for the id.
- * @param  {string} id Vine video ID.
- * @return {string} Embed src URL.
- */
-VineComponent.createEmbedSrcFromId = function (id) {
-  return 'https://vine.co/v/'+ id +'/embed/simple';
-};
-
-
-/**
- * Returns the length of the youtube component content.
- * @return {number} Length of the youtube component content.
- */
-VineComponent.prototype.getLength = function () {
-  return 1;
-};
-
-},{"../loader":18,"../utils":26,"./iframeComponent":9}],15:[function(require,module,exports){
-'use strict';
-
-var Utils = require('../utils');
-var IFrameComponent = require('./iframeComponent');
-var Loader = require('../loader');
-
-/**
- * YouTubeComponent main.
- * @param {Object} optParams Optional params to initialize the object.
- * Default:
- *   {
- *     src: '',
- *     caption: null,
- *     width: '100%',
- *     height: '360px',
- *     name: Utils.getUID()
- *   }
- */
-var YouTubeComponent = function(optParams) {
-  // Override default params with passed ones if any.
-  var params = Utils.extend({
-    src: '',
-    caption: null,
-    width: '100%',
-    // TODO(mkhatib): Implement and auto-height mode where it can calculate
-    // the best ratio for the player.
-    height: '360px',
-  }, optParams);
-
-  IFrameComponent.call(this, params);
-};
-YouTubeComponent.prototype = Object.create(IFrameComponent.prototype);
-module.exports = YouTubeComponent;
-
-/**
- * String name for the component class.
- * @type {string}
- */
-YouTubeComponent.CLASS_NAME = 'YouTubeComponent';
-Loader.register(YouTubeComponent.CLASS_NAME, YouTubeComponent);
-
-
-/**
- * Regex strings list that for matching YouTube URLs.
- * @type {Array.<string>}
- */
-YouTubeComponent.YOUTUBE_URL_REGEXS = [
-    '(?:https?://(?:www\.)?youtube\.com\/(?:[^\/]+/.+/|' +
-    '(?:v|e(?:mbed)?)/|.*[?&]v=)|' +
-    'youtu\.be/)([^"&?/ ]{11})'
-];
-
-
-/**
- * Returns the class name of the component.
- * @return {string} Class name of the component.
- */
-YouTubeComponent.prototype.getComponentClassName = function() {
-  return YouTubeComponent.CLASS_NAME;
-};
-
-/**
- * Create and initiate a youtube object from JSON.
- * @param  {Object} json JSON representation of the youtube.
- * @return {YouTubeComponent} YouTubeComponent object representing JSON data.
- */
-YouTubeComponent.fromJSON = function (json) {
-  return new YouTubeComponent(json);
-};
-
-
-/**
- * Handles onInstall when the YouTubeComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
- */
-YouTubeComponent.onInstall = function(editor) {
-  YouTubeComponent.registerRegexes_(editor);
-
-  // TODO(mkhatib): Initialize a toolbar for all YouTube components instances.
-};
-
-
-/**
- * Registers regular experessions to create YouTube component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
- * @private
- */
-YouTubeComponent.registerRegexes_ = function(editor) {
-  for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
-    editor.registerRegex(
-        YouTubeComponent.YOUTUBE_URL_REGEXS[i],
-        YouTubeComponent.handleMatchedRegex);
-  }
-};
-
-
-/**
- * Creates a YouTube video component from a link.
- * @param  {string} link YouTube video URL.
- * @return {YouTubeComponent} YouTubeComponent component created from the link.
- */
-YouTubeComponent.createYouTubeComponentFromLink = function (link, attrs) {
-  var src = link;
-  for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
-    var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
-    var matches = regex.exec(src);
-    if (matches) {
-      src = YouTubeComponent.createEmbedSrcFromId(matches[1]);
-      break;
-    }
-  }
-  return new YouTubeComponent(Utils.extend({src: src}, attrs));
-};
-
-
-/**
- * Creates a YouTube video component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
- */
-YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
-  var atIndex = matchedComponent.getIndexInSection();
-  var ops = [];
-  var ytComponent = YouTubeComponent.createYouTubeComponentFromLink(
-      matchedComponent.text, {});
-  ytComponent.section = matchedComponent.section;
-
-  // Delete current matched component with its text.
-  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
-
-  // Add the new component created from the text.
-  Utils.arrays.extend(ops, ytComponent.getInsertOps(atIndex));
-
-  opsCallback(ops);
-};
-
-
-/**
- * Returns the embed src URL for the id.
- * @param  {string} id YouTube video ID.
- * @return {string} Embed src URL.
- */
-YouTubeComponent.createEmbedSrcFromId = function (id) {
-  return 'https://www.youtube.com/embed/' + id +
-    '?rel=0&amp;showinfo=0&amp;iv_load_policy=3';
-};
-
-
-/**
- * Returns the length of the youtube component content.
- * @return {number} Length of the youtube component content.
- */
-YouTubeComponent.prototype.getLength = function () {
-  return 1;
-};
-
-},{"../loader":18,"../utils":26,"./iframeComponent":9}],16:[function(require,module,exports){
+},{"../figure":17,"../toolbars/button":24,"../utils":27,"./attachment":6}],17:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4467,7 +4597,7 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./loader":18,"./paragraph":20,"./selection":22,"./utils":26}],17:[function(require,module,exports){
+},{"./component":2,"./loader":19,"./paragraph":21,"./selection":23,"./utils":27}],18:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4772,7 +4902,7 @@ List.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./loader":18,"./paragraph":20,"./section":21,"./utils":26}],18:[function(require,module,exports){
+},{"./loader":19,"./paragraph":21,"./section":22,"./utils":27}],19:[function(require,module,exports){
 'use strict';
 
 var Errors = require('./errors');
@@ -4833,7 +4963,7 @@ var Loader = (function() {
 })();
 module.exports = Loader;
 
-},{"./errors":4}],19:[function(require,module,exports){
+},{"./errors":4}],20:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -4841,17 +4971,31 @@ module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
 module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
-module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
-module.exports.VineComponent = require('./extensions/vineComponent');
-module.exports.VimeoComponent = require('./extensions/vimeoComponent');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
+
+/**
+ * Not exporting these as part of carbon.js but available for anybody to use.
+ *
+ * EmbeddingExtension, EmbeddedComponent along with EmbedlyProvider provide
+ * support to a much larger providers base (incl. YouTube, Vine, Vimeo).
+ *
+ * module.exports.YouTubeComponent = require('./extensions/youtubeComponent');
+ * module.exports.VineComponent = require('./extensions/vineComponent');
+ * module.exports.VimeoComponent = require('./extensions/vimeoComponent');
+ *
+ */
 
 // TODO(mkhatib): Find a better way to expose the classes and without making
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
+module.exports.EmbeddedComponent = require('./extensions/embeddedComponent');
+module.exports.AbstractEmbedProvider = require('./extensions/abstractEmbedProvider');
+module.exports.EmbedlyProvider = require('./extensions/embedlyProvider');
+module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider');
+module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
 
-},{"./article":1,"./editor":3,"./extensions/giphyComponent":8,"./extensions/vimeoComponent":13,"./extensions/vineComponent":14,"./extensions/youtubeComponent":15,"./figure":16,"./list":17,"./paragraph":20,"./section":21,"./selection":22}],20:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./figure":17,"./list":18,"./paragraph":21,"./section":22,"./selection":23}],21:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5589,7 +5733,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./loader":18,"./utils":26}],21:[function(require,module,exports){
+},{"./component":2,"./loader":19,"./utils":27}],22:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -5647,7 +5791,6 @@ var Section = function(optParams) {
   for (var i = 0; i < params.components.length; i++) {
     this.insertComponentAt(params.components[i], i);
   }
-
 };
 Section.prototype = Object.create(Component.prototype);
 module.exports = Section;
@@ -5701,22 +5844,25 @@ Section.prototype.insertComponentAt = function(component, index) {
   // Get current component and its index in the section.
   var nextComponent = this.components[index];
 
-  if (!nextComponent) {
-    // If the last component in the section append it to the section.
-    this.dom.appendChild(component.dom);
-  } else {
-    // Otherwise insert it before the next component.
-    this.dom.insertBefore(component.dom, nextComponent.dom);
+  if (this.isRendered) {
+    if (!nextComponent) {
+      // If the last component in the section append it to the section.
+      component.render(this.dom);
+    } else {
+      // Otherwise insert it before the next component.
+      component.render(this.dom, {
+        insertBefore: nextComponent.dom
+      });
+      // this.dom.insertBefore(component.dom, nextComponent.dom);
+    }
+    // Set the cursor to the new component.
+    Selection.getInstance().setCursor({
+      component: component,
+      offset: 0
+    });
   }
 
   this.components.splice(index, 0, component);
-
-  // Set the cursor to the new component.
-  Selection.getInstance().setCursor({
-    component: component,
-    offset: 0
-  });
-
   return component;
 };
 
@@ -5774,6 +5920,22 @@ Section.prototype.getComponentsBetween = function(
     components.push(this.components[i]);
   }
   return components;
+};
+
+
+/**
+ * Renders the section inside the element.
+ */
+Section.prototype.render = function(element) {
+  if (!this.isRendered) {
+    this.isRendered = true;
+    element.appendChild(this.dom);
+    for (var i = 0; i < this.components.length; i++) {
+      this.components[i].render(this.dom);
+    }
+  } else {
+    console.warn('Attempted to render an already rendered component.');
+  }
 };
 
 
@@ -5845,7 +6007,7 @@ Section.onInstall = function (editor) {
   // jshint unused: false
 };
 
-},{"./component":2,"./loader":18,"./selection":22,"./utils":26}],22:[function(require,module,exports){
+},{"./component":2,"./loader":19,"./selection":23,"./utils":27}],23:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -6376,7 +6538,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":20,"./utils":26}],23:[function(require,module,exports){
+},{"./paragraph":21,"./utils":27}],24:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6583,7 +6745,7 @@ Button.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":26}],24:[function(require,module,exports){
+},{"../utils":27}],25:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6684,7 +6846,7 @@ TextField.prototype.setValue = function (value) {
   this.dom.value = value;
 };
 
-},{"../utils":26}],25:[function(require,module,exports){
+},{"../utils":27}],26:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6993,7 +7155,7 @@ Toolbar.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":26}],26:[function(require,module,exports){
+},{"../utils":27}],27:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -7306,5 +7468,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[19])(19)
+},{}]},{},[20])(20)
 });

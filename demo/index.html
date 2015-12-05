@@ -31,8 +31,15 @@
       var demoArticle;
       var storedArticle = localStorage.getItem('article');
       if (storedArticle) {
-        demoArticle = carbon.Article.fromJSON(JSON.parse(storedArticle));
-      } else {
+        try {
+          demoArticle = carbon.Article.fromJSON(JSON.parse(storedArticle));
+        } catch (e) {
+          console.error('Error with the loading saved article.' +
+              'This is probably due to backward-incompatability.');
+        }
+      }
+
+      if (!demoArticle) {
         demoArticle = new carbon.Article({
           sections: [new carbon.Section({
             components: [
@@ -135,10 +142,11 @@
                 text: 'The editor will also recognize YouTube links pasted in a' +
                   ' new line after you hit enter and insert a YouTube player.'
               }),
-              carbon.YouTubeComponent.createYouTubeComponentFromLink(
-                'https://www.youtube.com/watch?v=JGhoLcsr8GA',
-                {caption: 'Macklemore & Ryan Lewis - Downtown (Official Music Video)'}
-              ),
+              new carbon.EmbeddedComponent({
+                url: 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
+                provider: 'embedly',
+                caption: 'Macklemore & Ryan Lewis - Downtown (Official Music Video)'
+              }),
               new carbon.Paragraph({
                 text: 'Serializing and Deserializing Article',
                 paragraphType: carbon.Paragraph.Types.SecondaryHeader
@@ -200,12 +208,23 @@
           document.getElementById('editor'), {
             article: demoArticle,
             modules: [
-              carbon.YouTubeComponent,
-              carbon.VineComponent,
-              carbon.VimeoComponent,
-              carbon.GiphyComponent
+              carbon.GiphyComponent,
+              carbon.EmbeddedComponent,
             ]
           });
+
+      editor.install(carbon.EmbeddingExtension, {
+        embedProviders: {
+          embedly: new carbon.EmbedlyProvider({
+            apiKey: '46c6ad376b1343359d774c5d8a940db7'
+          }),
+          carbon: new carbon.CarbonEmbedProvider({
+          })
+        },
+        ComponentClass: carbon.EmbeddedComponent
+      });
+
+      editor.render();
 
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {

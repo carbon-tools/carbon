@@ -24,3 +24,10 @@ Errors.AlreadyRegisteredError = function (message) {
   this.message = (message || '');
 };
 Errors.AlreadyRegisteredError.prototype = Error.prototype;
+
+
+Errors.ConfigrationError = function (message) {
+  this.name = 'ConfigrationError';
+  this.message = (message || '');
+};
+Errors.ConfigrationError.prototype = Error.prototype;

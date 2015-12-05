@@ -28,96 +28,147 @@
 
     <script src="carbon.js"></script>
     <script>
-      var demoArticle = new carbon.Article({
-        sections: [new carbon.Section({
-          components: [
-            new carbon.Paragraph({
-              placeholderText: 'كاربون',
-              text: 'مرحباً بك في المحرر',
-              paragraphType: carbon.Paragraph.Types.MainHeader
-            }),
-            new carbon.Paragraph({
-              placeholderText: 'This is just a demo.',
-              text: 'محرر مقالات في المتصفح',
-              paragraphType: carbon.Paragraph.Types.ThirdHeader
-            }),
-            new carbon.Paragraph({
-              text: 'بُني المحرر مع نموذج داخلي للمقال، النموذج معروض في الحزء الأيمن' +
-                ' من الصفحة. المحرر ما زال قيد التطوير.'
-            }),
-            new carbon.Paragraph({
-              text: 'تنسيق الفقرات والنص',
-              paragraphType: carbon.Paragraph.Types.SecondaryHeader
-            }),
-            new carbon.Paragraph({
-              text: 'يمكنك تنسيق الفقرات والنص مثل خط غامق، مائل، مشطوب، مخطط أو إضافة روابط.',
-              formats: [
-                {type: 'strong', from: 33, to: 37},
-                {type: 'em', from: 39, to: 44},
-                {type: 's', from: 45, to: 50},
-                {type: 'u', from: 52, to: 56},
-                {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 65, to: 72}
-              ]
-            }),
-            new carbon.Paragraph({
-              text: 'صور',
-              paragraphType: carbon.Paragraph.Types.SecondaryHeader
-            }),
-            new carbon.Figure({
-              src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
-            }),
-            new carbon.Paragraph({
-              text: 'يمكنك أيضاً ادخال صور عن طريق لصق الرابط في سطر جديد والضغط على إنتر.'
-            }),
-            new carbon.Paragraph({
-              text: 'إلغاء وإعادة مع تاريخ التعديلات',
-              paragraphType: carbon.Paragraph.Types.SecondaryHeader
-            }),
-            new carbon.Paragraph({
-              text: 'المحرر يتتبع جميع التغييرات ويحتوي على خاصية إلغاى وإعادة عمل الفعل.'
-            }),
-            new carbon.Figure({
-              src: 'https://octodex.github.com/images/mummytocat.gif'
-            }),
-            new carbon.Paragraph({
-              text: 'فيديوهات يوتيوب',
-              paragraphType: carbon.Paragraph.Types.SecondaryHeader
-            }),
-            new carbon.Paragraph({
-              text: 'المحرر سوف يلاحظ عندما تلصق رابط من يوتيوب وسدخل فيديو بدل الرابط عند الضغط إنتر.'
-            }),
-            carbon.YouTubeComponent.createYouTubeComponentFromLink(
-              'https://www.youtube.com/watch?v=JGhoLcsr8GA'
-            ),
-            new carbon.Paragraph({
-              text: 'مصدر الصور من أكتوديكس',
-              formats: [
-                {type: 'em', from: 0, to: 13},
-                {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 14, to: 22}
-              ]
-            }),
-          ]
-        })]
-      });
+      var demoArticle;
+      var storedArticle = localStorage.getItem('article-ar');
+      if (storedArticle) {
+        try {
+          demoArticle = carbon.Article.fromJSON(JSON.parse(storedArticle));
+        } catch (e) {
+          console.error('Error with the loading saved article.' +
+              'This is probably due to backward-incompatability.');
+        }
+      }
+
+      if (!demoArticle) {
+        demoArticle = new carbon.Article({
+          sections: [new carbon.Section({
+            components: [
+              new carbon.Paragraph({
+                placeholderText: 'كاربون',
+                text: 'مرحباً بك في المحرر',
+                paragraphType: carbon.Paragraph.Types.MainHeader
+              }),
+              new carbon.Paragraph({
+                placeholderText: 'This is just a demo.',
+                text: 'محرر مقالات في المتصفح',
+                paragraphType: carbon.Paragraph.Types.ThirdHeader
+              }),
+              new carbon.Paragraph({
+                text: 'بُني المحرر مع نموذج داخلي للمقال، النموذج معروض في الحزء الأيمن' +
+                  ' من الصفحة. المحرر ما زال قيد التطوير.'
+              }),
+              new carbon.Paragraph({
+                text: 'تنسيق الفقرات والنص',
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
+              }),
+              new carbon.Paragraph({
+                text: 'يمكنك تنسيق الفقرات والنص مثل خط غامق، مائل، مشطوب، مخطط أو إضافة روابط.',
+                formats: [
+                  {type: 'strong', from: 33, to: 37},
+                  {type: 'em', from: 39, to: 44},
+                  {type: 's', from: 45, to: 50},
+                  {type: 'u', from: 52, to: 56},
+                  {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 65, to: 72}
+                ]
+              }),
+              new carbon.Paragraph({
+                text: 'صور',
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
+              }),
+              new carbon.Figure({
+                src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
+              }),
+              new carbon.Paragraph({
+                text: 'يمكنك أيضاً ادخال صور عن طريق لصق الرابط في سطر جديد والضغط على إنتر.'
+              }),
+              new carbon.Paragraph({
+                text: 'إلغاء وإعادة مع تاريخ التعديلات',
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
+              }),
+              new carbon.Paragraph({
+                text: 'المحرر يتتبع جميع التغييرات ويحتوي على خاصية إلغاى وإعادة عمل الفعل.'
+              }),
+              new carbon.Figure({
+                src: 'https://octodex.github.com/images/mummytocat.gif'
+              }),
+              new carbon.Paragraph({
+                text: 'فيديوهات يوتيوب',
+                paragraphType: carbon.Paragraph.Types.SecondaryHeader
+              }),
+              new carbon.Paragraph({
+                text: 'المحرر سوف يلاحظ عندما تلصق رابط من يوتيوب وسدخل فيديو بدل الرابط عند الضغط إنتر.'
+              }),
+              new carbon.EmbeddedComponent({
+                url: 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
+                provider: 'embedly',
+                caption: 'ماكلمور - وسط البلد'
+              }),
+              new carbon.Paragraph({
+                text: 'مصدر الصور من أكتوديكس',
+                formats: [
+                  {type: 'em', from: 0, to: 13},
+                  {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 14, to: 22}
+                ]
+              }),
+            ]
+          })]
+        });
+      }
 
       var editor = new carbon.Editor(
           document.getElementById('editor'), {
             rtl: true,
             article: demoArticle,
             modules: [
-              carbon.YouTubeComponent,
-              carbon.VineComponent,
-              carbon.VimeoComponent,
-              carbon.GiphyComponent
+              carbon.GiphyComponent,
+              carbon.EmbeddedComponent
             ]
           });
 
+      editor.install(carbon.EmbeddingExtension, {
+        embedProviders: {
+          embedly: new carbon.EmbedlyProvider({
+            apiKey: '46c6ad376b1343359d774c5d8a940db7'
+          }),
+          carbon: new carbon.CarbonEmbedProvider({
+          })
+        },
+        ComponentClass: carbon.EmbeddedComponent
+      });
+
+      editor.render();
+
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {
-        // console.log(event);
         model.innerHTML = JSONTree.create(editor.getJSONModel());
+        localStorage.setItem('article-ar', JSON.stringify(editor.getJSONModel()));
       });
       model.innerHTML = JSONTree.create(editor.getJSONModel());
+
+      // TODO(mkhatib): Find an image uploading service to demo the full
+      // functionality of attachments in the demo.
+      editor.addEventListener('attachment-added', function(event){
+        var attachment = event.detail.attachment;
+        // This is just to fake an async upload and then updating the attachment
+        // to have the remote URL for the resource.
+
+        // Typically the client would make an Ajax request to upload the file
+        // which can be accessed on `event.detail.attachment.file`.
+
+        // After the upload is complete the client would call
+        //   attachment.setAttributes to update the attributes of the figure.
+        setTimeout(function() {
+          var finalSrc = 'https://octodex.github.com/images/filmtocat.png';
+          var caption = 'The uploaded image has been replaced to demonstrate ' +
+              'how an application can replace the image src once it has been ' +
+              'uploaded. In a real application the image would still be the ' +
+              'the same, this demo does not implement uploading backend.';
+          attachment.setAttributes({
+            src: finalSrc,
+            caption: caption
+          });
+        }, 5000);
+      });
     </script>
   </body>
 </html>

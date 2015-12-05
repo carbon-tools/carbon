@@ -242,16 +242,24 @@ Editor.prototype.destroy = function () {
 Editor.prototype.setArticle = function(article) {
   article.editor = this;
   this.article = article;
+};
+
+
+/**
+ * Renders the editor and article inside the element.
+ */
+Editor.prototype.render = function() {
+  // TODO(mkhatib): Maybe implement a destroy on components to cleanup
+  // and remove their DOM, listeners, in progress XHR or others.
   while (this.element.firstChild) {
     this.element.removeChild(this.element.firstChild);
   }
-
-  this.element.appendChild(article.dom);
+  this.article.render(this.element);
+  // this.element.appendChild(this.article.dom);
   this.selection.setCursor({
-    component: article.sections[0].components[0],
+    component: this.article.sections[0].components[0],
     offset: 0
   });
-
   this.dispatchEvent(new Event('change'));
 };
 
@@ -259,14 +267,15 @@ Editor.prototype.setArticle = function(article) {
 /**
  * Installs and activate a component type to use in the editor.
  * @param  {Function} ModuleClass The component class.
+ * @param  {Object=} optArgs Optional arguments to pass to onInstall of module.
  */
-Editor.prototype.install = function(ModuleClass) {
+Editor.prototype.install = function(ModuleClass, optArgs) {
   if (this.installedModules[ModuleClass.CLASS_NAME]) {
     throw Errors.AlreadyRegisteredError(ModuleClass.CLASS_NAME +
         ' module has already been installed in this editor.');
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
-  ModuleClass.onInstall(this);
+  ModuleClass.onInstall(this, optArgs);
 };
 
 

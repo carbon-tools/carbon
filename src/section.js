@@ -55,7 +55,6 @@ var Section = function(optParams) {
   for (var i = 0; i < params.components.length; i++) {
     this.insertComponentAt(params.components[i], i);
   }
-
 };
 Section.prototype = Object.create(Component.prototype);
 module.exports = Section;
@@ -109,22 +108,25 @@ Section.prototype.insertComponentAt = function(component, index) {
   // Get current component and its index in the section.
   var nextComponent = this.components[index];
 
-  if (!nextComponent) {
-    // If the last component in the section append it to the section.
-    this.dom.appendChild(component.dom);
-  } else {
-    // Otherwise insert it before the next component.
-    this.dom.insertBefore(component.dom, nextComponent.dom);
+  if (this.isRendered) {
+    if (!nextComponent) {
+      // If the last component in the section append it to the section.
+      component.render(this.dom);
+    } else {
+      // Otherwise insert it before the next component.
+      component.render(this.dom, {
+        insertBefore: nextComponent.dom
+      });
+      // this.dom.insertBefore(component.dom, nextComponent.dom);
+    }
+    // Set the cursor to the new component.
+    Selection.getInstance().setCursor({
+      component: component,
+      offset: 0
+    });
   }
 
   this.components.splice(index, 0, component);
-
-  // Set the cursor to the new component.
-  Selection.getInstance().setCursor({
-    component: component,
-    offset: 0
-  });
-
   return component;
 };
 
@@ -182,6 +184,22 @@ Section.prototype.getComponentsBetween = function(
     components.push(this.components[i]);
   }
   return components;
+};
+
+
+/**
+ * Renders the section inside the element.
+ */
+Section.prototype.render = function(element) {
+  if (!this.isRendered) {
+    this.isRendered = true;
+    element.appendChild(this.dom);
+    for (var i = 0; i < this.components.length; i++) {
+      this.components[i].render(this.dom);
+    }
+  } else {
+    console.warn('Attempted to render an already rendered component.');
+  }
 };
 
 

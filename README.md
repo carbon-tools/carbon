@@ -31,6 +31,7 @@ After that you can create a new Carbon object and pass it the element you want t
 <div id="my-editor"></div>
 <script>
   var editor = new carbon.Editor(document.getElementById(‘my-editor’));
+  editor.render();
 </script>
 ```
 
