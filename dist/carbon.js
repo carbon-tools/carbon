@@ -1570,8 +1570,37 @@ Editor.prototype.handlePaste = function(event) {
   var tempEl = document.createElement('div');
   tempEl.innerHTML = pastedContent;
 
+  var startComponent = this.selection.getComponentAtEnd().
+      getPreviousComponent();
+
   var ops = this.processPastedContent(tempEl);
   this.article.transaction(ops);
+
+  var factoryMethod;
+  var that = this;
+  var endComponent = this.selection.getComponentAtEnd();
+  var currentComponent = startComponent;
+
+  var opsCallback = function(ops) {
+    that.article.transaction(ops);
+    setTimeout(function() {
+      that.dispatchEvent(new Event('change'));
+    }, 2);
+  };
+
+  while (currentComponent !== endComponent) {
+    var currentIsParagraph = currentComponent instanceof Paragraph;
+    if (currentIsParagraph) {
+      factoryMethod = this.componentFactory.match(
+          currentComponent.text);
+    }
+
+    if (factoryMethod) {
+      factoryMethod(currentComponent, opsCallback);
+    }
+
+    currentComponent = currentComponent.getNextComponent();
+  }
 
   event.preventDefault();
 };
@@ -1647,15 +1676,30 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   }
 
   if (!children || !children.length || isInlinePaste(children)) {
+    var lines = textPasted.split('\n');
+    if (lines.length < 2) {
+      // Text before and after pasting.
+      var textStart = currentComponent.text.substring(0, selection.start.offset);
 
-    // Text before and after pasting.
-    var textStart = currentComponent.text.substring(0, selection.start.offset);
+      // Calculate cursor offset before pasting.
+      var offsetBeforeOperation = textStart.length;
 
-    // Calculate cursor offset before pasting.
-    var offsetBeforeOperation = textStart.length;
-
-    Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
-        textPasted, offsetBeforeOperation));
+      Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
+          textPasted, offsetBeforeOperation));
+    } else {
+      // TODO(mkhatib): Maybe allow pasting new lined paragraphs once we
+      // have better support for it.
+      for (var lineNum = 0; lineNum < lines.length; lineNum++) {
+        if (lines[lineNum].trim().length > 0) {
+          newP = new Paragraph({
+              section: section,
+              text: lines[lineNum]
+          });
+          Utils.arrays.extend(
+              ops, newP.getInsertOps(currentIndex++));
+        }
+      }
+    }
   } else if (hasOnlyInlineChildNodes(element)) {
     text = Utils.getTextFromElement(element);
 
