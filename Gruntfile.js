@@ -136,7 +136,12 @@ module.exports = function(grunt) {
 
     watch: {
       dist: {
-        files: ['<%= srcDir %>/**/*.js', '<%= testDir %>/**/*.spec.js', '<%= demoDir %>/**/*.js'],
+        files: [
+          '<%= srcDir %>/{,*/}*.js',
+          '<%= testDir %>/{,*/}*.spec.js',
+          '<%= demoDir %>/{,*/}*.js',
+          '<%= demoDir %>/{,*/}*.css',
+        ],
         tasks: ['build']
       },
       gruntfile: {
@@ -147,13 +152,23 @@ module.exports = function(grunt) {
           livereload: '<%= connect.options.livereload %>'
         },
         files: [
-          '<%= pkg.name %>/{,*/}*.html',
-          '<%= pkg.name %>/styles/{,*/}*.css',
-          '<%= pkg.name %>/images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
+          '{,*/}*.html',
+          'styles/{,*/}*.css',
+          'images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
+        ],
+        tasks: [
+          'clean',
+          'browserify:standalone',
+          'concat',
+          'copy',
         ]
       },
       test: {
-        files: ['<%= srcDir %>/**/*.js', '<%= testDir %>/**/*.spec.js', '<%= demoDir %>/**/*.js'],
+        files: [
+          '<%= srcDir %>/**/*.js',
+          '<%= testDir %>/**/*.spec.js',
+          '<%= demoDir %>/**/*.js'
+        ],
         tasks: ['test']
       }
     },

@@ -3,7 +3,8 @@
 var Utils = require('../utils');
 var Errors = require('../errors');
 var Loader = require('../loader');
-
+var Button = require('../toolbars/button');
+var Paragraph = require('../paragraph');
 
 /**
  * EmbeddingExtension allows embedding different kind of components using
@@ -44,6 +45,13 @@ module.exports = EmbeddingExtension;
  * @type {string}
  */
 EmbeddingExtension.CLASS_NAME = 'EmbeddingExtension';
+
+
+/**
+ * Toolbar name for the toolbelt toolbar.
+ * @type {string}
+ */
+EmbeddingExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 
 /**
@@ -92,7 +100,55 @@ EmbeddingExtension.prototype.init = function() {
     var regexStr = this.embedProviders[provider].getUrlsRegex();
     this.editor.registerRegex(regexStr, handleRegexMatchProvider(provider));
   }
+
+  this.toolbelt = this.editor.getToolbar(
+      EmbeddingExtension.TOOLBELT_TOOLBAR_NAME);
+
+  // Add embedding buttons to the toolbelt.
+  var toolbeltButtons = [{
+    label: 'Insert Video',
+    placeholder: 'Paste a link for YouTube, Vine, FB Video,' +
+        ' SoundCloud and others.'
+  }, {
+    label: 'Insert Photo by URL',
+    placeholder: 'Paste a link for a photo, FB photo, Instagram and others.'
+  }, {
+    label: 'Embed Post',
+    placeholder: 'Paste a link for a Facebook post, Tweet, Github Gist' +
+        ' and others.'
+  }, {
+    label: 'Insert GIF',
+    placeholder: 'Type /giphy <search-term> (enter) or paste a link to ' +
+        'giphy or gif image url.'
+  }, {
+    label: 'Insert Quiz or Slides',
+    placeholder: 'Paste a link to qzzr.com or slideshare or others.'
+  }];
+
+  for (var i = 0; i < toolbeltButtons.length; i++) {
+    var insertVideoButton = new Button({
+      label: toolbeltButtons[i].label,
+      data: { placeholder: toolbeltButtons[i].placeholder }
+    });
+    insertVideoButton.addEventListener(
+        'click', this.handleInsertClicked.bind(this));
+    this.toolbelt.addButton(insertVideoButton);
+  }
 };
+
+
+EmbeddingExtension.prototype.handleInsertClicked = function(event) {
+  var button = event.detail.target;
+  var placeholder = button.data.placeholder;
+  var newP = new Paragraph({
+    placeholderText: placeholder,
+    section: this.editor.selection.getSectionAtStart()
+  });
+
+  var index = this.editor.selection.getComponentAtStart().getIndexInSection();
+  this.editor.article.transaction(newP.getInsertOps(index));
+};
+
 
 
 /**

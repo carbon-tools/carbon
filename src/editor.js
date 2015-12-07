@@ -937,8 +937,10 @@ Editor.prototype.handlePaste = function(event) {
   var tempEl = document.createElement('div');
   tempEl.innerHTML = pastedContent;
 
-  var startComponent = this.selection.getComponentAtEnd().
-      getPreviousComponent();
+  var startComponent = this.selection.getComponentAtEnd();
+  if (startComponent.getPreviousComponent()) {
+    startComponent = startComponent.getPreviousComponent();
+  }
 
   var ops = this.processPastedContent(tempEl);
   this.article.transaction(ops);
@@ -946,6 +948,9 @@ Editor.prototype.handlePaste = function(event) {
   var factoryMethod;
   var that = this;
   var endComponent = this.selection.getComponentAtEnd();
+  if (endComponent.getNextComponent()) {
+    endComponent = endComponent.getNextComponent();
+  }
   var currentComponent = startComponent;
 
   var opsCallback = function(ops) {
@@ -960,10 +965,9 @@ Editor.prototype.handlePaste = function(event) {
     if (currentIsParagraph) {
       factoryMethod = this.componentFactory.match(
           currentComponent.text);
-    }
-
-    if (factoryMethod) {
-      factoryMethod(currentComponent, opsCallback);
+      if (factoryMethod) {
+        factoryMethod(currentComponent, opsCallback);
+      }
     }
 
     currentComponent = currentComponent.getNextComponent();

@@ -1570,8 +1570,10 @@ Editor.prototype.handlePaste = function(event) {
   var tempEl = document.createElement('div');
   tempEl.innerHTML = pastedContent;
 
-  var startComponent = this.selection.getComponentAtEnd().
-      getPreviousComponent();
+  var startComponent = this.selection.getComponentAtEnd();
+  if (startComponent.getPreviousComponent()) {
+    startComponent = startComponent.getPreviousComponent();
+  }
 
   var ops = this.processPastedContent(tempEl);
   this.article.transaction(ops);
@@ -1579,6 +1581,9 @@ Editor.prototype.handlePaste = function(event) {
   var factoryMethod;
   var that = this;
   var endComponent = this.selection.getComponentAtEnd();
+  if (endComponent.getNextComponent()) {
+    endComponent = endComponent.getNextComponent();
+  }
   var currentComponent = startComponent;
 
   var opsCallback = function(ops) {
@@ -1593,10 +1598,9 @@ Editor.prototype.handlePaste = function(event) {
     if (currentIsParagraph) {
       factoryMethod = this.componentFactory.match(
           currentComponent.text);
-    }
-
-    if (factoryMethod) {
-      factoryMethod(currentComponent, opsCallback);
+      if (factoryMethod) {
+        factoryMethod(currentComponent, opsCallback);
+      }
     }
 
     currentComponent = currentComponent.getNextComponent();
@@ -2614,7 +2618,8 @@ EmbeddedComponent.prototype.getLength = function () {
 var Utils = require('../utils');
 var Errors = require('../errors');
 var Loader = require('../loader');
-
+var Button = require('../toolbars/button');
+var Paragraph = require('../paragraph');
 
 /**
  * EmbeddingExtension allows embedding different kind of components using
@@ -2655,6 +2660,13 @@ module.exports = EmbeddingExtension;
  * @type {string}
  */
 EmbeddingExtension.CLASS_NAME = 'EmbeddingExtension';
+
+
+/**
+ * Toolbar name for the toolbelt toolbar.
+ * @type {string}
+ */
+EmbeddingExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 
 /**
@@ -2703,7 +2715,55 @@ EmbeddingExtension.prototype.init = function() {
     var regexStr = this.embedProviders[provider].getUrlsRegex();
     this.editor.registerRegex(regexStr, handleRegexMatchProvider(provider));
   }
+
+  this.toolbelt = this.editor.getToolbar(
+      EmbeddingExtension.TOOLBELT_TOOLBAR_NAME);
+
+  // Add embedding buttons to the toolbelt.
+  var toolbeltButtons = [{
+    label: 'Insert Video',
+    placeholder: 'Paste a link for YouTube, Vine, FB Video,' +
+        ' SoundCloud and others.'
+  }, {
+    label: 'Insert Photo by URL',
+    placeholder: 'Paste a link for a photo, FB photo, Instagram and others.'
+  }, {
+    label: 'Embed Post',
+    placeholder: 'Paste a link for a Facebook post, Tweet, Github Gist' +
+        ' and others.'
+  }, {
+    label: 'Insert GIF',
+    placeholder: 'Type /giphy <search-term> (enter) or paste a link to ' +
+        'giphy or gif image url.'
+  }, {
+    label: 'Insert Quiz or Slides',
+    placeholder: 'Paste a link to qzzr.com or slideshare or others.'
+  }];
+
+  for (var i = 0; i < toolbeltButtons.length; i++) {
+    var insertVideoButton = new Button({
+      label: toolbeltButtons[i].label,
+      data: { placeholder: toolbeltButtons[i].placeholder }
+    });
+    insertVideoButton.addEventListener(
+        'click', this.handleInsertClicked.bind(this));
+    this.toolbelt.addButton(insertVideoButton);
+  }
 };
+
+
+EmbeddingExtension.prototype.handleInsertClicked = function(event) {
+  var button = event.detail.target;
+  var placeholder = button.data.placeholder;
+  var newP = new Paragraph({
+    placeholderText: placeholder,
+    section: this.editor.selection.getSectionAtStart()
+  });
+
+  var index = this.editor.selection.getComponentAtStart().getIndexInSection();
+  this.editor.article.transaction(newP.getInsertOps(index));
+};
+
 
 
 /**
@@ -2731,7 +2791,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   opsCallback(ops);
 };
 
-},{"../errors":4,"../loader":19,"../utils":27}],11:[function(require,module,exports){
+},{"../errors":4,"../loader":19,"../paragraph":21,"../toolbars/button":24,"../utils":27}],11:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2772,7 +2832,7 @@ module.exports = EmbedlyProvider;
  * Regex string for all URLs embedly provider can handle.
  * @constant
  */
-EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/photos/.*|flic\.kr/.*|.*imgur\.com/.*|.*dribbble\.com/shots/.*|drbl\.in/.*|instagr\.am/p/.*|giphy\.com/gifs/.*|gph\.is/.*|vid\.me/.*|www\.slideshare\.net/.*/.*|www\.slideshare\.net/mobile/.*/.*|.*\.slideshare\.net/.*/.*|slidesha\.re/.*|www\.kickstarter\.com/projects/.*/.*|linkedin\.com/in/.*|linkedin\.com/pub/.*|.*\.linkedin\.com/in/.*|.*\.linkedin\.com/pub/.*|linkedin\.com/in/.*|linkedin\.com/company/.*|.*\.linkedin\.com/company/.*|www\.sliderocket\.com/.*|sliderocket\.com/.*|app\.sliderocket\.com/.*|portal\.sliderocket\.com/.*|beta-sliderocket\.com/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|tumblr\.com/.*|.*\.tumblr\.com/post/.*|pastebin\.com/.*|storify\.com/.*/.*|prezi\.com/.*/.*|www\.wikipedia\.org/wiki/.*|.*\.wikipedia\.org/wiki/.*|www\.behance\.net/gallery/.*|behance\.net/gallery/.*|jsfiddle\.net/.*|www\.gettyimages\.com/detail/photo/.*|gty\.im/.*|jsbin\.com/.*/.*|jsbin\.com/.*|codepen\.io/.*/pen/.*|codepen\.io/.*/pen/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*amazon\..*/gp/product/.*|.*amazon\..*/.*/dp/.*|.*amazon\..*/dp/.*|.*amazon\..*/o/ASIN/.*|.*amazon\..*/gp/offer-listing/.*|.*amazon\..*/.*/ASIN/.*|.*amazon\..*/gp/product/images/.*|.*amazon\..*/gp/aw/d/.*|www\.amzn\.com/.*|amzn\.com/.*|fiverr\.com/.*/.*|www\.fiverr\.com/.*/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/user/.*|.*\.youtube\.com/.*#.*/.*|m\.youtube\.com/watch.*|m\.youtube\.com/index.*|.*\.youtube\.com/profile.*|.*\.youtube\.com/view_play_list.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|.*twitch\.tv/.*|.*twitch\.tv/.*/b/.*|www\.ustream\.tv/recorded/.*|www\.ustream\.tv/channel/.*|www\.ustream\.tv/.*|ustre\.am/.*|.*\.dailymotion\.com/video/.*|.*\.dailymotion\.com/.*/video/.*|www\.livestream\.com/.*|new\.livestream\.com/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|www\.vimeo\.com/groups/.*/videos/.*|www\.vimeo\.com/.*|vimeo\.com/groups/.*/videos/.*|vimeo\.com/.*|vimeo\.com/m/#/.*|player\.vimeo\.com/.*|www\.ted\.com/talks/.*\.html.*|www\.ted\.com/talks/lang/.*/.*\.html.*|www\.ted\.com/index\.php/talks/.*\.html.*|www\.ted\.com/index\.php/talks/lang/.*/.*\.html.*|www\.ted\.com/talks/|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|fb\.com|plus\.google\.com/.*|www\.google\.com/profiles/.*|google\.com/profiles/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*|snd\.sc/.*))|(https://(vidd\.me/.*|vid\.me/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|storify\.com/.*/.*|medium\.com/.*|medium\.com/.*/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|gifs\.com/gif/.*|www\.gifs\.com/gif/.*|gifs\.com/.*|www\.gifs\.com/.*|www\.vimeo\.com/.*|vimeo\.com/.*|player\.vimeo\.com/.*|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|plus\.google\.com/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*)))';
+EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/photos/.*|flic\.kr/.*|.*imgur\.com/.*|.*dribbble\.com/shots/.*|drbl\.in/.*|giphy\.com/gifs/.*|gph\.is/.*|vid\.me/.*|www\.slideshare\.net/.*/.*|www\.slideshare\.net/mobile/.*/.*|.*\.slideshare\.net/.*/.*|slidesha\.re/.*|www\.kickstarter\.com/projects/.*/.*|linkedin\.com/in/.*|linkedin\.com/pub/.*|.*\.linkedin\.com/in/.*|.*\.linkedin\.com/pub/.*|linkedin\.com/in/.*|linkedin\.com/company/.*|.*\.linkedin\.com/company/.*|www\.sliderocket\.com/.*|sliderocket\.com/.*|app\.sliderocket\.com/.*|portal\.sliderocket\.com/.*|beta-sliderocket\.com/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|tumblr\.com/.*|.*\.tumblr\.com/post/.*|pastebin\.com/.*|storify\.com/.*/.*|prezi\.com/.*/.*|www\.wikipedia\.org/wiki/.*|.*\.wikipedia\.org/wiki/.*|www\.behance\.net/gallery/.*|behance\.net/gallery/.*|jsfiddle\.net/.*|www\.gettyimages\.com/detail/photo/.*|gty\.im/.*|jsbin\.com/.*/.*|jsbin\.com/.*|codepen\.io/.*/pen/.*|codepen\.io/.*/pen/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*amazon\..*/gp/product/.*|.*amazon\..*/.*/dp/.*|.*amazon\..*/dp/.*|.*amazon\..*/o/ASIN/.*|.*amazon\..*/gp/offer-listing/.*|.*amazon\..*/.*/ASIN/.*|.*amazon\..*/gp/product/images/.*|.*amazon\..*/gp/aw/d/.*|www\.amzn\.com/.*|amzn\.com/.*|fiverr\.com/.*/.*|www\.fiverr\.com/.*/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/user/.*|.*\.youtube\.com/.*#.*/.*|m\.youtube\.com/watch.*|m\.youtube\.com/index.*|.*\.youtube\.com/profile.*|.*\.youtube\.com/view_play_list.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|.*twitch\.tv/.*|.*twitch\.tv/.*/b/.*|www\.ustream\.tv/recorded/.*|www\.ustream\.tv/channel/.*|www\.ustream\.tv/.*|ustre\.am/.*|.*\.dailymotion\.com/video/.*|.*\.dailymotion\.com/.*/video/.*|www\.livestream\.com/.*|new\.livestream\.com/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|www\.vimeo\.com/groups/.*/videos/.*|www\.vimeo\.com/.*|vimeo\.com/groups/.*/videos/.*|vimeo\.com/.*|vimeo\.com/m/#/.*|player\.vimeo\.com/.*|www\.ted\.com/talks/.*\.html.*|www\.ted\.com/talks/lang/.*/.*\.html.*|www\.ted\.com/index\.php/talks/.*\.html.*|www\.ted\.com/index\.php/talks/lang/.*/.*\.html.*|www\.ted\.com/talks/|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|fb\.com|plus\.google\.com/.*|www\.google\.com/profiles/.*|google\.com/profiles/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*|snd\.sc/.*))|(https://(vidd\.me/.*|vid\.me/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|storify\.com/.*/.*|medium\.com/.*|medium\.com/.*/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|gifs\.com/gif/.*|www\.gifs\.com/gif/.*|gifs\.com/.*|www\.gifs\.com/.*|www\.vimeo\.com/.*|vimeo\.com/.*|player\.vimeo\.com/.*|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|plus\.google\.com/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*)))';
 
 
 /**
@@ -5593,6 +5653,7 @@ Paragraph.prototype.getJSONModel = function() {
     component: Paragraph.CLASS_NAME,
     name: this.name,
     text: this.text,
+    placeholderText: this.placeholderText,
     paragraphType: this.paragraphType
   };
 
@@ -5658,6 +5719,7 @@ Paragraph.prototype.getInsertOps = function (index) {
       attrs: {
         text: this.text,
         formats: this.formats,
+        placeholderText: this.placeholderText,
         paragraphType: this.paragraphType
       }
     },

@@ -547,6 +547,7 @@ Paragraph.prototype.getJSONModel = function() {
     component: Paragraph.CLASS_NAME,
     name: this.name,
     text: this.text,
+    placeholderText: this.placeholderText,
     paragraphType: this.paragraphType
   };
 
@@ -612,6 +613,7 @@ Paragraph.prototype.getInsertOps = function (index) {
       attrs: {
         text: this.text,
         formats: this.formats,
+        placeholderText: this.placeholderText,
         paragraphType: this.paragraphType
       }
     },
