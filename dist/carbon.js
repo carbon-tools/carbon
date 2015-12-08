@@ -373,7 +373,7 @@ Article.prototype.exec = function(operation, action) {
   }
 };
 
-},{"./loader":19,"./paragraph":21,"./section":22,"./selection":23,"./utils":27}],2:[function(require,module,exports){
+},{"./loader":20,"./paragraph":22,"./section":23,"./selection":24,"./utils":28}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -630,7 +630,7 @@ Component.prototype.getLength = function () {
   return 1;
 };
 
-},{"./errors":4,"./loader":19,"./utils":27}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":20,"./utils":28}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -1845,7 +1845,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":14,"./extensions/toolbeltExtension":15,"./extensions/uploadExtension":16,"./figure":17,"./list":18,"./paragraph":21,"./section":22,"./selection":23,"./toolbars/toolbar":26,"./utils":27}],4:[function(require,module,exports){
+},{"./article":1,"./errors":4,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":15,"./extensions/toolbeltExtension":16,"./extensions/uploadExtension":17,"./figure":18,"./list":19,"./paragraph":22,"./section":23,"./selection":24,"./toolbars/toolbar":27,"./utils":28}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -1932,6 +1932,7 @@ var Utils = require('../utils');
 var Attachment = function (optParams) {
   var params = Utils.extend({
     file: null,
+    dataUri: null,
     // TODO(mkhatib): Make this general for any kind of component
     // (e.g. video, pdf...etc)
     figure: null,
@@ -1945,6 +1946,13 @@ var Attachment = function (optParams) {
   this.file = params.file;
 
   /**
+   * Data URI of the attachment. This might be set when the attachment
+   * came from a non-input file (e.g. webcam).
+   * @type {string}
+   */
+  this.dataUri = params.dataUri;
+
+  /**
    * Figure inserted for this attachment.
    * @type {Figure}
    */
@@ -1955,6 +1963,7 @@ var Attachment = function (optParams) {
    * @type {Array.<Object>}
    */
   this.insertedOps = params.insertedOps;
+
 };
 module.exports = Attachment;
 
@@ -1986,7 +1995,7 @@ Attachment.prototype.setAttributes = function(attrs) {
   this.figure.updateAttributes(attrs);
 };
 
-},{"../utils":27}],7:[function(require,module,exports){
+},{"../utils":28}],7:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2193,7 +2202,7 @@ CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {
   return null;
 };
 
-},{"../utils":27,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
+},{"../utils":28,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -2612,7 +2621,7 @@ EmbeddedComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":19,"../paragraph":21,"../selection":23,"../utils":27}],10:[function(require,module,exports){
+},{"../component":2,"../loader":20,"../paragraph":22,"../selection":24,"../utils":28}],10:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2791,7 +2800,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   opsCallback(ops);
 };
 
-},{"../errors":4,"../loader":19,"../paragraph":21,"../toolbars/button":24,"../utils":27}],11:[function(require,module,exports){
+},{"../errors":4,"../loader":20,"../paragraph":22,"../toolbars/button":25,"../utils":28}],11:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2885,7 +2894,7 @@ EmbedlyProvider.prototype.getUrlsRegex = function() {
   return EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING;
 };
 
-},{"../utils":27,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
+},{"../utils":28,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -3608,7 +3617,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":21,"../selection":23,"../toolbars/button":24,"../toolbars/textField":25,"../utils":27}],13:[function(require,module,exports){
+},{"../paragraph":22,"../selection":24,"../toolbars/button":25,"../toolbars/textField":26,"../utils":28}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -3904,7 +3913,216 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":19,"../selection":23,"../utils":27}],14:[function(require,module,exports){
+},{"../component":2,"../loader":20,"../selection":24,"../utils":28}],14:[function(require,module,exports){
+'use strict';
+
+var Utils = require('../utils');
+var Attachment = require('./attachment');
+var Figure = require('../figure');
+var Button = require('../toolbars/button');
+
+
+/**
+ * Allows users to take selfies and insert them into the article.
+ * @param {Object=} optParams Optional parameters.
+ */
+var SelfieExtension = function(optParams) {
+
+  var params = Utils.extend({
+    // TODO(mkhatib): Add config params for size and shutter sound.
+    editor: null,
+  }, optParams);
+
+  // Create offscreen canvas to use as video buffer from the webcam.
+  // TODO(mkhatib): Maybe actually insert it as a Figure when /selfie
+  // is typed to see live view of it and then the picture is taken!
+  this.camDom = document.getElementById(SelfieExtension.CAM_PREVIEW_ELEMENT_ID);
+  if (!this.camDom) {
+    this.camDom = document.createElement('div');
+    this.camDom.style.position = 'absolute';
+    this.camDom.style.top = '-9999px';
+    this.camDom.style.left = '-9999px';
+    this.camDom.setAttribute('id', SelfieExtension.CAM_PREVIEW_ELEMENT_ID);
+    document.body.appendChild(this.camDom);
+  }
+
+  /* jshint ignore:start */
+  Webcam.set({
+    width: 320,
+    height: 240,
+    dest_width: 1280,
+    dest_height: 720,
+    crop_width: 1280,
+    crop_height: 720,
+    image_format: 'jpeg',
+    jpeg_quality: 90
+  });
+  /* jshint ignore:end */
+
+  /**
+   * Editor instance this extension was installed on.
+   * @type {Editor}
+   */
+  this.editor = params.editor;
+
+  /**
+   * Toolbelt toolbar instance.
+   * @type {Toolbar}
+   */
+  this.toolbelt = this.editor.getToolbar(SelfieExtension.TOOLBELT_TOOLBAR_NAME);
+
+};
+module.exports = SelfieExtension;
+
+
+/**
+ * Extension class name.
+ * @type {string}
+ */
+SelfieExtension.CLASS_NAME = 'SelfieExtension';
+
+
+/**
+ * The preview element id.
+ * @type {string}
+ */
+SelfieExtension.CAM_PREVIEW_ELEMENT_ID = 'carbon-camera';
+
+
+/**
+ * Command regex to take a selfie.
+ * @type {string}
+ */
+SelfieExtension.COMMAND_REGEX = '^/selfie$';
+
+
+/**
+ * Event to fire when the selfie is taken.
+ * @type {String}
+ */
+SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
+
+
+/**
+ * Toolbar name for the toolbelt toolbar.
+ * @type {string}
+ */
+SelfieExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
+
+
+/**
+ * Initiate an extension instance.
+ * @param  {Editor} editor Editor installing this extension.
+ */
+SelfieExtension.onInstall = function (editor) {
+  if (!Webcam) {
+    console.error('SelfieExtension depends on Webcam.js being loaded. Make' +
+      ' sure to include it in your app.');
+    return;
+  }
+
+  var extension = new SelfieExtension({
+    editor: editor
+  });
+  extension.init();
+};
+
+
+/**
+ * Registers the regex with the editor.
+ */
+SelfieExtension.prototype.init = function() {
+  this.editor.registerRegex(
+      SelfieExtension.COMMAND_REGEX,
+      this.handleMatchedRegex.bind(this));
+
+  var selfieButton = new Button({ label: 'Selfie!' });
+  selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
+  this.toolbelt.addButton(selfieButton);
+};
+
+
+/**
+ * Takes a selfie from the webcam and make a callback with the operations
+ * to execute to insert it.
+ * @param  {Function} opsCallback Callback to call with the operations to insert
+ * the selfie.
+ */
+SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
+  var that = this;
+  var ops = [];
+  Webcam.attach('#' + SelfieExtension.CAM_PREVIEW_ELEMENT_ID);
+  Webcam.on('live', function () {
+    setTimeout(function() {
+      Webcam.snap(function(dataUri) {
+        var selection = that.editor.article.selection;
+        var component = selection.getComponentAtStart();
+        var atIndex = component.getIndexInSection();
+        // Create a figure with the file Data URL and insert it.
+        var figure = new Figure({src: dataUri});
+        figure.section = selection.getSectionAtStart();
+        var insertFigureOps = figure.getInsertOps(atIndex);
+
+        // Add the new component created from the text.
+        Utils.arrays.extend(ops, figure.getInsertOps(atIndex));
+
+        if (opsCallback) {
+          opsCallback(ops);
+        }
+
+        // Create an attachment to track the figure and insertion operations.
+        var attachment = new Attachment({
+          dataUri: dataUri,
+          figure: selection.getSectionAtStart().getComponentByName(figure.name),
+          editor: that.editor,
+          insertedOps: insertFigureOps
+        });
+
+        // Dispatch an attachment added event to allow clients to upload the
+        // file.
+        var newEvent = new CustomEvent(
+          SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME, {
+            detail: { attachment: attachment }
+        });
+        that.editor.dispatchEvent(newEvent);
+      });
+
+      Webcam.off('live');
+      Webcam.reset();
+    }, 1000);
+  });
+};
+
+
+/**
+ * Handles regex match by instantiating a component.
+ * @param {Component} matchedComponent Component that matched registered regex.
+ * @param {Function} opsCallback Callback to send list of operations to exectue.
+ */
+SelfieExtension.prototype.handleMatchedRegex = function(
+    matchedComponent, opsCallback) {
+  var ops = [];
+  var atIndex = matchedComponent.getIndexInSection();
+  Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
+
+  this.letMeTakeASelfie(function(newOps) {
+    Utils.arrays.extend(ops, newOps);
+    opsCallback(ops);
+  });
+};
+
+
+/**
+ * Handles clicking take a selfie button.
+ */
+SelfieExtension.prototype.handleInsertClicked = function() {
+  var that = this;
+  this.letMeTakeASelfie(function(ops) {
+    that.editor.article.transaction(ops);
+  });
+};
+
+},{"../figure":18,"../toolbars/button":25,"../utils":28,"./attachment":6}],15:[function(require,module,exports){
 'use strict';
 
 
@@ -4043,7 +4261,7 @@ ShortcutsManager.prototype.onDestroy = function() {
   this.registery = {};
 };
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 'use strict';
 
 var Selection = require('../selection');
@@ -4185,7 +4403,7 @@ Toolbelt.prototype.handleButtonAdded = function () {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":23,"../toolbars/button":24,"../toolbars/toolbar":26}],16:[function(require,module,exports){
+},{"../selection":24,"../toolbars/button":25,"../toolbars/toolbar":27}],17:[function(require,module,exports){
 'use strict';
 
 var Button = require('../toolbars/button');
@@ -4380,7 +4598,7 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":17,"../toolbars/button":24,"../utils":27,"./attachment":6}],17:[function(require,module,exports){
+},{"../figure":18,"../toolbars/button":25,"../utils":28,"./attachment":6}],18:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4705,7 +4923,7 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./loader":19,"./paragraph":21,"./selection":23,"./utils":27}],18:[function(require,module,exports){
+},{"./component":2,"./loader":20,"./paragraph":22,"./selection":24,"./utils":28}],19:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5010,7 +5228,7 @@ List.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./loader":19,"./paragraph":21,"./section":22,"./utils":27}],19:[function(require,module,exports){
+},{"./loader":20,"./paragraph":22,"./section":23,"./utils":28}],20:[function(require,module,exports){
 'use strict';
 
 var Errors = require('./errors');
@@ -5071,7 +5289,7 @@ var Loader = (function() {
 })();
 module.exports = Loader;
 
-},{"./errors":4}],20:[function(require,module,exports){
+},{"./errors":4}],21:[function(require,module,exports){
 'use strict';
 
 module.exports.Editor = require('./editor');
@@ -5102,8 +5320,9 @@ module.exports.AbstractEmbedProvider = require('./extensions/abstractEmbedProvid
 module.exports.EmbedlyProvider = require('./extensions/embedlyProvider');
 module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider');
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
+module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
-},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./figure":17,"./list":18,"./paragraph":21,"./section":22,"./selection":23}],21:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/selfieExtension":14,"./figure":18,"./list":19,"./paragraph":22,"./section":23,"./selection":24}],22:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5843,7 +6062,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./loader":19,"./utils":27}],22:[function(require,module,exports){
+},{"./component":2,"./loader":20,"./utils":28}],23:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -6117,7 +6336,21 @@ Section.onInstall = function (editor) {
   // jshint unused: false
 };
 
-},{"./component":2,"./loader":19,"./selection":23,"./utils":27}],23:[function(require,module,exports){
+
+/**
+ * Gets the component with the passed name.
+ * @param  {string} name Name of the component.
+ * @return {Component}
+ */
+Section.prototype.getComponentByName = function(name) {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].name === name) {
+      return this.components[i];
+    }
+  }
+};
+
+},{"./component":2,"./loader":20,"./selection":24,"./utils":28}],24:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -6648,7 +6881,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":21,"./utils":27}],24:[function(require,module,exports){
+},{"./paragraph":22,"./utils":28}],25:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6855,7 +7088,7 @@ Button.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":27}],25:[function(require,module,exports){
+},{"../utils":28}],26:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -6956,7 +7189,7 @@ TextField.prototype.setValue = function (value) {
   this.dom.value = value;
 };
 
-},{"../utils":27}],26:[function(require,module,exports){
+},{"../utils":28}],27:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7265,7 +7498,7 @@ Toolbar.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":27}],27:[function(require,module,exports){
+},{"../utils":28}],28:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -7578,5 +7811,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   return !event.defaultPrevented;
 };
 
-},{}]},{},[20])(20)
+},{}]},{},[21])(21)
 });

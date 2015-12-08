@@ -26,6 +26,7 @@
       </pre>
     </div>
 
+    <script src="libs/webcamjs/webcam.js"></script>
     <script src="carbon.js"></script>
     <script>
       var demoArticle;
@@ -223,6 +224,7 @@
         },
         ComponentClass: carbon.EmbeddedComponent
       });
+      editor.install(carbon.SelfieExtension);
 
       editor.render();
 

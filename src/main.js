@@ -28,3 +28,4 @@ module.exports.AbstractEmbedProvider = require('./extensions/abstractEmbedProvid
 module.exports.EmbedlyProvider = require('./extensions/embedlyProvider');
 module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider');
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
+module.exports.SelfieExtension = require('./extensions/selfieExtension');

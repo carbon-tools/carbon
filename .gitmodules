@@ -1,3 +1,6 @@
 [submodule "demo/libs/json-tree"]
 	path = demo/libs/json-tree
 	url = https://github.com/lmenezes/json-tree.git
+[submodule "demo/libs/webcamjs"]
+	path = demo/libs/webcamjs
+	url = https://github.com/jhuckaby/webcamjs

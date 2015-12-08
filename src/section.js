@@ -270,3 +270,17 @@ Section.prototype.getSnippet = function() {
 Section.onInstall = function (editor) {
   // jshint unused: false
 };
+
+
+/**
+ * Gets the component with the passed name.
+ * @param  {string} name Name of the component.
+ * @return {Component}
+ */
+Section.prototype.getComponentByName = function(name) {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].name === name) {
+      return this.components[i];
+    }
+  }
+};

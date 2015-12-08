@@ -11,6 +11,7 @@ var Utils = require('../utils');
 var Attachment = function (optParams) {
   var params = Utils.extend({
     file: null,
+    dataUri: null,
     // TODO(mkhatib): Make this general for any kind of component
     // (e.g. video, pdf...etc)
     figure: null,
@@ -24,6 +25,13 @@ var Attachment = function (optParams) {
   this.file = params.file;
 
   /**
+   * Data URI of the attachment. This might be set when the attachment
+   * came from a non-input file (e.g. webcam).
+   * @type {string}
+   */
+  this.dataUri = params.dataUri;
+
+  /**
    * Figure inserted for this attachment.
    * @type {Figure}
    */
@@ -34,6 +42,7 @@ var Attachment = function (optParams) {
    * @type {Array.<Object>}
    */
   this.insertedOps = params.insertedOps;
+
 };
 module.exports = Attachment;
 

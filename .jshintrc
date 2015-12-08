@@ -13,5 +13,8 @@
   "smarttabs": true,
   "jasmine": true,
   "browserify": true,
-  "browser": true
+  "browser": true,
+  "globals": {
+    "Webcam": true
+  }
 }

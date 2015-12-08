@@ -587,6 +587,7 @@ git clone --recursive git://github.com/manshar/carbon.git
 
 cd carbon
 npm install
+bower install
 
 # start coding with live reloading
 grunt serve
