@@ -111,11 +111,12 @@ Section.prototype.insertComponentAt = function(component, index) {
   if (this.isRendered) {
     if (!nextComponent) {
       // If the last component in the section append it to the section.
-      component.render(this.dom);
+      component.render(this.dom, {editMode: this.editMode});
     } else {
       // Otherwise insert it before the next component.
       component.render(this.dom, {
-        insertBefore: nextComponent.dom
+        insertBefore: nextComponent.dom,
+        editMode: this.editMode
       });
       // this.dom.insertBefore(component.dom, nextComponent.dom);
     }
@@ -190,12 +191,11 @@ Section.prototype.getComponentsBetween = function(
 /**
  * Renders the section inside the element.
  */
-Section.prototype.render = function(element) {
+Section.prototype.render = function(element, options) {
   if (!this.isRendered) {
-    this.isRendered = true;
-    element.appendChild(this.dom);
+    Component.prototype.render.call(this, element, options);
     for (var i = 0; i < this.components.length; i++) {
-      this.components[i].render(this.dom);
+      this.components[i].render(this.dom, {editMode: this.editMode});
     }
   } else {
     console.warn('Attempted to render an already rendered component.');

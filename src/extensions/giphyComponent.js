@@ -47,32 +47,7 @@ var GiphyComponent = function(optParams) {
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-  this.dom.addEventListener('click', this.select.bind(this));
 
-  this.captionDom = document.createElement(GiphyComponent.CAPTION_TAG_NAME);
-  this.captionDom.setAttribute('contenteditable', true);
-
-  this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  if (this.caption) {
-    Utils.setTextForElement(this.captionDom, this.caption);
-    this.dom.appendChild(this.captionDom);
-  }
-
-  if (this.src) {
-    this.imgDom.setAttribute('src', this.src);
-    if (this.width) {
-      this.imgDom.setAttribute('width', this.width);
-    }
-    this.dom.appendChild(this.imgDom);
-    this.dom.appendChild(this.selectionDom);
-  }
 };
 GiphyComponent.prototype = Object.create(Component.prototype);
 module.exports = GiphyComponent;
@@ -200,6 +175,7 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
   xhttp.send();
 };
 
+
 /**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this GiphyComponent.
@@ -214,6 +190,35 @@ GiphyComponent.prototype.getJSONModel = function() {
   };
 
   return image;
+};
+
+
+/**
+ * @override
+ */
+GiphyComponent.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+    this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+
+    if (this.src) {
+      this.imgDom.setAttribute('src', this.src);
+      if (this.width) {
+        this.imgDom.setAttribute('width', this.width);
+      }
+      this.dom.appendChild(this.imgDom);
+    }
+
+    if (this.editMode) {
+      this.dom.addEventListener('click', this.select.bind(this));
+      this.selectionDom = document.createElement('div');
+      this.selectionDom.innerHTML = '&nbsp;';
+      this.selectionDom.className = 'selection-pointer';
+      this.selectionDom.setAttribute('contenteditable', true);
+      this.selectionDom.addEventListener('focus', this.select.bind(this));
+      this.dom.appendChild(this.selectionDom);
+    }
+  }
 };
 
 

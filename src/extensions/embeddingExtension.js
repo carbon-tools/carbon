@@ -71,6 +71,7 @@ EmbeddingExtension.onInstall = function (editor, config) {
     ComponentClass: config.ComponentClass,
     editor: editor
   });
+
   // Register the embedProviders with the loader to allow components to
   // access them.
   Loader.register('embedProviders', config.embedProviders);

@@ -11,6 +11,11 @@ body {
   margin: 0 auto;
 }
 
+#article-preview {
+  width: 600px;
+  margin: 1em auto;
+}
+
 #model-viewer {
   margin-left: 50%;
   background: #eee;

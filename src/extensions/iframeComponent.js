@@ -54,25 +54,6 @@ var IFrameComponent = function(optParams) {
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 
-  this.containerDom = document.createElement(
-      IFrameComponent.CONTAINER_TAG_NAME);
-  this.containerDom.className = IFrameComponent.CONTAINER_CLASS_NAME;
-
-  this.overlayDom = document.createElement(
-      IFrameComponent.IFRAME_OVERLAY_TAG_NAME);
-  this.overlayDom.className = IFrameComponent.IFRAME_OVERLAY_CLASS_NAME;
-  this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.select.bind(this));
-
-  this.iframeDom = document.createElement(IFrameComponent.IFRAME_TAG_NAME);
-  this.containerDom.appendChild(this.iframeDom);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
   /**
    * Placeholder text to show if the Figure is empty.
    * @type {string}
@@ -85,24 +66,6 @@ var IFrameComponent = function(optParams) {
     inline: true
   });
 
-  if (this.src) {
-    this.iframeDom.setAttribute('src', this.src);
-    this.iframeDom.setAttribute('frameborder', 0);
-    this.iframeDom.setAttribute('allowfullscreen', true);
-    if (this.width) {
-      this.iframeDom.setAttribute('width', this.width);
-    }
-    if (this.height) {
-      this.iframeDom.setAttribute('height', this.height);
-    }
-    this.containerDom.appendChild(this.iframeDom);
-    this.containerDom.appendChild(this.selectionDom);
-  }
-
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.containerDom);
-  this.dom.appendChild(this.captionDom);
 };
 IFrameComponent.prototype = Object.create(Component.prototype);
 module.exports = IFrameComponent;
@@ -205,6 +168,55 @@ IFrameComponent.prototype.getJSONModel = function() {
   };
 
   return video;
+};
+
+
+/*
+ * @override
+ */
+IFrameComponent.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+
+    if (this.src) {
+      this.containerDom = document.createElement(
+          IFrameComponent.CONTAINER_TAG_NAME);
+      this.containerDom.className = IFrameComponent.CONTAINER_CLASS_NAME;
+      this.iframeDom = document.createElement(IFrameComponent.IFRAME_TAG_NAME);
+      this.containerDom.appendChild(this.iframeDom);
+
+      this.iframeDom.setAttribute('src', this.src);
+      this.iframeDom.setAttribute('frameborder', 0);
+      this.iframeDom.setAttribute('allowfullscreen', true);
+      if (this.width) {
+        this.iframeDom.setAttribute('width', this.width);
+      }
+      if (this.height) {
+        this.iframeDom.setAttribute('height', this.height);
+      }
+      this.containerDom.appendChild(this.iframeDom);
+      this.dom.appendChild(this.containerDom);
+
+      this.captionParagraph.render(this.dom);
+      this.captionParagraph.dom.setAttribute('contenteditable', true);
+
+
+      if (this.editMode) {
+        this.overlayDom = document.createElement(
+            IFrameComponent.IFRAME_OVERLAY_TAG_NAME);
+        this.overlayDom.className = IFrameComponent.IFRAME_OVERLAY_CLASS_NAME;
+        this.containerDom.appendChild(this.overlayDom);
+        this.overlayDom.addEventListener('click', this.select.bind(this));
+
+        this.selectionDom = document.createElement('div');
+        this.selectionDom.innerHTML = '&nbsp;';
+        this.selectionDom.className = 'selection-pointer';
+        this.selectionDom.setAttribute('contenteditable', true);
+        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.containerDom.appendChild(this.selectionDom);
+      }
+    }
+  }
 };
 
 

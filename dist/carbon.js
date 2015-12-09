@@ -41,6 +41,7 @@ var Article = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Article.TAG_NAME);
+  this.dom.className = Article.ELEMENT_CLASS_NAME;
 
   /**
    * The article sections.
@@ -65,17 +66,32 @@ var Article = function(optParams) {
 
   /**
    * Whether the article is already rendered.
+   * @type {boolean}
    */
   this.isRendered = false;
+
+  /**
+   * Whether the article is rendered in edit mode or not.
+   * @type {boolean}
+   */
+  this.editMode = false;
 
 };
 module.exports = Article;
 
+
 /**
  * Element Tag name when creating the associated DOM element.
- * @type {String}
+ * @type {string}
  */
 Article.TAG_NAME = 'article';
+
+
+/**
+ * Element class name.
+ * @type {string}
+ */
+Article.ELEMENT_CLASS_NAME = 'carbon';
 
 
 /**
@@ -108,7 +124,7 @@ Article.prototype.insertSection = function(section) {
 
   this.sections.push(section);
   if (this.isRendered) {
-    section.render(this.dom);
+    section.render(this.dom, {editMode: this.editMode});
   }
   return section;
 };
@@ -177,11 +193,12 @@ Article.prototype.getLastComponent = function() {
 /**
  * Renders the article inside the element.
  */
-Article.prototype.render = function(element) {
+Article.prototype.render = function(element, options) {
+  this.editMode = !!(options && options.editMode);
   element.appendChild(this.dom);
   this.isRendered = true;
   for (var i = 0; i < this.sections.length; i++) {
-    this.sections[i].render(this.dom);
+    this.sections[i].render(this.dom, {editMode: this.editMode});
   }
 };
 
@@ -447,6 +464,12 @@ var Component = function(optParams) {
    */
   this.isRendered = false;
 
+  /**
+   * Whether the article is rendered in edit mode or not.
+   * @type {boolean}
+   */
+  this.editMode = false;
+
 };
 module.exports = Component;
 
@@ -551,6 +574,7 @@ Component.prototype.getIndexInSection = function() {
  *   options.insertBefore - To render the component before another element.
  */
 Component.prototype.render = function(element, options) {
+  this.editMode = !!(options && options.editMode);
   if (!this.isRendered && this.dom) {
     this.isRendered = true;
     if (options && options.insertBefore) {
@@ -887,7 +911,7 @@ Editor.prototype.render = function() {
   while (this.element.firstChild) {
     this.element.removeChild(this.element.firstChild);
   }
-  this.article.render(this.element);
+  this.article.render(this.element, {editMode: true});
   // this.element.appendChild(this.article.dom);
   this.selection.setCursor({
     component: this.article.sections[0].components[0],
@@ -2317,33 +2341,6 @@ var EmbeddedComponent = function(optParams) {
   this.caption = params.caption;
 
   /**
-   * DOM element tied to this object.
-   * @type {HTMLElement}
-   */
-  this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
-  this.dom.setAttribute('name', this.name);
-
-  this.containerDom = document.createElement(
-      EmbeddedComponent.CONTAINER_TAG_NAME);
-  this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
-
-  this.overlayDom = document.createElement(
-      EmbeddedComponent.OVERLAY_TAG_NAME);
-  this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
-  this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.select.bind(this));
-
-  this.embedDom = document.createElement(EmbeddedComponent.EMBED_TAG_NAME);
-  this.containerDom.appendChild(this.embedDom);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  /**
    * Placeholder text to show if the Figure is empty.
    * @type {string}
    */
@@ -2355,21 +2352,14 @@ var EmbeddedComponent = function(optParams) {
     inline: true
   });
 
-  if (this.url) {
-    if (this.width) {
-      this.embedDom.setAttribute('width', this.width);
-    }
-    if (this.height) {
-      this.embedDom.setAttribute('height', this.height);
-    }
-    this.containerDom.appendChild(this.embedDom);
-    this.containerDom.appendChild(this.selectionDom);
-  }
+  /**
+   * DOM element tied to this object.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
+  this.dom.setAttribute('contenteditable', false);
+  this.dom.setAttribute('name', this.name);
 
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.containerDom);
-  this.dom.appendChild(this.captionDom);
 };
 EmbeddedComponent.prototype = Object.create(Component.prototype);
 module.exports = EmbeddedComponent;
@@ -2483,6 +2473,9 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
         }
       }
     }
+
+    // TODO(mkhatib): Listen to iframes onload event to update the width and
+    // height of the component in editMode.
   } else {
     // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
     console.error('Embedding non-rich component is not supported yet.');
@@ -2491,15 +2484,48 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
 
 /**
- * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
- *   options.insertBefore - To render the component before another element.
  * @override
  */
 EmbeddedComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
+
+    this.containerDom = document.createElement(
+        EmbeddedComponent.CONTAINER_TAG_NAME);
+    this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
+
+    if (this.url) {
+      this.embedDom = document.createElement(
+          EmbeddedComponent.EMBED_TAG_NAME);
+      if (this.width) {
+        this.embedDom.setAttribute('width', this.width);
+      }
+      if (this.height) {
+        this.embedDom.setAttribute('height', this.height);
+      }
+      this.containerDom.appendChild(this.embedDom);
+      this.dom.appendChild(this.containerDom);
+    }
+
+    if (this.editMode) {
+      this.overlayDom = document.createElement(
+          EmbeddedComponent.OVERLAY_TAG_NAME);
+      this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
+      this.containerDom.appendChild(this.overlayDom);
+      this.overlayDom.addEventListener('click', this.select.bind(this));
+
+      this.selectionDom = document.createElement('div');
+      this.selectionDom.innerHTML = '&nbsp;';
+      this.selectionDom.className = 'selection-pointer';
+      this.selectionDom.setAttribute('contenteditable', true);
+      this.selectionDom.addEventListener('focus', this.select.bind(this));
+      this.containerDom.appendChild(this.selectionDom);
+
+      this.captionParagraph.dom.setAttribute('contenteditable', true);
+    }
+
+    this.captionParagraph.render(this.dom, {editMode: this.editMode});
+
     this.loadEmbed_();
   }
 };
@@ -2695,6 +2721,7 @@ EmbeddingExtension.onInstall = function (editor, config) {
     ComponentClass: config.ComponentClass,
     editor: editor
   });
+
   // Register the embedProviders with the loader to allow components to
   // access them.
   Loader.register('embedProviders', config.embedProviders);
@@ -3667,32 +3694,7 @@ var GiphyComponent = function(optParams) {
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-  this.dom.addEventListener('click', this.select.bind(this));
 
-  this.captionDom = document.createElement(GiphyComponent.CAPTION_TAG_NAME);
-  this.captionDom.setAttribute('contenteditable', true);
-
-  this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  if (this.caption) {
-    Utils.setTextForElement(this.captionDom, this.caption);
-    this.dom.appendChild(this.captionDom);
-  }
-
-  if (this.src) {
-    this.imgDom.setAttribute('src', this.src);
-    if (this.width) {
-      this.imgDom.setAttribute('width', this.width);
-    }
-    this.dom.appendChild(this.imgDom);
-    this.dom.appendChild(this.selectionDom);
-  }
 };
 GiphyComponent.prototype = Object.create(Component.prototype);
 module.exports = GiphyComponent;
@@ -3820,6 +3822,7 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
   xhttp.send();
 };
 
+
 /**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this GiphyComponent.
@@ -3834,6 +3837,35 @@ GiphyComponent.prototype.getJSONModel = function() {
   };
 
   return image;
+};
+
+
+/**
+ * @override
+ */
+GiphyComponent.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+    this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+
+    if (this.src) {
+      this.imgDom.setAttribute('src', this.src);
+      if (this.width) {
+        this.imgDom.setAttribute('width', this.width);
+      }
+      this.dom.appendChild(this.imgDom);
+    }
+
+    if (this.editMode) {
+      this.dom.addEventListener('click', this.select.bind(this));
+      this.selectionDom = document.createElement('div');
+      this.selectionDom.innerHTML = '&nbsp;';
+      this.selectionDom.className = 'selection-pointer';
+      this.selectionDom.setAttribute('contenteditable', true);
+      this.selectionDom.addEventListener('focus', this.select.bind(this));
+      this.dom.appendChild(this.selectionDom);
+    }
+  }
 };
 
 
@@ -4654,6 +4686,12 @@ var Figure = function(optParams) {
   this.caption = params.caption;
 
   /**
+   * Text to place as placeholder for caption.
+   * @type {string}
+   */
+  this.captionPlaceholder = params.captionPlaceholder;
+
+  /**
    * Placeholder text to show if the Figure is empty.
    * @type {string}
    */
@@ -4672,27 +4710,6 @@ var Figure = function(optParams) {
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-
-  this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-  this.imgDom.addEventListener('click', this.select.bind(this));
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  if (this.src) {
-    this.imgDom.setAttribute('src', this.src);
-    if (this.width) {
-      this.imgDom.setAttribute('width', this.width);
-    }
-    this.dom.appendChild(this.imgDom);
-    this.dom.appendChild(this.selectionDom);
-  }
-
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.captionDom);
 };
 Figure.prototype = Object.create(Component.prototype);
 module.exports = Figure;
@@ -4808,6 +4825,45 @@ Figure.prototype.getJSONModel = function() {
   }
 
   return image;
+};
+
+
+/**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ * @override
+ */
+Figure.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+
+    if (this.src) {
+      this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
+      this.imgDom.setAttribute('src', this.src);
+      if (this.width) {
+        this.imgDom.setAttribute('width', this.width);
+      }
+      this.dom.appendChild(this.imgDom);
+    }
+
+    this.captionParagraph.render(this.dom, {editMode: this.editMode});
+
+    if (this.editMode) {
+      if (this.src) {
+        this.imgDom.addEventListener('click', this.select.bind(this));
+        this.selectionDom = document.createElement('div');
+        this.selectionDom.innerHTML = '&nbsp;';
+        this.selectionDom.className = 'selection-pointer';
+        this.selectionDom.setAttribute('contenteditable', true);
+        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.dom.appendChild(this.selectionDom);
+      }
+
+      this.captionParagraph.dom.setAttribute('contenteditable', true);
+    }
+  }
 };
 
 
@@ -5299,6 +5355,7 @@ module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
+module.exports.Loader = require('./loader');
 
 /**
  * Not exporting these as part of carbon.js but available for anybody to use.
@@ -5322,7 +5379,7 @@ module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider')
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
-},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/selfieExtension":14,"./figure":18,"./list":19,"./paragraph":22,"./section":23,"./selection":24}],22:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/selfieExtension":14,"./figure":18,"./list":19,"./loader":20,"./paragraph":22,"./section":23,"./selection":24}],22:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5388,14 +5445,6 @@ var Paragraph = function(optParams) {
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
 
-  if (this.placeholderText) {
-    this.dom.setAttribute('placeholder', this.placeholderText);
-  } else if (!this.text.length) {
-    // Content Editable won't be able to set the cursor for an empty element
-    // so we use the zero-length character to workaround that.
-    this.dom.innerHTML = '&#8203;';
-  }
-
   this.setText(params.text);
 
   if (this.formats) {
@@ -5412,6 +5461,13 @@ module.exports = Paragraph;
  */
 Paragraph.CLASS_NAME = 'Paragraph';
 Loader.register(Paragraph.CLASS_NAME, Paragraph);
+
+
+/**
+ * Class added to an empty paragraph in non-edit mode.
+ * @type {string}
+ */
+Paragraph.EMPTY_PARAGRAPH_CLASS = 'empty-paragraph';
 
 
 /**
@@ -5885,6 +5941,33 @@ Paragraph.prototype.getJSONModel = function() {
 
 
 /**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ *   options.editMode - To render the paragraph in edit mode.
+ * @override
+ */
+Paragraph.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+
+    if (this.editMode) {
+      if (this.placeholderText) {
+        this.dom.setAttribute('placeholder', this.placeholderText);
+      } else if (!this.text.length) {
+        // Content Editable won't be able to set the cursor for an empty element
+        // so we use the zero-length character to workaround that.
+        this.dom.innerHTML = '&#8203;';
+      }
+    } else if (!this.text.length) {
+      this.dom.classList.add(Paragraph.EMPTY_PARAGRAPH_CLASS);
+    }
+  }
+};
+
+
+/**
  * Returns the operations to execute a deletion of the paragraph component.
  *   For partial deletion pass optFrom and optTo.
  * @param  {number=} optIndexOffset Optional offset to add to the index of the
@@ -6176,11 +6259,12 @@ Section.prototype.insertComponentAt = function(component, index) {
   if (this.isRendered) {
     if (!nextComponent) {
       // If the last component in the section append it to the section.
-      component.render(this.dom);
+      component.render(this.dom, {editMode: this.editMode});
     } else {
       // Otherwise insert it before the next component.
       component.render(this.dom, {
-        insertBefore: nextComponent.dom
+        insertBefore: nextComponent.dom,
+        editMode: this.editMode
       });
       // this.dom.insertBefore(component.dom, nextComponent.dom);
     }
@@ -6255,12 +6339,11 @@ Section.prototype.getComponentsBetween = function(
 /**
  * Renders the section inside the element.
  */
-Section.prototype.render = function(element) {
+Section.prototype.render = function(element, options) {
   if (!this.isRendered) {
-    this.isRendered = true;
-    element.appendChild(this.dom);
+    Component.prototype.render.call(this, element, options);
     for (var i = 0; i < this.components.length; i++) {
-      this.components[i].render(this.dom);
+      this.components[i].render(this.dom, {editMode: this.editMode});
     }
   } else {
     console.warn('Attempted to render an already rendered component.');

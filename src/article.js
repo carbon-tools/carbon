@@ -40,6 +40,7 @@ var Article = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Article.TAG_NAME);
+  this.dom.className = Article.ELEMENT_CLASS_NAME;
 
   /**
    * The article sections.
@@ -64,17 +65,32 @@ var Article = function(optParams) {
 
   /**
    * Whether the article is already rendered.
+   * @type {boolean}
    */
   this.isRendered = false;
+
+  /**
+   * Whether the article is rendered in edit mode or not.
+   * @type {boolean}
+   */
+  this.editMode = false;
 
 };
 module.exports = Article;
 
+
 /**
  * Element Tag name when creating the associated DOM element.
- * @type {String}
+ * @type {string}
  */
 Article.TAG_NAME = 'article';
+
+
+/**
+ * Element class name.
+ * @type {string}
+ */
+Article.ELEMENT_CLASS_NAME = 'carbon';
 
 
 /**
@@ -107,7 +123,7 @@ Article.prototype.insertSection = function(section) {
 
   this.sections.push(section);
   if (this.isRendered) {
-    section.render(this.dom);
+    section.render(this.dom, {editMode: this.editMode});
   }
   return section;
 };
@@ -176,11 +192,12 @@ Article.prototype.getLastComponent = function() {
 /**
  * Renders the article inside the element.
  */
-Article.prototype.render = function(element) {
+Article.prototype.render = function(element, options) {
+  this.editMode = !!(options && options.editMode);
   element.appendChild(this.dom);
   this.isRendered = true;
   for (var i = 0; i < this.sections.length; i++) {
-    this.sections[i].render(this.dom);
+    this.sections[i].render(this.dom, {editMode: this.editMode});
   }
 };
 

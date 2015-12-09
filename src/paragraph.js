@@ -63,14 +63,6 @@ var Paragraph = function(optParams) {
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
 
-  if (this.placeholderText) {
-    this.dom.setAttribute('placeholder', this.placeholderText);
-  } else if (!this.text.length) {
-    // Content Editable won't be able to set the cursor for an empty element
-    // so we use the zero-length character to workaround that.
-    this.dom.innerHTML = '&#8203;';
-  }
-
   this.setText(params.text);
 
   if (this.formats) {
@@ -87,6 +79,13 @@ module.exports = Paragraph;
  */
 Paragraph.CLASS_NAME = 'Paragraph';
 Loader.register(Paragraph.CLASS_NAME, Paragraph);
+
+
+/**
+ * Class added to an empty paragraph in non-edit mode.
+ * @type {string}
+ */
+Paragraph.EMPTY_PARAGRAPH_CLASS = 'empty-paragraph';
 
 
 /**
@@ -556,6 +555,33 @@ Paragraph.prototype.getJSONModel = function() {
   }
 
   return paragraph;
+};
+
+
+/**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ *   options.editMode - To render the paragraph in edit mode.
+ * @override
+ */
+Paragraph.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+
+    if (this.editMode) {
+      if (this.placeholderText) {
+        this.dom.setAttribute('placeholder', this.placeholderText);
+      } else if (!this.text.length) {
+        // Content Editable won't be able to set the cursor for an empty element
+        // so we use the zero-length character to workaround that.
+        this.dom.innerHTML = '&#8203;';
+      }
+    } else if (!this.text.length) {
+      this.dom.classList.add(Paragraph.EMPTY_PARAGRAPH_CLASS);
+    }
+  }
 };
 
 

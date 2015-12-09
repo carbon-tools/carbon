@@ -71,6 +71,12 @@ var Component = function(optParams) {
    */
   this.isRendered = false;
 
+  /**
+   * Whether the article is rendered in edit mode or not.
+   * @type {boolean}
+   */
+  this.editMode = false;
+
 };
 module.exports = Component;
 
@@ -175,6 +181,7 @@ Component.prototype.getIndexInSection = function() {
  *   options.insertBefore - To render the component before another element.
  */
 Component.prototype.render = function(element, options) {
+  this.editMode = !!(options && options.editMode);
   if (!this.isRendered && this.dom) {
     this.isRendered = true;
     if (options && options.insertBefore) {

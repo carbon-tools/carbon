@@ -53,6 +53,12 @@ var Figure = function(optParams) {
   this.caption = params.caption;
 
   /**
+   * Text to place as placeholder for caption.
+   * @type {string}
+   */
+  this.captionPlaceholder = params.captionPlaceholder;
+
+  /**
    * Placeholder text to show if the Figure is empty.
    * @type {string}
    */
@@ -71,27 +77,6 @@ var Figure = function(optParams) {
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
-
-  this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-  this.imgDom.addEventListener('click', this.select.bind(this));
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  if (this.src) {
-    this.imgDom.setAttribute('src', this.src);
-    if (this.width) {
-      this.imgDom.setAttribute('width', this.width);
-    }
-    this.dom.appendChild(this.imgDom);
-    this.dom.appendChild(this.selectionDom);
-  }
-
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.captionDom);
 };
 Figure.prototype = Object.create(Component.prototype);
 module.exports = Figure;
@@ -207,6 +192,45 @@ Figure.prototype.getJSONModel = function() {
   }
 
   return image;
+};
+
+
+/**
+ * Renders a component in an element.
+ * @param  {HTMLElement} element Element to render component in.
+ * @param  {Object} options Options for rendering.
+ *   options.insertBefore - To render the component before another element.
+ * @override
+ */
+Figure.prototype.render = function(element, options) {
+  if (!this.isRendered) {
+    Component.prototype.render.call(this, element, options);
+
+    if (this.src) {
+      this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
+      this.imgDom.setAttribute('src', this.src);
+      if (this.width) {
+        this.imgDom.setAttribute('width', this.width);
+      }
+      this.dom.appendChild(this.imgDom);
+    }
+
+    this.captionParagraph.render(this.dom, {editMode: this.editMode});
+
+    if (this.editMode) {
+      if (this.src) {
+        this.imgDom.addEventListener('click', this.select.bind(this));
+        this.selectionDom = document.createElement('div');
+        this.selectionDom.innerHTML = '&nbsp;';
+        this.selectionDom.className = 'selection-pointer';
+        this.selectionDom.setAttribute('contenteditable', true);
+        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.dom.appendChild(this.selectionDom);
+      }
+
+      this.captionParagraph.dom.setAttribute('contenteditable', true);
+    }
+  }
 };
 
 

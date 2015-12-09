@@ -254,7 +254,7 @@ Editor.prototype.render = function() {
   while (this.element.firstChild) {
     this.element.removeChild(this.element.firstChild);
   }
-  this.article.render(this.element);
+  this.article.render(this.element, {editMode: true});
   // this.element.appendChild(this.article.dom);
   this.selection.setCursor({
     component: this.article.sections[0].components[0],

@@ -51,33 +51,6 @@ var EmbeddedComponent = function(optParams) {
   this.caption = params.caption;
 
   /**
-   * DOM element tied to this object.
-   * @type {HTMLElement}
-   */
-  this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
-  this.dom.setAttribute('name', this.name);
-
-  this.containerDom = document.createElement(
-      EmbeddedComponent.CONTAINER_TAG_NAME);
-  this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
-
-  this.overlayDom = document.createElement(
-      EmbeddedComponent.OVERLAY_TAG_NAME);
-  this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
-  this.containerDom.appendChild(this.overlayDom);
-  this.overlayDom.addEventListener('click', this.select.bind(this));
-
-  this.embedDom = document.createElement(EmbeddedComponent.EMBED_TAG_NAME);
-  this.containerDom.appendChild(this.embedDom);
-
-  this.selectionDom = document.createElement('div');
-  this.selectionDom.innerHTML = '&nbsp;';
-  this.selectionDom.className = 'selection-pointer';
-  this.selectionDom.setAttribute('contenteditable', true);
-  this.selectionDom.addEventListener('focus', this.select.bind(this));
-
-  /**
    * Placeholder text to show if the Figure is empty.
    * @type {string}
    */
@@ -89,21 +62,14 @@ var EmbeddedComponent = function(optParams) {
     inline: true
   });
 
-  if (this.url) {
-    if (this.width) {
-      this.embedDom.setAttribute('width', this.width);
-    }
-    if (this.height) {
-      this.embedDom.setAttribute('height', this.height);
-    }
-    this.containerDom.appendChild(this.embedDom);
-    this.containerDom.appendChild(this.selectionDom);
-  }
+  /**
+   * DOM element tied to this object.
+   * @type {HTMLElement}
+   */
+  this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
+  this.dom.setAttribute('contenteditable', false);
+  this.dom.setAttribute('name', this.name);
 
-  this.captionDom = this.captionParagraph.dom;
-  this.captionDom.setAttribute('contenteditable', true);
-  this.dom.appendChild(this.containerDom);
-  this.dom.appendChild(this.captionDom);
 };
 EmbeddedComponent.prototype = Object.create(Component.prototype);
 module.exports = EmbeddedComponent;
@@ -217,6 +183,9 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
         }
       }
     }
+
+    // TODO(mkhatib): Listen to iframes onload event to update the width and
+    // height of the component in editMode.
   } else {
     // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
     console.error('Embedding non-rich component is not supported yet.');
@@ -225,15 +194,48 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
 
 /**
- * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
- *   options.insertBefore - To render the component before another element.
  * @override
  */
 EmbeddedComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
+
+    this.containerDom = document.createElement(
+        EmbeddedComponent.CONTAINER_TAG_NAME);
+    this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
+
+    if (this.url) {
+      this.embedDom = document.createElement(
+          EmbeddedComponent.EMBED_TAG_NAME);
+      if (this.width) {
+        this.embedDom.setAttribute('width', this.width);
+      }
+      if (this.height) {
+        this.embedDom.setAttribute('height', this.height);
+      }
+      this.containerDom.appendChild(this.embedDom);
+      this.dom.appendChild(this.containerDom);
+    }
+
+    if (this.editMode) {
+      this.overlayDom = document.createElement(
+          EmbeddedComponent.OVERLAY_TAG_NAME);
+      this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
+      this.containerDom.appendChild(this.overlayDom);
+      this.overlayDom.addEventListener('click', this.select.bind(this));
+
+      this.selectionDom = document.createElement('div');
+      this.selectionDom.innerHTML = '&nbsp;';
+      this.selectionDom.className = 'selection-pointer';
+      this.selectionDom.setAttribute('contenteditable', true);
+      this.selectionDom.addEventListener('focus', this.select.bind(this));
+      this.containerDom.appendChild(this.selectionDom);
+
+      this.captionParagraph.dom.setAttribute('contenteditable', true);
+    }
+
+    this.captionParagraph.render(this.dom, {editMode: this.editMode});
+
     this.loadEmbed_();
   }
 };
