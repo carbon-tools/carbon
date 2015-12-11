@@ -24,6 +24,7 @@ var Figure = function(optParams) {
     caption: null,
     captionPlaceholder: 'Type caption for image',
     width: '100%',
+    height: null,
   }, optParams);
 
   Component.call(this, params);
@@ -45,6 +46,12 @@ var Figure = function(optParams) {
    * @type {string}
    */
   this.width = params.width;
+
+  /**
+   * Height of the figure.
+   * @type {string}
+   */
+  this.height = params.height;
 
   /**
    * Placeholder text to show if the Figure is empty.
@@ -184,6 +191,7 @@ Figure.prototype.getJSONModel = function() {
     component: Figure.CLASS_NAME,
     name: this.name,
     width: this.width,
+    height: this.height,
     caption: this.captionParagraph.text
   };
 
@@ -212,7 +220,18 @@ Figure.prototype.render = function(element, options) {
       if (this.width) {
         this.imgDom.setAttribute('width', this.width);
       }
+      if (this.height) {
+        this.imgDom.setAttribute('height', this.height);
+      }
       this.dom.appendChild(this.imgDom);
+
+      this.imgDom.addEventListener('load', function () {
+        if (this.editMode) {
+          var styles = window.getComputedStyle(this.imgDom);
+          this.width = styles.width;
+          this.height = styles.height;
+        }
+      }.bind(this));
     }
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});

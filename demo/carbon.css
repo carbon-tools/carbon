@@ -18,7 +18,7 @@
   display: none;
 }
 
-[contenteditable=true] .carbon [placeholder]:empty:before {
+.carbon-editor .carbon [placeholder]:empty:before {
   content: attr(placeholder);
   cursor: text;
   display: block; /* For Firefox */
@@ -112,15 +112,15 @@
   border: none !important;
 }
 
-.carbon figure img,
-.carbon figure iframe,
-.carbon figure .noembed-embed {
+.carbon-editor .carbon figure img,
+.carbon-editor .carbon figure iframe,
+.carbon-editor .carbon figure .noembed-embed {
   border: 3px solid transparent !important;
 }
 
-.carbon figure.editor-selected img,
-.carbon figure.editor-selected iframe,
-.carbon figure.editor-selected .noembed-embed {
+.carbon-editor .carbon figure.editor-selected img,
+.carbon-editor .carbon figure.editor-selected iframe,
+.carbon-editor .carbon figure.editor-selected .noembed-embed {
   border: 3px solid #FF5722 !important;
 }
 

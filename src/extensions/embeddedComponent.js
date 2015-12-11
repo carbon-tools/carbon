@@ -24,7 +24,7 @@ var EmbeddedComponent = function(optParams) {
     provider: null,
     caption: null,
     width: '100%',
-    height: '360px',
+    height: null,
   }, optParams);
 
   Component.call(this, params);
@@ -41,7 +41,16 @@ var EmbeddedComponent = function(optParams) {
    */
   this.provider = params.provider;
 
+  /**
+   * Width of the figure.
+   * @type {string}
+   */
   this.width = params.width;
+
+  /**
+   * Height of the figure.
+   * @type {string}
+   */
   this.height = params.height;
 
   /**
@@ -69,6 +78,7 @@ var EmbeddedComponent = function(optParams) {
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+  this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
 };
 EmbeddedComponent.prototype = Object.create(Component.prototype);
@@ -87,6 +97,13 @@ Loader.register(EmbeddedComponent.CLASS_NAME, EmbeddedComponent);
  * @type {string}
  */
 EmbeddedComponent.TAG_NAME = 'figure';
+
+
+/**
+ * EmbeddedComponent element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.COMPONENT_CLASS_NAME = 'embedded';
 
 
 /**
@@ -166,6 +183,9 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
     console.warn('Cound not find oembed for URL: ', this.url);
     return;
   }
+
+  // TODO(mkhatib): Provide a lite mode load to allow loading a placeholder
+  // and only load the scripts and iframes on click.
   if (oembedData.html) {
     this.embedDom.innerHTML = oembedData.html;
     var scripts = this.embedDom.getElementsByTagName('script');
@@ -184,12 +204,26 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
       }
     }
 
-    // TODO(mkhatib): Listen to iframes onload event to update the width and
-    // height of the component in editMode.
+    if (this.editMode) {
+      this.updateSize_();
+      Utils.addResizeListener(this.containerDom, this.updateSize_.bind(this));
+    }
   } else {
     // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
     console.error('Embedding non-rich component is not supported yet.');
   }
+};
+
+
+/**
+ * Polls the element for size changes and update width and height when
+ * they stabalize for at least 3 seconds.
+ * @private
+ */
+EmbeddedComponent.prototype.updateSize_ = function() {
+  var styles = window.getComputedStyle(this.containerDom);
+  this.width = styles.width;
+  this.height = styles.height;
 };
 
 
@@ -204,14 +238,18 @@ EmbeddedComponent.prototype.render = function(element, options) {
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
 
+    // TODO(mkhatib): Render a nice placeholder until the data has been
+    // loaded.
     if (this.url) {
       this.embedDom = document.createElement(
           EmbeddedComponent.EMBED_TAG_NAME);
       if (this.width) {
-        this.embedDom.setAttribute('width', this.width);
+        this.containerDom.setAttribute('width', this.width);
+        this.containerDom.style.width = this.width;
       }
       if (this.height) {
-        this.embedDom.setAttribute('height', this.height);
+        this.containerDom.setAttribute('height', this.height);
+        this.containerDom.style.height = this.height;
       }
       this.containerDom.appendChild(this.embedDom);
       this.dom.appendChild(this.containerDom);

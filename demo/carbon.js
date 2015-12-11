@@ -2314,7 +2314,7 @@ var EmbeddedComponent = function(optParams) {
     provider: null,
     caption: null,
     width: '100%',
-    height: '360px',
+    height: null,
   }, optParams);
 
   Component.call(this, params);
@@ -2331,7 +2331,16 @@ var EmbeddedComponent = function(optParams) {
    */
   this.provider = params.provider;
 
+  /**
+   * Width of the figure.
+   * @type {string}
+   */
   this.width = params.width;
+
+  /**
+   * Height of the figure.
+   * @type {string}
+   */
   this.height = params.height;
 
   /**
@@ -2359,6 +2368,7 @@ var EmbeddedComponent = function(optParams) {
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+  this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
 };
 EmbeddedComponent.prototype = Object.create(Component.prototype);
@@ -2377,6 +2387,13 @@ Loader.register(EmbeddedComponent.CLASS_NAME, EmbeddedComponent);
  * @type {string}
  */
 EmbeddedComponent.TAG_NAME = 'figure';
+
+
+/**
+ * EmbeddedComponent element tag name.
+ * @type {string}
+ */
+EmbeddedComponent.COMPONENT_CLASS_NAME = 'embedded';
 
 
 /**
@@ -2456,6 +2473,9 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
     console.warn('Cound not find oembed for URL: ', this.url);
     return;
   }
+
+  // TODO(mkhatib): Provide a lite mode load to allow loading a placeholder
+  // and only load the scripts and iframes on click.
   if (oembedData.html) {
     this.embedDom.innerHTML = oembedData.html;
     var scripts = this.embedDom.getElementsByTagName('script');
@@ -2474,12 +2494,26 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
       }
     }
 
-    // TODO(mkhatib): Listen to iframes onload event to update the width and
-    // height of the component in editMode.
+    if (this.editMode) {
+      this.updateSize_();
+      Utils.addResizeListener(this.containerDom, this.updateSize_.bind(this));
+    }
   } else {
     // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
     console.error('Embedding non-rich component is not supported yet.');
   }
+};
+
+
+/**
+ * Polls the element for size changes and update width and height when
+ * they stabalize for at least 3 seconds.
+ * @private
+ */
+EmbeddedComponent.prototype.updateSize_ = function() {
+  var styles = window.getComputedStyle(this.containerDom);
+  this.width = styles.width;
+  this.height = styles.height;
 };
 
 
@@ -2494,14 +2528,18 @@ EmbeddedComponent.prototype.render = function(element, options) {
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
 
+    // TODO(mkhatib): Render a nice placeholder until the data has been
+    // loaded.
     if (this.url) {
       this.embedDom = document.createElement(
           EmbeddedComponent.EMBED_TAG_NAME);
       if (this.width) {
-        this.embedDom.setAttribute('width', this.width);
+        this.containerDom.setAttribute('width', this.width);
+        this.containerDom.style.width = this.width;
       }
       if (this.height) {
-        this.embedDom.setAttribute('height', this.height);
+        this.containerDom.setAttribute('height', this.height);
+        this.containerDom.style.height = this.height;
       }
       this.containerDom.appendChild(this.embedDom);
       this.dom.appendChild(this.containerDom);
@@ -4657,6 +4695,7 @@ var Figure = function(optParams) {
     caption: null,
     captionPlaceholder: 'Type caption for image',
     width: '100%',
+    height: null,
   }, optParams);
 
   Component.call(this, params);
@@ -4678,6 +4717,12 @@ var Figure = function(optParams) {
    * @type {string}
    */
   this.width = params.width;
+
+  /**
+   * Height of the figure.
+   * @type {string}
+   */
+  this.height = params.height;
 
   /**
    * Placeholder text to show if the Figure is empty.
@@ -4817,6 +4862,7 @@ Figure.prototype.getJSONModel = function() {
     component: Figure.CLASS_NAME,
     name: this.name,
     width: this.width,
+    height: this.height,
     caption: this.captionParagraph.text
   };
 
@@ -4845,7 +4891,18 @@ Figure.prototype.render = function(element, options) {
       if (this.width) {
         this.imgDom.setAttribute('width', this.width);
       }
+      if (this.height) {
+        this.imgDom.setAttribute('height', this.height);
+      }
       this.dom.appendChild(this.imgDom);
+
+      this.imgDom.addEventListener('load', function () {
+        if (this.editMode) {
+          var styles = window.getComputedStyle(this.imgDom);
+          this.width = styles.width;
+          this.height = styles.height;
+        }
+      }.bind(this));
     }
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
@@ -7893,6 +7950,124 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
   }
   return !event.defaultPrevented;
 };
+
+
+/**
+ * Adds Utils.addResizeListener and Utils.removeResizeListener to allow
+ * listening to resizing dom elements.
+ *
+ * REF: http://goo.gl/VJHtSQ
+ */
+(function(){
+  var attachEvent = document.attachEvent;
+  var isIE = navigator.userAgent.match(/Trident/);
+
+  var setTimeoutWrapper = function (fn) {
+    return window.setTimeout(fn, 20);
+  };
+
+  var requestFrame = (function(){
+    var raf = (
+        window.requestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        setTimeoutWrapper);
+    return function (fn) {
+      return raf(fn);
+    };
+  })();
+
+  var cancelFrame = (function(){
+    var cancel = (
+        window.cancelAnimationFrame ||
+        window.mozCancelAnimationFrame ||
+        window.webkitCancelAnimationFrame ||
+        window.clearTimeout);
+    return function(id) {
+      return cancel(id);
+    };
+  })();
+
+  function resizeListener(e){
+    var win = e.target || e.srcElement;
+    if (win.__resizeRAF__) {
+      cancelFrame(win.__resizeRAF__);
+    }
+    win.__resizeRAF__ = requestFrame(function(){
+      var trigger = win.__resizeTrigger__;
+      trigger.__resizeListeners__.forEach(function(fn){
+        fn.call(trigger, e);
+      });
+    });
+  }
+
+  function objectLoad(event) {
+    event.target.contentDocument.defaultView.__resizeTrigger__ =
+        event.target.__resizeElement__;
+    event.target.contentDocument.defaultView.addEventListener(
+        'resize', resizeListener);
+  }
+
+  /**
+   * Adds a resize listener to the element.
+   * @param {Element} element Element to listen to.
+   * @param {Function} fn Callback function.
+   */
+  Utils.addResizeListener = function(element, fn){
+    if (!element.__resizeListeners__) {
+      element.__resizeListeners__ = [];
+      if (attachEvent) {
+        element.__resizeTrigger__ = element;
+        element.attachEvent('onresize', resizeListener);
+      }
+      else {
+        if (getComputedStyle(element).position == 'static') {
+          element.style.position = 'relative';
+        }
+        var obj = element.__resizeTrigger__ = document.createElement('object');
+        obj.setAttribute(
+            'style',
+            'display: block; position: absolute; top: 0;' +
+            'left: 0; height: 100%; width: 100%; overflow: hidden;' +
+            'pointer-events: none; z-index: -1;');
+        obj.__resizeElement__ = element;
+        obj.onload = objectLoad;
+        obj.type = 'text/html';
+        if (isIE) {
+          element.appendChild(obj);
+        }
+        obj.data = 'about:blank';
+        if (!isIE) {
+          element.appendChild(obj);
+        }
+      }
+    }
+    element.__resizeListeners__.push(fn);
+  };
+
+  /**
+   * Removes resize listener from element.
+   * @param  {Element} element Element to remove resize event from.
+   * @param  {Function} fn Callback function.
+   */
+  Utils.removeResizeListener = function(element, fn){
+    element.__resizeListeners__.splice(
+        element.__resizeListeners__.indexOf(fn), 1);
+
+    if (!element.__resizeListeners__.length) {
+      if (attachEvent){
+        element.detachEvent('onresize', resizeListener);
+      } else {
+        var contentDocument = element.__resizeTrigger__.contentDocument;
+        contentDocument.defaultView.removeEventListener(
+            'resize', resizeListener);
+        element.__resizeTrigger__ = !element.removeChild(
+            element.__resizeTrigger__);
+      }
+    }
+  };
+
+})();
 
 },{}]},{},[21])(21)
 });
