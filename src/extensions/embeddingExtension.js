@@ -73,8 +73,8 @@ EmbeddingExtension.onInstall = function (editor, config) {
   });
 
   // Register the embedProviders with the loader to allow components to
-  // access them.
-  Loader.register('embedProviders', config.embedProviders);
+  // access them. Force this?
+  Loader.register('embedProviders', config.embedProviders, true);
   extension.init();
 };
 

@@ -7,7 +7,6 @@ var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
-var Errors = require('./errors');
 var FormattingExtension = require('./extensions/formattingExtension');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
@@ -268,10 +267,11 @@ Editor.prototype.render = function() {
  * Installs and activate a component type to use in the editor.
  * @param  {Function} ModuleClass The component class.
  * @param  {Object=} optArgs Optional arguments to pass to onInstall of module.
+ * @param {boolean=} optForce Whether to force registeration.
  */
-Editor.prototype.install = function(ModuleClass, optArgs) {
-  if (this.installedModules[ModuleClass.CLASS_NAME]) {
-    throw Errors.AlreadyRegisteredError(ModuleClass.CLASS_NAME +
+Editor.prototype.install = function(ModuleClass, optArgs, optForce) {
+  if (this.installedModules[ModuleClass.CLASS_NAME] && !optForce) {
+    console.warn(ModuleClass.CLASS_NAME +
         ' module has already been installed in this editor.');
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;

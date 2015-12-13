@@ -701,7 +701,6 @@ var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
-var Errors = require('./errors');
 var FormattingExtension = require('./extensions/formattingExtension');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
@@ -962,10 +961,11 @@ Editor.prototype.render = function() {
  * Installs and activate a component type to use in the editor.
  * @param  {Function} ModuleClass The component class.
  * @param  {Object=} optArgs Optional arguments to pass to onInstall of module.
+ * @param {boolean=} optForce Whether to force registeration.
  */
-Editor.prototype.install = function(ModuleClass, optArgs) {
-  if (this.installedModules[ModuleClass.CLASS_NAME]) {
-    throw Errors.AlreadyRegisteredError(ModuleClass.CLASS_NAME +
+Editor.prototype.install = function(ModuleClass, optArgs, optForce) {
+  if (this.installedModules[ModuleClass.CLASS_NAME] && !optForce) {
+    console.warn(ModuleClass.CLASS_NAME +
         ' module has already been installed in this editor.');
   }
   this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
@@ -1906,7 +1906,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./errors":4,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":15,"./extensions/toolbeltExtension":16,"./extensions/uploadExtension":17,"./figure":18,"./list":19,"./paragraph":22,"./section":23,"./selection":24,"./toolbars/toolbar":27,"./utils":28}],4:[function(require,module,exports){
+},{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":15,"./extensions/toolbeltExtension":16,"./extensions/uploadExtension":17,"./figure":18,"./list":19,"./paragraph":22,"./section":23,"./selection":24,"./toolbars/toolbar":27,"./utils":28}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -2520,7 +2520,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
    */
   var fixFacebookEmbedSizes_ = function(width, height) {
     return function () {
-      var fbPostDoms = document.querySelectorAll('.fb-post');
+      var fbPostDoms = document.querySelectorAll('.carbon .fb-post');
       for (var i = 0; i < fbPostDoms.length; i++) {
         var fbPostDom = fbPostDoms[i];
 
@@ -2552,7 +2552,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
     // Facebook posts wouldn't render if the SDK have already been loaded
     // before. So we need to manually trigger parse.
-    if (fbPostDom && window.FB) {
+    if (fbPostDom && window.FB && this.sizes) {
       FB.XFBML.parse();
       var height = parseInt(styles.height) + 20;
       setTimeout(
@@ -2623,7 +2623,12 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen) {
     if (fbPostDom) {
       fbPostDom.setAttribute('data-width', screen);
     }
-    this.executeScriptsIn_(embedDom);
+
+    if (fbPostDom && window.FB) {
+      FB.XFBML.parse();
+    } else {
+      this.executeScriptsIn_(embedDom);
+    }
 
     this.updateSize_(screen, embedDom);
     Utils.addResizeListener(
@@ -2965,8 +2970,8 @@ EmbeddingExtension.onInstall = function (editor, config) {
   });
 
   // Register the embedProviders with the loader to allow components to
-  // access them.
-  Loader.register('embedProviders', config.embedProviders);
+  // access them. Force this?
+  Loader.register('embedProviders', config.embedProviders, true);
   extension.init();
 };
 

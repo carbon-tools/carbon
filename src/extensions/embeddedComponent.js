@@ -193,7 +193,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
    */
   var fixFacebookEmbedSizes_ = function(width, height) {
     return function () {
-      var fbPostDoms = document.querySelectorAll('.fb-post');
+      var fbPostDoms = document.querySelectorAll('.carbon .fb-post');
       for (var i = 0; i < fbPostDoms.length; i++) {
         var fbPostDom = fbPostDoms[i];
 
@@ -225,7 +225,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
     // Facebook posts wouldn't render if the SDK have already been loaded
     // before. So we need to manually trigger parse.
-    if (fbPostDom && window.FB) {
+    if (fbPostDom && window.FB && this.sizes) {
       FB.XFBML.parse();
       var height = parseInt(styles.height) + 20;
       setTimeout(
@@ -296,7 +296,12 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen) {
     if (fbPostDom) {
       fbPostDom.setAttribute('data-width', screen);
     }
-    this.executeScriptsIn_(embedDom);
+
+    if (fbPostDom && window.FB) {
+      FB.XFBML.parse();
+    } else {
+      this.executeScriptsIn_(embedDom);
+    }
 
     this.updateSize_(screen, embedDom);
     Utils.addResizeListener(
