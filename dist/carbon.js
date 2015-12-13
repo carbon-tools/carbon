@@ -196,6 +196,15 @@ Article.prototype.getLastComponent = function() {
 Article.prototype.render = function(element, options) {
   this.editMode = !!(options && options.editMode);
   element.appendChild(this.dom);
+
+  // TODO(mkhatib): This is only enabled in non-edit mode because otherwise
+  // the tool will add an object to the root of the article and the cursor
+  // would be moving to that object. We need to find a better way to do
+  // resize listener instead of this.
+  if (!this.editMode) {
+    Utils.addResizeListener(this.dom, this.handleResize_.bind(this));
+  }
+
   this.isRendered = true;
   for (var i = 0; i < this.sections.length; i++) {
     this.sections[i].render(this.dom, {editMode: this.editMode});
@@ -387,6 +396,16 @@ Article.prototype.exec = function(operation, action) {
     var ComponentClass = Loader.load(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
+  }
+};
+
+
+/**
+ * Handles the article container size changing.
+ */
+Article.prototype.handleResize_ = function() {
+  for (var i = 0; i < this.sections.length; i++) {
+    this.sections[i].rerender();
   }
 };
 
@@ -585,6 +604,7 @@ Component.prototype.render = function(element, options) {
   }
 };
 
+
 /**
  * Returns the operations to execute a deletion of the component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
@@ -652,6 +672,23 @@ Component.prototype.getUpdateOps = function(
  */
 Component.prototype.getLength = function () {
   return 1;
+};
+
+
+/**
+ * Whether the component should re-render itself or not.
+ * @return {boolean}
+ */
+Component.prototype.shouldRerender = function () {
+  return false;
+};
+
+
+/**
+ * Ask the component to rerender itself.
+ */
+Component.prototype.rerender = function () {
+  // pass.
 };
 
 },{"./errors":4,"./loader":20,"./utils":28}],3:[function(require,module,exports){
@@ -2302,8 +2339,6 @@ var Loader = require('../loader');
  * Default:
  *   {
  *     caption: null,
- *     width: '100%',
- *     height: '360px',
  *     name: Utils.getUID()
  *   }
  */
@@ -2313,8 +2348,7 @@ var EmbeddedComponent = function(optParams) {
     url: null,
     provider: null,
     caption: null,
-    width: '100%',
-    height: null,
+    sizes: null
   }, optParams);
 
   Component.call(this, params);
@@ -2332,16 +2366,10 @@ var EmbeddedComponent = function(optParams) {
   this.provider = params.provider;
 
   /**
-   * Width of the figure.
-   * @type {string}
+   * Sizes of the embedded component in different container sizes.
+   * @type {object}
    */
-  this.width = params.width;
-
-  /**
-   * Height of the figure.
-   * @type {string}
-   */
-  this.height = params.height;
+  this.sizes = params.sizes;
 
   /**
    * Placeholder text to show if the EmbeddedComponent is empty.
@@ -2439,6 +2467,13 @@ EmbeddedComponent.OVERLAY_CLASS_NAME = 'embed-overlay';
 
 
 /**
+ * The screen sizes to render the component for.
+ * @type {Array.<number>}
+ */
+EmbeddedComponent.RENDER_FOR_SCREEN_SIZES = [350, 450, 600];
+
+
+/**
  * Returns the class name of the component.
  * @return {string} Class name of the component.
  */
@@ -2474,30 +2509,64 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
     return;
   }
 
+  /**
+   * This is a very ugly hack to fix Facebook embeds width and heights
+   * changing to 0px on re-render and reloading FB SDK.
+   *
+   * This checks all FB embeds and fixes their heights and widths.
+   *
+   * @param  {string} width Width of the container of the embed.
+   * @param  {string} height Height of the container of the embed.
+   */
+  var fixFacebookEmbedSizes_ = function(width, height) {
+    return function () {
+      var fbPostDoms = document.querySelectorAll('.fb-post');
+      for (var i = 0; i < fbPostDoms.length; i++) {
+        var fbPostDom = fbPostDoms[i];
+
+        var spanEl = fbPostDom.querySelector('span');
+        var spanWidth = spanEl.style.width;
+        if (spanWidth === '0px') {
+          spanEl.style.width = width;
+          spanEl.style.height = height;
+        } else if (spanWidth === '') {
+          setTimeout(fixFacebookEmbedSizes_(width, height), 200);
+          break;
+        }
+      }
+    };
+  };
+
   // TODO(mkhatib): Provide a lite mode load to allow loading a placeholder
   // and only load the scripts and iframes on click.
   if (oembedData.html) {
     this.embedDom.innerHTML = oembedData.html;
-    var scripts = this.embedDom.getElementsByTagName('script');
-    for (var i = 0; i < scripts.length; i++) {
-      /* jshint evil: true */
-      if (!scripts[i].getAttribute('src')) {
-        eval(Utils.getTextFromElement(scripts[i]));
-      } else {
-        var script = document.createElement('script');
-        script.src = scripts[i].getAttribute('src');
-        if (scripts[i].parentNode) {
-          scripts[i].parentNode.replaceChild(script, scripts[i]);
-        } else {
-          document.body.appendChild(script);
-        }
+    var styles = window.getComputedStyle(this.dom);
+    var containerWidth = parseInt(styles.width);
+    var screen = this.getClosestSupportedScreenSize_(containerWidth);
+    var fbPostDom = this.embedDom.querySelector('.fb-post');
+    if (fbPostDom) {
+      fbPostDom.setAttribute('data-width', screen);
+    }
+    this.executeScriptsIn_(this.embedDom);
+
+    // Facebook posts wouldn't render if the SDK have already been loaded
+    // before. So we need to manually trigger parse.
+    if (fbPostDom && window.FB) {
+      FB.XFBML.parse();
+      var height = parseInt(styles.height) + 20;
+      setTimeout(
+          fixFacebookEmbedSizes_(screen + 'px', height + 'px'),
+          500);
+    }
+
+    if (this.editMode && !this.sizes) {
+      var screenSizes = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES;
+      for (var j = 0; j < screenSizes.length; j++) {
+        this.renderForScreen_(screenSizes[j]);
       }
     }
 
-    if (this.editMode) {
-      this.updateSize_();
-      Utils.addResizeListener(this.containerDom, this.updateSize_.bind(this));
-    }
   } else {
     // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
     console.error('Embedding non-rich component is not supported yet.');
@@ -2506,14 +2575,148 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
 
 /**
+ * Executes scripts included in the passed element.
+ * @param  {Element} element
+ * @private
+ */
+EmbeddedComponent.prototype.executeScriptsIn_ = function(element) {
+  var scripts = element.getElementsByTagName('script');
+  for (var i = 0; i < scripts.length; i++) {
+    /* jshint evil: true */
+    if (!scripts[i].getAttribute('src')) {
+      eval(Utils.getTextFromElement(scripts[i]));
+    } else {
+      var script = document.createElement('script');
+      script.src = scripts[i].getAttribute('src');
+      if (scripts[i].parentNode) {
+        scripts[i].parentNode.replaceChild(script, scripts[i]);
+      } else {
+        document.body.appendChild(script);
+      }
+    }
+  }
+};
+
+
+/**
+ * Renders the embedded component for specific screen to store the different
+ * sizes for different screents.
+ * @param  {number} screen Screen width to render it for.
+ * @param  {String} html The HTML to render in that size.
+ * @private
+ */
+EmbeddedComponent.prototype.renderForScreen_ = function(screen) {
+  this.loadEmbed_(function(oembedData) {
+    var html = oembedData.html;
+    var embedDom = document.createElement('div');
+    embedDom.style.position = 'absolute';
+    embedDom.style.top = '-99999px';
+    embedDom.style.left = '-99999px';
+    embedDom.style.width = screen + 'px';
+
+    embedDom.innerHTML = html;
+    document.body.appendChild(embedDom);
+
+    // For facebook to render the post for the required size it needs a
+    // data-width attribute present on .fb-post element.
+    var fbPostDom = embedDom.querySelector('.fb-post');
+    if (fbPostDom) {
+      fbPostDom.setAttribute('data-width', screen);
+    }
+    this.executeScriptsIn_(embedDom);
+
+    this.updateSize_(screen, embedDom);
+    Utils.addResizeListener(
+        embedDom, this.updateSize_.bind(this, screen, embedDom));
+
+    // Cleanup.
+    // TODO(mkhatib): Figure out a better way to do this.
+    setTimeout(function() {
+      Utils.removeResizeListener(
+          embedDom, this.updateSize_.bind(this, screen, embedDom));
+      document.body.removeChild(embedDom);
+    }.bind(this), 10000);
+
+  }.bind(this), { width: screen });
+};
+
+
+/**
  * Polls the element for size changes and update width and height when
  * they stabalize for at least 3 seconds.
  * @private
  */
-EmbeddedComponent.prototype.updateSize_ = function() {
-  var styles = window.getComputedStyle(this.containerDom);
-  this.width = styles.width;
-  this.height = styles.height;
+EmbeddedComponent.prototype.updateSize_ = function(screen, embedDom) {
+  var styles = window.getComputedStyle(embedDom);
+  this.sizes = this.sizes || {};
+  this.sizes[screen] = {
+    width: parseInt(styles.width),
+    height: parseInt(styles.height)
+  };
+};
+
+
+/**
+ * Returns the closest screen size to the width.
+ * @param  {number} width
+ * @return {number}
+ */
+EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
+  var screenSizes = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES;
+  for (var j = screenSizes.length; j > 0; j--) {
+    if (screenSizes[j] <= width) {
+      return screenSizes[j];
+    }
+  }
+  return screenSizes[0];
+};
+
+
+/**
+ * Calculates and returns the ration for the closest screen size for rendering
+ * in the required width.
+ * @param  {number} width Width of the container to render the component in.
+ * @return {string} Height to Width Ration in percentage.
+ */
+EmbeddedComponent.prototype.getRatioFor_ = function (width) {
+  var screen = this.getClosestSupportedScreenSize_(width);
+
+  return (this.sizes[screen].height/this.sizes[screen].width * 100) + '%';
+};
+
+
+/**
+ * Whether the embedded component should render or not.
+ * @return {boolean} true if the supported screen size has changed.
+ */
+EmbeddedComponent.prototype.shouldRerender = function() {
+  var styles = window.getComputedStyle(this.dom);
+  var containerWidth = parseInt(styles.width);
+  var screen = this.getClosestSupportedScreenSize_(containerWidth);
+  var currentWidth = parseInt(this.containerDom.style.width);
+  return screen !== currentWidth;
+};
+
+
+/**
+ * Rerenders the embedded component. This allows for responsive embeds.
+ * The article will tell the embed to rerender when its size change.
+ */
+EmbeddedComponent.prototype.rerender = function() {
+  var styles = window.getComputedStyle(this.dom);
+  var containerWidth = parseInt(styles.width);
+  var screen = this.getClosestSupportedScreenSize_(containerWidth);
+  var ratio = this.getRatioFor_(containerWidth);
+
+  this.containerDom.style.width = screen + 'px';
+  this.embedDom.className = 'embed-container';
+  this.embedDom.style.paddingBottom = ratio;
+
+  setTimeout(function() {
+    this.loadEmbed_(this.oEmbedDataLoaded_.bind(this), {
+      width: this.getClosestSupportedScreenSize_(containerWidth)
+    });
+  }.bind(this), 200);
 };
 
 
@@ -2528,18 +2731,22 @@ EmbeddedComponent.prototype.render = function(element, options) {
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
 
+    var styles = window.getComputedStyle(this.dom);
+    var containerWidth = parseInt(styles.width);
+    this.containerDom.style.width = this.getClosestSupportedScreenSize_(
+        containerWidth) + 'px';
+
     // TODO(mkhatib): Render a nice placeholder until the data has been
     // loaded.
     if (this.url) {
       this.embedDom = document.createElement(
           EmbeddedComponent.EMBED_TAG_NAME);
-      if (this.width) {
-        this.containerDom.setAttribute('width', this.width);
-        this.containerDom.style.width = this.width;
-      }
-      if (this.height) {
-        this.containerDom.setAttribute('height', this.height);
-        this.containerDom.style.height = this.height;
+
+      if (this.sizes) {
+        var ratio = this.getRatioFor_(containerWidth);
+        console.log(ratio);
+        this.embedDom.className = 'embed-container';
+        this.embedDom.style.paddingBottom = ratio;
       }
       this.containerDom.appendChild(this.embedDom);
       this.dom.appendChild(this.containerDom);
@@ -2564,7 +2771,9 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
-    this.loadEmbed_();
+    this.loadEmbed_(this.oEmbedDataLoaded_.bind(this), {
+      width: this.getClosestSupportedScreenSize_(containerWidth)
+    });
   }
 };
 
@@ -2573,13 +2782,9 @@ EmbeddedComponent.prototype.render = function(element, options) {
  * Loads the embed from the embed provider.
  * @private
  */
-EmbeddedComponent.prototype.loadEmbed_ = function() {
+EmbeddedComponent.prototype.loadEmbed_ = function(callback, optArgs) {
   var embedProvider = Loader.load('embedProviders')[this.provider];
-  embedProvider.getEmbedForUrl(
-      this.url,
-      this.oEmbedDataLoaded_.bind(this), {
-        width: 600
-      });
+  embedProvider.getEmbedForUrl(this.url, callback, optArgs);
 };
 
 
@@ -2593,8 +2798,7 @@ EmbeddedComponent.prototype.getJSONModel = function() {
     name: this.name,
     url: this.url,
     provider: this.provider,
-    height: this.height,
-    width: this.width,
+    sizes: this.sizes,
     caption: this.captionParagraph.text
   };
 
@@ -2641,7 +2845,7 @@ EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
         url: this.url,
         provider: this.provider,
         caption: this.caption,
-        width: this.width
+        sizes: this.sizes
       }
     }
   }];
@@ -2665,7 +2869,7 @@ EmbeddedComponent.prototype.getInsertOps = function (index) {
       attrs: {
         url: this.url,
         provider: this.provider,
-        width: this.width,
+        sizes: this.sizes,
         caption: this.caption
       }
     },
@@ -6404,6 +6608,18 @@ Section.prototype.render = function(element, options) {
     }
   } else {
     console.warn('Attempted to render an already rendered component.');
+  }
+};
+
+
+/**
+ * @override
+ */
+Section.prototype.rerender = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].shouldRerender()) {
+      this.components[i].rerender();
+    }
   }
 };
 

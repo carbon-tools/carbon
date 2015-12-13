@@ -204,6 +204,18 @@ Section.prototype.render = function(element, options) {
 
 
 /**
+ * @override
+ */
+Section.prototype.rerender = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    if (this.components[i].shouldRerender()) {
+      this.components[i].rerender();
+    }
+  }
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this section.
  */

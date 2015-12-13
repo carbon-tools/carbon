@@ -15,6 +15,7 @@
   "browserify": true,
   "browser": true,
   "globals": {
-    "Webcam": true
+    "Webcam": true,
+    "FB": true
   }
 }

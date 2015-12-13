@@ -195,6 +195,15 @@ Article.prototype.getLastComponent = function() {
 Article.prototype.render = function(element, options) {
   this.editMode = !!(options && options.editMode);
   element.appendChild(this.dom);
+
+  // TODO(mkhatib): This is only enabled in non-edit mode because otherwise
+  // the tool will add an object to the root of the article and the cursor
+  // would be moving to that object. We need to find a better way to do
+  // resize listener instead of this.
+  if (!this.editMode) {
+    Utils.addResizeListener(this.dom, this.handleResize_.bind(this));
+  }
+
   this.isRendered = true;
   for (var i = 0; i < this.sections.length; i++) {
     this.sections[i].render(this.dom, {editMode: this.editMode});
@@ -386,5 +395,15 @@ Article.prototype.exec = function(operation, action) {
     var ComponentClass = Loader.load(constructorName);
     component = new ComponentClass(options);
     section.insertComponentAt(component, operation[action].index);
+  }
+};
+
+
+/**
+ * Handles the article container size changing.
+ */
+Article.prototype.handleResize_ = function() {
+  for (var i = 0; i < this.sections.length; i++) {
+    this.sections[i].rerender();
   }
 };

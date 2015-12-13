@@ -192,6 +192,7 @@ Component.prototype.render = function(element, options) {
   }
 };
 
+
 /**
  * Returns the operations to execute a deletion of the component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
@@ -259,4 +260,21 @@ Component.prototype.getUpdateOps = function(
  */
 Component.prototype.getLength = function () {
   return 1;
+};
+
+
+/**
+ * Whether the component should re-render itself or not.
+ * @return {boolean}
+ */
+Component.prototype.shouldRerender = function () {
+  return false;
+};
+
+
+/**
+ * Ask the component to rerender itself.
+ */
+Component.prototype.rerender = function () {
+  // pass.
 };
