@@ -1,5 +1,10 @@
 'use strict';
 
+// TODO(mkhatib): Figure out a better way to load translations lazily.
+module.exports.I18n = require('./i18n');
+require('./i18n/en');
+require('./i18n/ar');
+
 module.exports.Editor = require('./editor');
 module.exports.Article = require('./article');
 module.exports.Paragraph = require('./paragraph');
@@ -8,6 +13,7 @@ module.exports.Figure = require('./figure');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 module.exports.Loader = require('./loader');
+
 
 /**
  * Not exporting these as part of carbon.js but available for anybody to use.

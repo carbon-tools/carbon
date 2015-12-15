@@ -5,6 +5,7 @@ var Selection = require('./selection');
 var Component = require('./component');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
+var I18n = require('./i18n');
 
 /**
  * Figure main.
@@ -22,7 +23,7 @@ var Figure = function(optParams) {
   var params = Utils.extend({
     src: '',
     caption: null,
-    captionPlaceholder: 'Type caption for image',
+    captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
     height: null,
   }, optParams);

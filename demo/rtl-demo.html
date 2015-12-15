@@ -26,6 +26,7 @@
       </pre>
     </div>
 
+    <script src="libs/webcamjs/webcam.js"></script>
     <script src="carbon.js"></script>
     <script>
       var demoArticle;
@@ -118,6 +119,7 @@
       var editor = new carbon.Editor(
           document.getElementById('editor'), {
             rtl: true,
+            locale: 'ar',
             article: demoArticle,
             modules: [
               carbon.GiphyComponent,
@@ -136,6 +138,7 @@
         ComponentClass: carbon.EmbeddedComponent
       });
 
+      editor.install(carbon.SelfieExtension);
       editor.render();
 
       var model = document.getElementById('model-viewer');

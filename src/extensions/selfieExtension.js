@@ -4,6 +4,7 @@ var Utils = require('../utils');
 var Attachment = require('./attachment');
 var Figure = require('../figure');
 var Button = require('../toolbars/button');
+var I18n = require('../i18n');
 
 
 /**
@@ -77,7 +78,7 @@ SelfieExtension.CAM_PREVIEW_ELEMENT_ID = 'carbon-camera';
  * Command regex to take a selfie.
  * @type {string}
  */
-SelfieExtension.COMMAND_REGEX = '^/selfie$';
+SelfieExtension.COMMAND_REGEX = '^\\+selfie$';
 
 
 /**
@@ -117,10 +118,10 @@ SelfieExtension.onInstall = function (editor) {
  */
 SelfieExtension.prototype.init = function() {
   this.editor.registerRegex(
-      SelfieExtension.COMMAND_REGEX,
+      I18n.get('regex.selfie') || SelfieExtension.COMMAND_REGEX,
       this.handleMatchedRegex.bind(this));
 
-  var selfieButton = new Button({ label: 'Selfie!' });
+  var selfieButton = new Button({ label: I18n.get('button.selfie') });
   selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
   this.toolbelt.addButton(selfieButton);
 };

@@ -5,6 +5,7 @@ var Errors = require('../errors');
 var Loader = require('../loader');
 var Button = require('../toolbars/button');
 var Paragraph = require('../paragraph');
+var I18n = require('../i18n');
 
 /**
  * EmbeddingExtension allows embedding different kind of components using
@@ -107,23 +108,20 @@ EmbeddingExtension.prototype.init = function() {
 
   // Add embedding buttons to the toolbelt.
   var toolbeltButtons = [{
-    label: 'Insert Video',
-    placeholder: 'Paste a link for YouTube, Vine, FB Video,' +
-        ' SoundCloud and others.'
+    label: I18n.get('button.video'),
+    placeholder: I18n.get('placeholder.video')
   }, {
-    label: 'Insert Photo by URL',
-    placeholder: 'Paste a link for a photo, FB photo, Instagram and others.'
+    label: I18n.get('button.photo'),
+    placeholder: I18n.get('placeholder.photo')
   }, {
-    label: 'Embed Post',
-    placeholder: 'Paste a link for a Facebook post, Tweet, Github Gist' +
-        ' and others.'
+    label: I18n.get('button.post'),
+    placeholder: I18n.get('placeholder.post')
   }, {
-    label: 'Insert GIF',
-    placeholder: 'Type /giphy <search-term> (enter) or paste a link to ' +
-        'giphy or gif image url.'
+    label: I18n.get('button.gif'),
+    placeholder: I18n.get('placeholder.gif')
   }, {
-    label: 'Insert Quiz or Slides',
-    placeholder: 'Paste a link to qzzr.com or slideshare or others.'
+    label: I18n.get('button.quiz'),
+    placeholder: I18n.get('placeholder.quiz')
   }];
 
   for (var i = 0; i < toolbeltButtons.length; i++) {

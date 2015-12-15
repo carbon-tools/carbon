@@ -5,6 +5,7 @@ var Selection = require('../selection');
 var Utils = require('../utils');
 var Button = require('../toolbars/button');
 var TextField = require('../toolbars/textField');
+var I18n = require('../i18n');
 
 
 /**
@@ -169,6 +170,11 @@ Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
  * @param  {Editor} editor Editor instance this installed on.
  */
 Formatting.onInstall = function(editor) {
+  // Ugly hack because we can't load I18n strings on load time.
+  // TODO(mkhatib): Figure out a better way to handle this.
+  var a = Formatting.getActionForTagName('a');
+  a.attrs.href.placeholder = I18n.get('placeholder.href');
+
   var formattingExtension = new Formatting();
   formattingExtension.init(editor);
 };

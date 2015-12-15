@@ -24,17 +24,20 @@ var Toolbar = function (optParams) {
   this.name = params.name;
 
   /**
+   * If the toolbar is added to a right to left editor.
+   * @type {boolean}
+   */
+  this.rtl = params.rtl;
+
+  /**
    * CSS class names to add to the toolbar.
    * @type {Array.<string>}
    */
   this.classNames = params.classNames;
   this.classNames.push(Toolbar.TOOLBAR_CLASS_NAME);
-
-  /**
-   * If the toolbar is added to a right to left editor.
-   * @type {boolean}
-   */
-  this.rtl = params.rtl;
+  if (this.rtl) {
+    this.classNames.push(Toolbar.RTL_CLASS_NAME);
+  }
 
   /**
    * List of buttons on the toolbar.
@@ -125,6 +128,12 @@ Toolbar.BUTTONS_CONTAINER_TAG_NAME = 'div';
  * @type {string}
  */
 Toolbar.TOOLBAR_CLASS_NAME = 'editor-toolbar';
+
+
+/**
+ * Classname added to RTL toolbars.
+ */
+Toolbar.RTL_CLASS_NAME = 'rtl';
 
 
 /**

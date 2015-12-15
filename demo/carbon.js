@@ -409,7 +409,7 @@ Article.prototype.handleResize_ = function() {
   }
 };
 
-},{"./loader":20,"./paragraph":22,"./section":23,"./selection":24,"./utils":28}],2:[function(require,module,exports){
+},{"./loader":23,"./paragraph":25,"./section":26,"./selection":27,"./utils":31}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -691,7 +691,7 @@ Component.prototype.rerender = function () {
   // pass.
 };
 
-},{"./errors":4,"./loader":20,"./utils":28}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":23,"./utils":31}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -707,6 +707,7 @@ var ComponentFactory = require('./extensions/componentFactory');
 var Toolbar = require('./toolbars/toolbar');
 var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
+var I18n = require('./i18n');
 
 
 /**
@@ -724,6 +725,7 @@ var Editor = function (element, optParams) {
   var params = Utils.extend({
     modules: [],
     rtl: false,
+    locale: 'en',
     article: new Article({
       sections: [new Section({
         components: [new Paragraph({
@@ -732,6 +734,8 @@ var Editor = function (element, optParams) {
       })]
     }),
   }, optParams);
+
+  I18n.setCurrentLocale(params.locale);
 
   /**
    * Registers, matches and create components based on registered regex.
@@ -1124,7 +1128,6 @@ Editor.prototype.handleInputEvent = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
-  console.log('keydown', event.keyCode);
   var selection = this.article.selection, newP;
   var article = this.article;
   var preventDefault = false;
@@ -1906,7 +1909,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":15,"./extensions/toolbeltExtension":16,"./extensions/uploadExtension":17,"./figure":18,"./list":19,"./paragraph":22,"./section":23,"./selection":24,"./toolbars/toolbar":27,"./utils":28}],4:[function(require,module,exports){
+},{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":15,"./extensions/toolbeltExtension":16,"./extensions/uploadExtension":17,"./figure":18,"./i18n":19,"./list":22,"./paragraph":25,"./section":26,"./selection":27,"./toolbars/toolbar":30,"./utils":31}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -2056,7 +2059,7 @@ Attachment.prototype.setAttributes = function(attrs) {
   this.figure.updateAttributes(attrs);
 };
 
-},{"../utils":28}],7:[function(require,module,exports){
+},{"../utils":31}],7:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2263,7 +2266,7 @@ CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {
   return null;
 };
 
-},{"../utils":28,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
+},{"../utils":31,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -2332,6 +2335,8 @@ var Selection = require('../selection');
 var Component = require('../component');
 var Paragrarph = require('../paragraph');
 var Loader = require('../loader');
+var I18n = require('../i18n');
+
 
 /**
  * EmbeddedComponent main.
@@ -2382,7 +2387,7 @@ var EmbeddedComponent = function(optParams) {
    * @type {string}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: 'Caption for embedded component',
+    placeholderText: I18n.get('placeholder.embed'),
     text: this.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
@@ -2749,7 +2754,6 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
       if (this.sizes) {
         var ratio = this.getRatioFor_(containerWidth);
-        console.log(ratio);
         this.embedDom.className = 'embed-container';
         this.embedDom.style.paddingBottom = ratio;
       }
@@ -2894,7 +2898,7 @@ EmbeddedComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":20,"../paragraph":22,"../selection":24,"../utils":28}],10:[function(require,module,exports){
+},{"../component":2,"../i18n":19,"../loader":23,"../paragraph":25,"../selection":27,"../utils":31}],10:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2902,6 +2906,7 @@ var Errors = require('../errors');
 var Loader = require('../loader');
 var Button = require('../toolbars/button');
 var Paragraph = require('../paragraph');
+var I18n = require('../i18n');
 
 /**
  * EmbeddingExtension allows embedding different kind of components using
@@ -3004,23 +3009,20 @@ EmbeddingExtension.prototype.init = function() {
 
   // Add embedding buttons to the toolbelt.
   var toolbeltButtons = [{
-    label: 'Insert Video',
-    placeholder: 'Paste a link for YouTube, Vine, FB Video,' +
-        ' SoundCloud and others.'
+    label: I18n.get('button.video'),
+    placeholder: I18n.get('placeholder.video')
   }, {
-    label: 'Insert Photo by URL',
-    placeholder: 'Paste a link for a photo, FB photo, Instagram and others.'
+    label: I18n.get('button.photo'),
+    placeholder: I18n.get('placeholder.photo')
   }, {
-    label: 'Embed Post',
-    placeholder: 'Paste a link for a Facebook post, Tweet, Github Gist' +
-        ' and others.'
+    label: I18n.get('button.post'),
+    placeholder: I18n.get('placeholder.post')
   }, {
-    label: 'Insert GIF',
-    placeholder: 'Type /giphy <search-term> (enter) or paste a link to ' +
-        'giphy or gif image url.'
+    label: I18n.get('button.gif'),
+    placeholder: I18n.get('placeholder.gif')
   }, {
-    label: 'Insert Quiz or Slides',
-    placeholder: 'Paste a link to qzzr.com or slideshare or others.'
+    label: I18n.get('button.quiz'),
+    placeholder: I18n.get('placeholder.quiz')
   }];
 
   for (var i = 0; i < toolbeltButtons.length; i++) {
@@ -3074,7 +3076,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   opsCallback(ops);
 };
 
-},{"../errors":4,"../loader":20,"../paragraph":22,"../toolbars/button":25,"../utils":28}],11:[function(require,module,exports){
+},{"../errors":4,"../i18n":19,"../loader":23,"../paragraph":25,"../toolbars/button":28,"../utils":31}],11:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -3168,7 +3170,7 @@ EmbedlyProvider.prototype.getUrlsRegex = function() {
   return EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING;
 };
 
-},{"../utils":28,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
+},{"../utils":31,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -3176,6 +3178,7 @@ var Selection = require('../selection');
 var Utils = require('../utils');
 var Button = require('../toolbars/button');
 var TextField = require('../toolbars/textField');
+var I18n = require('../i18n');
 
 
 /**
@@ -3340,6 +3343,11 @@ Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
  * @param  {Editor} editor Editor instance this installed on.
  */
 Formatting.onInstall = function(editor) {
+  // Ugly hack because we can't load I18n strings on load time.
+  // TODO(mkhatib): Figure out a better way to handle this.
+  var a = Formatting.getActionForTagName('a');
+  a.attrs.href.placeholder = I18n.get('placeholder.href');
+
   var formattingExtension = new Formatting();
   formattingExtension.init(editor);
 };
@@ -3891,13 +3899,15 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../paragraph":22,"../selection":24,"../toolbars/button":25,"../toolbars/textField":26,"../utils":28}],13:[function(require,module,exports){
+},{"../i18n":19,"../paragraph":25,"../selection":27,"../toolbars/button":28,"../toolbars/textField":29,"../utils":31}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
 var Selection = require('../selection');
 var Component = require('../component');
 var Loader = require('../loader');
+var I18n = require('../i18n');
+
 
 /**
  * GiphyComponent main.
@@ -3980,9 +3990,7 @@ GiphyComponent.CAPTION_TAG_NAME = 'figcaption';
  * Regex strings list that for matching Giphy search terms.
  * @type {Array.<string>}
  */
-GiphyComponent.GIPHY_SEARCH_REGEXS = [
-    '^/giphy\\s(.+[a-zA-Z])$'
-];
+GiphyComponent.GIPHY_SEARCH_REGEX = '^\\+giphy\\s(.+[a-zA-Z])$';
 
 
 /**
@@ -4022,11 +4030,9 @@ GiphyComponent.onInstall = function(editor) {
  * @private
  */
 GiphyComponent.registerRegexes_ = function(editor) {
-  for (var i = 0; i < GiphyComponent.GIPHY_SEARCH_REGEXS.length; i++) {
-    editor.registerRegex(
-        GiphyComponent.GIPHY_SEARCH_REGEXS[i],
-        GiphyComponent.handleMatchedRegex);
-  }
+  editor.registerRegex(
+      I18n.get('regex.giphy') || GiphyComponent.GIPHY_SEARCH_REGEX,
+      GiphyComponent.handleMatchedRegex);
 };
 
 
@@ -4192,13 +4198,14 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../loader":20,"../selection":24,"../utils":28}],14:[function(require,module,exports){
+},{"../component":2,"../i18n":19,"../loader":23,"../selection":27,"../utils":31}],14:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
 var Attachment = require('./attachment');
 var Figure = require('../figure');
 var Button = require('../toolbars/button');
+var I18n = require('../i18n');
 
 
 /**
@@ -4272,7 +4279,7 @@ SelfieExtension.CAM_PREVIEW_ELEMENT_ID = 'carbon-camera';
  * Command regex to take a selfie.
  * @type {string}
  */
-SelfieExtension.COMMAND_REGEX = '^/selfie$';
+SelfieExtension.COMMAND_REGEX = '^\\+selfie$';
 
 
 /**
@@ -4312,10 +4319,10 @@ SelfieExtension.onInstall = function (editor) {
  */
 SelfieExtension.prototype.init = function() {
   this.editor.registerRegex(
-      SelfieExtension.COMMAND_REGEX,
+      I18n.get('regex.selfie') || SelfieExtension.COMMAND_REGEX,
       this.handleMatchedRegex.bind(this));
 
-  var selfieButton = new Button({ label: 'Selfie!' });
+  var selfieButton = new Button({ label: I18n.get('button.selfie') });
   selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
   this.toolbelt.addButton(selfieButton);
 };
@@ -4401,7 +4408,7 @@ SelfieExtension.prototype.handleInsertClicked = function() {
   });
 };
 
-},{"../figure":18,"../toolbars/button":25,"../utils":28,"./attachment":6}],15:[function(require,module,exports){
+},{"../figure":18,"../i18n":19,"../toolbars/button":28,"../utils":31,"./attachment":6}],15:[function(require,module,exports){
 'use strict';
 
 
@@ -4682,13 +4689,14 @@ Toolbelt.prototype.handleButtonAdded = function () {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":24,"../toolbars/button":25,"../toolbars/toolbar":27}],17:[function(require,module,exports){
+},{"../selection":27,"../toolbars/button":28,"../toolbars/toolbar":30}],17:[function(require,module,exports){
 'use strict';
 
 var Button = require('../toolbars/button');
 var Utils = require('../utils');
 var Figure = require('../figure');
 var Attachment = require('./attachment');
+var I18n = require('../i18n');
 
 
 /**
@@ -4813,7 +4821,7 @@ UploadExtension.prototype.init = function(editor) {
       UploadExtension.TOOLBELT_TOOLBAR_NAME);
 
   var uploadButton = new UploadButton({
-    label: 'Upload Photo'
+    label: I18n.get('button.upload')
   });
   uploadButton.addEventListener('change', this.handleUpload.bind(this));
   this.toolbelt.addButton(uploadButton);
@@ -4877,7 +4885,7 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":18,"../toolbars/button":25,"../utils":28,"./attachment":6}],18:[function(require,module,exports){
+},{"../figure":18,"../i18n":19,"../toolbars/button":28,"../utils":31,"./attachment":6}],18:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4885,6 +4893,7 @@ var Selection = require('./selection');
 var Component = require('./component');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
+var I18n = require('./i18n');
 
 /**
  * Figure main.
@@ -4902,7 +4911,7 @@ var Figure = function(optParams) {
   var params = Utils.extend({
     src: '',
     caption: null,
-    captionPlaceholder: 'Type caption for image',
+    captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
     height: null,
   }, optParams);
@@ -5245,7 +5254,155 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./loader":20,"./paragraph":22,"./selection":24,"./utils":28}],19:[function(require,module,exports){
+},{"./component":2,"./i18n":19,"./loader":23,"./paragraph":25,"./selection":27,"./utils":31}],19:[function(require,module,exports){
+'use strict';
+
+var I18n = {};
+module.exports = I18n;
+
+/**
+ * Stores locales strings.
+ * @type {Object}
+ */
+I18n.LANG_STRING_MAP = {};
+
+
+/**
+ * Stores the fallback locale if there wasn't a string for the requested
+ * locale.
+ * @type {string}
+ */
+I18n.fallbackLocale = 'en';
+
+
+/**
+ * Stores the default locale for Carbon.
+ * @type {string}
+ */
+I18n.currentLocale = 'en';
+
+
+/**
+ * Returns the current locale.
+ * @return {string}
+ */
+I18n.getCurrentLocale = function() {
+  return I18n.currentLocale;
+};
+
+
+/**
+ * Sets the current locale.
+ * @param {string} locale
+ */
+I18n.setCurrentLocale = function(locale) {
+  I18n.currentLocale = locale;
+};
+
+
+/**
+ * Returns the fallback locale.
+ * @return {string}
+ */
+I18n.getFallbackLocale = function() {
+  return I18n.fallbackLocale;
+};
+
+
+/**
+ * Sets the fallback locale.
+ * @param {string} locale
+ */
+I18n.setFallbackLocale = function(locale) {
+  I18n.fallbackLocale = locale;
+};
+
+
+/**
+ * Sets a string for a specific locale.
+ * @param {string} locale Locale to store this string for.
+ * @param {string} id String ID.
+ * @param {string} string The string to store for that string ID.
+ */
+I18n.set = function(locale, id, string) {
+  if (!I18n.LANG_STRING_MAP[locale]) {
+    I18n.LANG_STRING_MAP[locale] = {};
+  }
+
+  I18n.LANG_STRING_MAP[locale][id] = string;
+};
+
+
+/**
+ * Returns the string for the specific ID.
+ * @param  {string} id String ID.
+ * @param  {string} optLocale Optional Locale - default to currentLocale.
+ * @return {string|null} The string for that locale if found.
+ */
+I18n.get = function(id, optLocale) {
+  var locale = optLocale || I18n.currentLocale;
+  if (!I18n.LANG_STRING_MAP[locale] ||
+      !I18n.LANG_STRING_MAP[locale][id]) {
+    locale = I18n.getFallbackLocale();
+  }
+  return I18n.LANG_STRING_MAP[locale][id];
+};
+
+},{}],20:[function(require,module,exports){
+'use strict';
+
+var I18n = require('../i18n');
+
+// Caption placeholders.
+I18n.set('ar', 'placeholder.figure'  , 'اكتب وصف للصورة (اختياري)');
+I18n.set('ar', 'placeholder.embed'   , 'اكتب وصف للتضمين (اختياري)');
+I18n.set('ar', 'placeholder.href'    , 'ما هو الرابط؟');
+I18n.set('ar', 'placeholder.video'   , 'ألصق رابط يوتيوب، فاين، فيديو فيسبوك، ساوند كلاود أو غيرها...');
+I18n.set('ar', 'placeholder.photo'   , 'ألصق رابط لصورة، صورة فيسبوك، إنستغرام أو غيرها...');
+I18n.set('ar', 'placeholder.post'    , 'ألصق رابط لفيسبوك، تويتر، جيتهاب جيست أو غيرها...');
+I18n.set('ar', 'placeholder.gif'     , 'اكتب +جيفي <نص إنجليزي للبحث> واضغط زر الإدخال أو ألصق رابط من جيفي...');
+I18n.set('ar', 'placeholder.quiz'    , 'ألصق رابط من qzzr.com أو slideshare أو غيرها...');
+
+// Toolbelt Buttons.
+I18n.set('ar', 'button.upload' , 'تحميل صورة');
+I18n.set('ar', 'button.video'  , 'أدخل فيديو');
+I18n.set('ar', 'button.photo'  , 'أدخل صورة برابط');
+I18n.set('ar', 'button.post'   , 'تضمين منشور');
+I18n.set('ar', 'button.gif'    , 'أدخل GIF');
+I18n.set('ar', 'button.quiz'   , 'أدخل عرض');
+I18n.set('ar', 'button.selfie' , 'نفصورة!');
+
+I18n.set('ar', 'regex.giphy', '^\\+جيفي\\s(.+[a-zA-Z])$');
+I18n.set('ar', 'regex.selfie', '^\\+(?:نفصور[ة|ه]|سي?لفي)$');
+
+},{"../i18n":19}],21:[function(require,module,exports){
+'use strict';
+
+var I18n = require('../i18n');
+
+// Caption placeholders.
+I18n.set('en', 'placeholder.figure'  , 'Enter caption for image (optional)');
+I18n.set('en', 'placeholder.embed'   , 'Enter caption for embed (optional)');
+I18n.set('en', 'placeholder.href'    , 'What is the URL?');
+I18n.set('en', 'placeholder.video'   , 'Paste a link for YouTube, Vine, FB Video, SoundCloud and others.');
+I18n.set('en', 'placeholder.photo'   , 'Paste a link for a photo, FB photo, Instagram and others.');
+I18n.set('en', 'placeholder.post'    , 'Paste a link for a Facebook post, Tweet, Github Gist and others.');
+I18n.set('en', 'placeholder.gif'     , 'Type /giphy <search-term> (enter) or paste a link to giphy or gif image url.');
+I18n.set('en', 'placeholder.quiz'    , 'Paste a link to qzzr.com or slideshare or others.');
+
+// Toolbelt Buttons.
+I18n.set('en', 'button.upload' , 'Upload Photo');
+I18n.set('en', 'button.video'  , 'Insert Video');
+I18n.set('en', 'button.photo'  , 'Insert Photo by URL');
+I18n.set('en', 'button.post'   , 'Embed Post');
+I18n.set('en', 'button.gif'    , 'Insert GIF');
+I18n.set('en', 'button.quiz'   , 'Insert Quiz or Slides');
+I18n.set('en', 'button.selfie' , 'Selfie!');
+
+I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
+I18n.set('en', 'regex.selfie', '^\\+selfie$');
+
+},{"../i18n":19}],22:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5550,7 +5707,7 @@ List.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./loader":20,"./paragraph":22,"./section":23,"./utils":28}],20:[function(require,module,exports){
+},{"./loader":23,"./paragraph":25,"./section":26,"./utils":31}],23:[function(require,module,exports){
 'use strict';
 
 var Errors = require('./errors');
@@ -5611,8 +5768,13 @@ var Loader = (function() {
 })();
 module.exports = Loader;
 
-},{"./errors":4}],21:[function(require,module,exports){
+},{"./errors":4}],24:[function(require,module,exports){
 'use strict';
+
+// TODO(mkhatib): Figure out a better way to load translations lazily.
+module.exports.I18n = require('./i18n');
+require('./i18n/en');
+require('./i18n/ar');
 
 module.exports.Editor = require('./editor');
 module.exports.Article = require('./article');
@@ -5622,6 +5784,7 @@ module.exports.Figure = require('./figure');
 module.exports.Section = require('./section');
 module.exports.Selection = require('./selection');
 module.exports.Loader = require('./loader');
+
 
 /**
  * Not exporting these as part of carbon.js but available for anybody to use.
@@ -5645,7 +5808,7 @@ module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider')
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
-},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/selfieExtension":14,"./figure":18,"./list":19,"./loader":20,"./paragraph":22,"./section":23,"./selection":24}],22:[function(require,module,exports){
+},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/selfieExtension":14,"./figure":18,"./i18n":19,"./i18n/ar":20,"./i18n/en":21,"./list":22,"./loader":23,"./paragraph":25,"./section":26,"./selection":27}],25:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -6411,7 +6574,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./loader":20,"./utils":28}],23:[function(require,module,exports){
+},{"./component":2,"./loader":23,"./utils":31}],26:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -6711,7 +6874,7 @@ Section.prototype.getComponentByName = function(name) {
   }
 };
 
-},{"./component":2,"./loader":20,"./selection":24,"./utils":28}],24:[function(require,module,exports){
+},{"./component":2,"./loader":23,"./selection":27,"./utils":31}],27:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -7242,7 +7405,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":22,"./utils":28}],25:[function(require,module,exports){
+},{"./paragraph":25,"./utils":31}],28:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7449,7 +7612,7 @@ Button.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":28}],26:[function(require,module,exports){
+},{"../utils":31}],29:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7550,7 +7713,7 @@ TextField.prototype.setValue = function (value) {
   this.dom.value = value;
 };
 
-},{"../utils":28}],27:[function(require,module,exports){
+},{"../utils":31}],30:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7577,17 +7740,20 @@ var Toolbar = function (optParams) {
   this.name = params.name;
 
   /**
+   * If the toolbar is added to a right to left editor.
+   * @type {boolean}
+   */
+  this.rtl = params.rtl;
+
+  /**
    * CSS class names to add to the toolbar.
    * @type {Array.<string>}
    */
   this.classNames = params.classNames;
   this.classNames.push(Toolbar.TOOLBAR_CLASS_NAME);
-
-  /**
-   * If the toolbar is added to a right to left editor.
-   * @type {boolean}
-   */
-  this.rtl = params.rtl;
+  if (this.rtl) {
+    this.classNames.push(Toolbar.RTL_CLASS_NAME);
+  }
 
   /**
    * List of buttons on the toolbar.
@@ -7678,6 +7844,12 @@ Toolbar.BUTTONS_CONTAINER_TAG_NAME = 'div';
  * @type {string}
  */
 Toolbar.TOOLBAR_CLASS_NAME = 'editor-toolbar';
+
+
+/**
+ * Classname added to RTL toolbars.
+ */
+Toolbar.RTL_CLASS_NAME = 'rtl';
 
 
 /**
@@ -7859,7 +8031,7 @@ Toolbar.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":28}],28:[function(require,module,exports){
+},{"../utils":31}],31:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -8290,5 +8462,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
 
 })();
 
-},{}]},{},[21])(21)
+},{}]},{},[24])(24)
 });

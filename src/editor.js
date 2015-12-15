@@ -13,6 +13,7 @@ var ComponentFactory = require('./extensions/componentFactory');
 var Toolbar = require('./toolbars/toolbar');
 var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
+var I18n = require('./i18n');
 
 
 /**
@@ -30,6 +31,7 @@ var Editor = function (element, optParams) {
   var params = Utils.extend({
     modules: [],
     rtl: false,
+    locale: 'en',
     article: new Article({
       sections: [new Section({
         components: [new Paragraph({
@@ -38,6 +40,8 @@ var Editor = function (element, optParams) {
       })]
     }),
   }, optParams);
+
+  I18n.setCurrentLocale(params.locale);
 
   /**
    * Registers, matches and create components based on registered regex.
@@ -430,7 +434,6 @@ Editor.prototype.handleInputEvent = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
-  console.log('keydown', event.keyCode);
   var selection = this.article.selection, newP;
   var article = this.article;
   var preventDefault = false;

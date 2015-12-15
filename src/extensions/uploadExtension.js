@@ -4,6 +4,7 @@ var Button = require('../toolbars/button');
 var Utils = require('../utils');
 var Figure = require('../figure');
 var Attachment = require('./attachment');
+var I18n = require('../i18n');
 
 
 /**
@@ -128,7 +129,7 @@ UploadExtension.prototype.init = function(editor) {
       UploadExtension.TOOLBELT_TOOLBAR_NAME);
 
   var uploadButton = new UploadButton({
-    label: 'Upload Photo'
+    label: I18n.get('button.upload')
   });
   uploadButton.addEventListener('change', this.handleUpload.bind(this));
   this.toolbelt.addButton(uploadButton);

@@ -4,6 +4,8 @@ var Utils = require('../utils');
 var Selection = require('../selection');
 var Component = require('../component');
 var Loader = require('../loader');
+var I18n = require('../i18n');
+
 
 /**
  * GiphyComponent main.
@@ -86,9 +88,7 @@ GiphyComponent.CAPTION_TAG_NAME = 'figcaption';
  * Regex strings list that for matching Giphy search terms.
  * @type {Array.<string>}
  */
-GiphyComponent.GIPHY_SEARCH_REGEXS = [
-    '^/giphy\\s(.+[a-zA-Z])$'
-];
+GiphyComponent.GIPHY_SEARCH_REGEX = '^\\+giphy\\s(.+[a-zA-Z])$';
 
 
 /**
@@ -128,11 +128,9 @@ GiphyComponent.onInstall = function(editor) {
  * @private
  */
 GiphyComponent.registerRegexes_ = function(editor) {
-  for (var i = 0; i < GiphyComponent.GIPHY_SEARCH_REGEXS.length; i++) {
-    editor.registerRegex(
-        GiphyComponent.GIPHY_SEARCH_REGEXS[i],
-        GiphyComponent.handleMatchedRegex);
-  }
+  editor.registerRegex(
+      I18n.get('regex.giphy') || GiphyComponent.GIPHY_SEARCH_REGEX,
+      GiphyComponent.handleMatchedRegex);
 };
 
 

@@ -6,6 +6,11 @@
   position: absolute;
   top: -99999px;
   left: -99999px;
+  z-index: 999;
+}
+
+.editor-toolbar.rtl {
+  direction: rtl;
 }
 
 .editor-toolbar .extra-fields {

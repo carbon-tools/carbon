@@ -5,6 +5,8 @@ var Selection = require('../selection');
 var Component = require('../component');
 var Paragrarph = require('../paragraph');
 var Loader = require('../loader');
+var I18n = require('../i18n');
+
 
 /**
  * EmbeddedComponent main.
@@ -55,7 +57,7 @@ var EmbeddedComponent = function(optParams) {
    * @type {string}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: 'Caption for embedded component',
+    placeholderText: I18n.get('placeholder.embed'),
     text: this.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
@@ -422,7 +424,6 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
       if (this.sizes) {
         var ratio = this.getRatioFor_(containerWidth);
-        console.log(ratio);
         this.embedDom.className = 'embed-container';
         this.embedDom.style.paddingBottom = ratio;
       }
