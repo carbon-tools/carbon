@@ -18,10 +18,10 @@
   display: none;
 }
 
-.carbon-editor .carbon [placeholder]:empty:before {
+.carbon-editor .carbon [placeholder].show-placeholder:after {
   content: attr(placeholder);
   cursor: text;
-  display: block; /* For Firefox */
+  display: inline; /* For Firefox */
   color: #c0c0c0;
 }
 

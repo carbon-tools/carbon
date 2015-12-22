@@ -18,10 +18,10 @@
   display: none;
 }
 
-.carbon-editor .carbon [placeholder]:empty:before {
+.carbon-editor .carbon [placeholder].show-placeholder:after {
   content: attr(placeholder);
   cursor: text;
-  display: block; /* For Firefox */
+  display: inline; /* For Firefox */
   color: #c0c0c0;
 }
 
@@ -312,7 +312,6 @@
   background: #FAFAFA;
   color: #000;
   text-align: center;
-  display: table-cell;
   cursor: pointer;
   width: 160px;
   border-bottom: 1px solid #f5f5f5;

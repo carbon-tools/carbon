@@ -162,7 +162,7 @@ Utils.getTextProperty = function (element) {
   var textProp;
   if (element.nodeType === Node.TEXT_NODE) {
     textProp = 'data';
-  } else if (Utils.isFirefox()) {
+  } else if (element.textContent !== undefined) {
     textProp = 'textContent';
   } else {
     textProp = 'innerText';

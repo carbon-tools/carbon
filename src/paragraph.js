@@ -142,9 +142,15 @@ Paragraph.prototype.isHeader = function() {
  */
 Paragraph.prototype.setText = function(text) {
   this.text = text || '';
-  if (!this.text.length && !this.placeholderText) {
+  // Cleanup &nbsp; mess only if there isn't one at the end of the string.
+  if (text && !text.match(/\s$/)) {
+    this.text = text.replace(/\s/g, ' ');
+  }
+  if (!this.text.length) {
     this.dom.innerHTML = '&#8203;';
+    this.dom.classList.add('show-placeholder');
   } else {
+    this.dom.classList.remove('show-placeholder');
     Utils.setTextForElement(this.dom, this.text);
   }
 };
