@@ -217,7 +217,29 @@ Toolbar.prototype.setVisible = function (isVisible) {
  * @param {HTMLElement} element Element to position the toolbar.
  */
 Toolbar.prototype.setPositionToStartTopOf = function (element) {
+  var wSelection = window.getSelection();
+  var oldRange = wSelection.getRangeAt(0);
   var bounds = element.getBoundingClientRect();
+  var tempRange = document.createRange();
+  // Set temporary selection at the element first text to allow the positioning
+  // to include any floating that is happening to the element.
+  try {
+    var tempSelectionOn = element;
+    if (element.childNodes) {
+      tempSelectionOn = element.childNodes[0];
+    }
+    tempRange.setStart(tempSelectionOn, 0);
+    tempRange.setEnd(tempSelectionOn, 1);
+    wSelection.removeAllRanges();
+    wSelection.addRange(tempRange);
+    bounds = tempRange.getBoundingClientRect();
+    wSelection.removeAllRanges();
+    wSelection.addRange(oldRange);
+  } catch (e) {
+    // pass.
+    console.warn(e);
+  }
+
 
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset;
@@ -248,6 +270,28 @@ Toolbar.prototype.setPositionToStartBottomOf = function (element) {
   }
   this.dom.style.top = top + 'px';
   this.dom.style.left = start + 'px';
+};
+
+
+/**
+ * Sets the toolbar position relative to middle top position of an element.
+ * @param {HTMLElement} element Element to position the toolbar.
+ */
+Toolbar.prototype.setPositionToTopOf = function (element) {
+  var bounds = element.getBoundingClientRect();
+  var windowRect = document.body.getBoundingClientRect();
+
+  // Calculate the left edge of the inline toolbar.
+  var clientRect = this.dom.getClientRects()[0];
+  var toolbarHeight = clientRect.height;
+  var toolbarWidth = clientRect.width;
+  var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
+  left = Math.max(10, left);
+  left = Math.min(left, windowRect.width - toolbarWidth - 10);
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
+  this.dom.style.top = top + 'px';
+  this.dom.style.left = left + 'px';
 };
 
 

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="./assets/main.css" />
     <link rel="stylesheet" href="carbon.css" />
     <link href="libs/json-tree/css/jsontree.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
     <script src="libs/json-tree/jsontree.js"></script>
   </head>
   <body>
@@ -44,162 +45,166 @@
         demoArticle = new carbon.Article({
           sections: [new carbon.Section({
             components: [
-              new carbon.Paragraph({
-                placeholderText: 'Carbon Editor Demo',
-                text: 'Welcome to Carbon',
-                paragraphType: carbon.Paragraph.Types.MainHeader
-              }),
-              new carbon.Paragraph({
-                placeholderText: 'This is just a demo.',
-                text: 'A rich and beautiful editor in the browser',
-                paragraphType: carbon.Paragraph.Types.ThirdHeader
-              }),
-              new carbon.Paragraph({
-                text: 'Play around and see the internal model of the' +
-                  ' article being displayed to the right. The Editor is still under'+
-                  ' development.'
-              }),
-              new carbon.Paragraph({
-                text: 'Inline and Block Formatting',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'You can format the article with inline and block' +
-                  ' formatting like bolding, italic, strike, underline and hyperlinks.',
-                formats: [
-                  {type: 'strong', from: 65, to: 72},
-                  {type: 'em', from: 74, to: 80},
-                  {type: 's', from: 82, to: 88},
-                  {type: 'u', from: 90, to: 99},
-                  {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 104, to: 114}
-                ]
-              }),
-              new carbon.Paragraph({
-                text: 'Ordered and Unordered Lists',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.List({
+              new carbon.Layout({
                 components: [
                   new carbon.Paragraph({
-                    paragraphType: carbon.Paragraph.Types.ListItem,
-                    text: 'Item One'
+                    placeholderText: 'Carbon Editor Demo',
+                    text: 'Welcome to Carbon',
+                    paragraphType: carbon.Paragraph.Types.MainHeader
                   }),
                   new carbon.Paragraph({
-                    paragraphType: carbon.Paragraph.Types.ListItem,
-                    text: 'Item Two'
+                    placeholderText: 'This is just a demo.',
+                    text: 'A rich and beautiful editor in the browser',
+                    paragraphType: carbon.Paragraph.Types.ThirdHeader
                   }),
                   new carbon.Paragraph({
-                    paragraphType: carbon.Paragraph.Types.ListItem,
-                    text: 'Item Three'
-                  }),
-                ]
-              }),
-              new carbon.List({
-                tagName: carbon.List.ORDERED_LIST_TAG,
-                components: [
-                  new carbon.Paragraph({
-                    paragraphType: carbon.Paragraph.Types.ListItem,
-                    text: 'Item One'
+                    text: 'Play around and see the internal model of the' +
+                      ' article being displayed to the right. The Editor is still under'+
+                      ' development.'
                   }),
                   new carbon.Paragraph({
-                    paragraphType: carbon.Paragraph.Types.ListItem,
-                    text: 'Item Two'
+                    text: 'Inline and Block Formatting',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
                   }),
                   new carbon.Paragraph({
-                    paragraphType: carbon.Paragraph.Types.ListItem,
-                    text: 'Item Three'
+                    text: 'You can format the article with inline and block' +
+                      ' formatting like bolding, italic, strike, underline and hyperlinks.',
+                    formats: [
+                      {type: 'strong', from: 65, to: 72},
+                      {type: 'em', from: 74, to: 80},
+                      {type: 's', from: 82, to: 88},
+                      {type: 'u', from: 90, to: 99},
+                      {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 104, to: 114}
+                    ]
                   }),
+                  new carbon.Paragraph({
+                    text: 'Ordered and Unordered Lists',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.List({
+                    components: [
+                      new carbon.Paragraph({
+                        paragraphType: carbon.Paragraph.Types.ListItem,
+                        text: 'Item One'
+                      }),
+                      new carbon.Paragraph({
+                        paragraphType: carbon.Paragraph.Types.ListItem,
+                        text: 'Item Two'
+                      }),
+                      new carbon.Paragraph({
+                        paragraphType: carbon.Paragraph.Types.ListItem,
+                        text: 'Item Three'
+                      }),
+                    ]
+                  }),
+                  new carbon.List({
+                    tagName: carbon.List.ORDERED_LIST_TAG,
+                    components: [
+                      new carbon.Paragraph({
+                        paragraphType: carbon.Paragraph.Types.ListItem,
+                        text: 'Item One'
+                      }),
+                      new carbon.Paragraph({
+                        paragraphType: carbon.Paragraph.Types.ListItem,
+                        text: 'Item Two'
+                      }),
+                      new carbon.Paragraph({
+                        paragraphType: carbon.Paragraph.Types.ListItem,
+                        text: 'Item Three'
+                      }),
+                    ]
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Images',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Figure({
+                    src: 'https://octodex.github.com/images/daftpunktocat-guy.gif',
+                    caption: 'Source: octodex.github.com'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'You can also insert images by ' +
+                      'pasting an image URL in a new line and hitting enter.'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Undo-Redo Manager',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'The editor also includes a built-in undo-redo' +
+                      ' manager so you can work freely without losing edits.'
+                  }),
+                  new carbon.Figure({
+                    src: 'https://octodex.github.com/images/mummytocat.gif',
+                    caption: 'Source: octodex.github.com'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Embedding YouTube Videos',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'The editor will also recognize YouTube links pasted in a' +
+                      ' new line after you hit enter and insert a YouTube player.'
+                  }),
+                  new carbon.EmbeddedComponent({
+                    url: 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
+                    provider: 'embedly',
+                    caption: 'Macklemore & Ryan Lewis - Downtown (Official Music Video)'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Serializing and Deserializing Article',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'The editor also exposes a getJSONModel and fromJSON methods' +
+                        ' to allow clients to persist the article model and recreate it for' +
+                        ' further editing. For example, this demo page store changes in' +
+                        ' localStorage and retreive it to recreate the saved article when' +
+                        ' you revisit the demo page. Try making changes and refresh the page.',
+                    formats: [
+                        {type: 'em', from: 26, to: 38},
+                        {type: 'em', from: 43, to: 51},
+                        {type: 'strong', from: 279, to: 318},
+                    ]
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Custom Components and Extensions',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Developers can create custom components to extend the editor' +
+                        ' two ways you can extend the editor are: RegEx Matching and' +
+                        ' Toolbelt Button.',
+                    formats: [
+                        {type: 'strong', from: 101, to: 115},
+                        {type: 'strong', from: 120, to: 135},
+                    ]
+                  }),
+                  new carbon.Paragraph({
+                    text: 'By registering a regex with the editor, your component can' +
+                        ' be notified and do custom work. For example, GiphyComponent' +
+                        ' (enabled in this demo) allows the users to insert GIFs from' +
+                        ' Giphy APIs into the editor. Try it out, on a new paragraph' +
+                        ' type: "/giphy hello" (without quotes) and hit enter.',
+                    formats: [
+                        {type: 'em', from: 104, to: 118},
+                        {type: 'a', from: 179, to: 184, attrs: {href: 'http://giphy.com'}},
+                        {type: 'strong', from: 207, to: 289},
+                    ]
+                  }),
+                  new carbon.GiphyComponent({
+                    src : "http://media.giphy.com/media/CnpgcGr2MQbwQ/giphy.gif",
+                  }),
+                  new carbon.Paragraph({
+                    text: 'A component can also add action(s) to the toolbelt toolbar.' +
+                        ' The toolbelt toolbar appears when you click the + button on' +
+                        ' the block toolbar that appears above the focused paragraph.' +
+                        ' For example, the UploadExtension (enabled in this demo)' +
+                        ' registers a "Upload Photo" action that allows it to handle' +
+                        ' uploading photos and inserting them.',
+                  })
                 ]
-              }),
-              new carbon.Paragraph({
-                text: 'Images',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Figure({
-                src: 'https://octodex.github.com/images/daftpunktocat-guy.gif',
-                caption: 'Source: octodex.github.com'
-              }),
-              new carbon.Paragraph({
-                text: 'You can also insert images by ' +
-                  'pasting an image URL in a new line and hitting enter.'
-              }),
-              new carbon.Paragraph({
-                text: 'Undo-Redo Manager',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'The editor also includes a built-in undo-redo' +
-                  ' manager so you can work freely without losing edits.'
-              }),
-              new carbon.Figure({
-                src: 'https://octodex.github.com/images/mummytocat.gif',
-                caption: 'Source: octodex.github.com'
-              }),
-              new carbon.Paragraph({
-                text: 'Embedding YouTube Videos',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'The editor will also recognize YouTube links pasted in a' +
-                  ' new line after you hit enter and insert a YouTube player.'
-              }),
-              new carbon.EmbeddedComponent({
-                url: 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
-                provider: 'embedly',
-                caption: 'Macklemore & Ryan Lewis - Downtown (Official Music Video)'
-              }),
-              new carbon.Paragraph({
-                text: 'Serializing and Deserializing Article',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'The editor also exposes a getJSONModel and fromJSON methods' +
-                    ' to allow clients to persist the article model and recreate it for' +
-                    ' further editing. For example, this demo page store changes in' +
-                    ' localStorage and retreive it to recreate the saved article when' +
-                    ' you revisit the demo page. Try making changes and refresh the page.',
-                formats: [
-                    {type: 'em', from: 26, to: 38},
-                    {type: 'em', from: 43, to: 51},
-                    {type: 'strong', from: 279, to: 318},
-                ]
-              }),
-              new carbon.Paragraph({
-                text: 'Custom Components and Extensions',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'Developers can create custom components to extend the editor' +
-                    ' two ways you can extend the editor are: RegEx Matching and' +
-                    ' Toolbelt Button.',
-                formats: [
-                    {type: 'strong', from: 101, to: 115},
-                    {type: 'strong', from: 120, to: 135},
-                ]
-              }),
-              new carbon.Paragraph({
-                text: 'By registering a regex with the editor, your component can' +
-                    ' be notified and do custom work. For example, GiphyComponent' +
-                    ' (enabled in this demo) allows the users to insert GIFs from' +
-                    ' Giphy APIs into the editor. Try it out, on a new paragraph' +
-                    ' type: "/giphy hello" (without quotes) and hit enter.',
-                formats: [
-                    {type: 'em', from: 104, to: 118},
-                    {type: 'a', from: 179, to: 184, attrs: {href: 'http://giphy.com'}},
-                    {type: 'strong', from: 207, to: 289},
-                ]
-              }),
-              new carbon.GiphyComponent({
-                src : "http://media.giphy.com/media/CnpgcGr2MQbwQ/giphy.gif",
-              }),
-              new carbon.Paragraph({
-                text: 'A component can also add action(s) to the toolbelt toolbar.' +
-                    ' The toolbelt toolbar appears when you click the + button on' +
-                    ' the block toolbar that appears above the focused paragraph.' +
-                    ' For example, the UploadExtension (enabled in this demo)' +
-                    ' registers a "Upload Photo" action that allows it to handle' +
-                    ' uploading photos and inserting them.',
-              }),
+              })
             ]
           })]
         });
@@ -225,6 +230,7 @@
         ComponentClass: carbon.EmbeddedComponent
       });
       editor.install(carbon.SelfieExtension);
+      editor.install(carbon.LayoutingExtension);
 
       editor.render();
 

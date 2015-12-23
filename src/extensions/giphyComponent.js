@@ -175,6 +175,15 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+GiphyComponent.prototype.getComponentClassName = function() {
+  return GiphyComponent.CLASS_NAME;
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this GiphyComponent.
  */
@@ -239,7 +248,7 @@ GiphyComponent.prototype.select = function () {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -257,6 +266,14 @@ GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  // If this is the only child of the layout delete the layout as well
+  // only if there are other layouts.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+
+  return ops;
 };
 
 

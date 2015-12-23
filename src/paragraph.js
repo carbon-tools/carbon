@@ -124,6 +124,15 @@ Paragraph.onInstall = function (editor) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Paragraph.prototype.getComponentClassName = function() {
+  return Paragraph.CLASS_NAME;
+};
+
+
+/**
  * Returns true if the paragraph type is a header.
  * @return {boolean} True if the paragraph is a header.
  */

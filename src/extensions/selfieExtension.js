@@ -121,7 +121,10 @@ SelfieExtension.prototype.init = function() {
       I18n.get('regex.selfie') || SelfieExtension.COMMAND_REGEX,
       this.handleMatchedRegex.bind(this));
 
-  var selfieButton = new Button({ label: I18n.get('button.selfie') });
+  var selfieButton = new Button({
+    label: I18n.get('button.selfie'),
+    icon: I18n.get('button.icon.selfie')
+  });
   selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
   this.toolbelt.addButton(selfieButton);
 };
@@ -204,5 +207,6 @@ SelfieExtension.prototype.handleInsertClicked = function() {
   var that = this;
   this.letMeTakeASelfie(function(ops) {
     that.editor.article.transaction(ops);
+    that.editor.dispatchEvent(new Event('change'));
   });
 };

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="./assets/main.css" />
     <link rel="stylesheet" href="carbon.css" />
     <link href="libs/json-tree/css/jsontree.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
     <script src="libs/json-tree/jsontree.js"></script>
   </head>
   <body>
@@ -44,73 +45,77 @@
         demoArticle = new carbon.Article({
           sections: [new carbon.Section({
             components: [
-              new carbon.Paragraph({
-                placeholderText: 'كاربون',
-                text: 'مرحباً بك في المحرر',
-                paragraphType: carbon.Paragraph.Types.MainHeader
-              }),
-              new carbon.Paragraph({
-                placeholderText: 'This is just a demo.',
-                text: 'محرر مقالات في المتصفح',
-                paragraphType: carbon.Paragraph.Types.ThirdHeader
-              }),
-              new carbon.Paragraph({
-                text: 'بُني المحرر مع نموذج داخلي للمقال، النموذج معروض في الحزء الأيمن' +
-                  ' من الصفحة. المحرر ما زال قيد التطوير.'
-              }),
-              new carbon.Paragraph({
-                text: 'تنسيق الفقرات والنص',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'يمكنك تنسيق الفقرات والنص مثل خط غامق، مائل، مشطوب، مخطط أو إضافة روابط.',
-                formats: [
-                  {type: 'strong', from: 33, to: 37},
-                  {type: 'em', from: 39, to: 44},
-                  {type: 's', from: 45, to: 50},
-                  {type: 'u', from: 52, to: 56},
-                  {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 65, to: 72}
+              new carbon.Layout({
+                components: [
+                  new carbon.Paragraph({
+                    placeholderText: 'كاربون',
+                    text: 'مرحباً بك في المحرر',
+                    paragraphType: carbon.Paragraph.Types.MainHeader
+                  }),
+                  new carbon.Paragraph({
+                    placeholderText: 'This is just a demo.',
+                    text: 'محرر مقالات في المتصفح',
+                    paragraphType: carbon.Paragraph.Types.ThirdHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'بُني المحرر مع نموذج داخلي للمقال، النموذج معروض في الحزء الأيمن' +
+                      ' من الصفحة. المحرر ما زال قيد التطوير.'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'تنسيق الفقرات والنص',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'يمكنك تنسيق الفقرات والنص مثل خط غامق، مائل، مشطوب، مخطط أو إضافة روابط.',
+                    formats: [
+                      {type: 'strong', from: 33, to: 37},
+                      {type: 'em', from: 39, to: 44},
+                      {type: 's', from: 45, to: 50},
+                      {type: 'u', from: 52, to: 56},
+                      {type: 'a', attrs: {href: 'https://github.com/carbon/editor'}, from: 65, to: 72}
+                    ]
+                  }),
+                  new carbon.Paragraph({
+                    text: 'صور',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Figure({
+                    src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'يمكنك أيضاً ادخال صور عن طريق لصق الرابط في سطر جديد والضغط على إنتر.'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'إلغاء وإعادة مع تاريخ التعديلات',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'المحرر يتتبع جميع التغييرات ويحتوي على خاصية إلغاى وإعادة عمل الفعل.'
+                  }),
+                  new carbon.Figure({
+                    src: 'https://octodex.github.com/images/mummytocat.gif'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'فيديوهات يوتيوب',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'المحرر سوف يلاحظ عندما تلصق رابط من يوتيوب وسدخل فيديو بدل الرابط عند الضغط إنتر.'
+                  }),
+                  new carbon.EmbeddedComponent({
+                    url: 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
+                    provider: 'embedly',
+                    caption: 'ماكلمور - وسط البلد'
+                  }),
+                  new carbon.Paragraph({
+                    text: 'مصدر الصور من أكتوديكس',
+                    formats: [
+                      {type: 'em', from: 0, to: 13},
+                      {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 14, to: 22}
+                    ]
+                  }),
                 ]
-              }),
-              new carbon.Paragraph({
-                text: 'صور',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Figure({
-                src: 'https://octodex.github.com/images/daftpunktocat-guy.gif'
-              }),
-              new carbon.Paragraph({
-                text: 'يمكنك أيضاً ادخال صور عن طريق لصق الرابط في سطر جديد والضغط على إنتر.'
-              }),
-              new carbon.Paragraph({
-                text: 'إلغاء وإعادة مع تاريخ التعديلات',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'المحرر يتتبع جميع التغييرات ويحتوي على خاصية إلغاى وإعادة عمل الفعل.'
-              }),
-              new carbon.Figure({
-                src: 'https://octodex.github.com/images/mummytocat.gif'
-              }),
-              new carbon.Paragraph({
-                text: 'فيديوهات يوتيوب',
-                paragraphType: carbon.Paragraph.Types.SecondaryHeader
-              }),
-              new carbon.Paragraph({
-                text: 'المحرر سوف يلاحظ عندما تلصق رابط من يوتيوب وسدخل فيديو بدل الرابط عند الضغط إنتر.'
-              }),
-              new carbon.EmbeddedComponent({
-                url: 'https://www.youtube.com/watch?v=JGhoLcsr8GA',
-                provider: 'embedly',
-                caption: 'ماكلمور - وسط البلد'
-              }),
-              new carbon.Paragraph({
-                text: 'مصدر الصور من أكتوديكس',
-                formats: [
-                  {type: 'em', from: 0, to: 13},
-                  {type: 'a', attrs: {href: 'https://octodex.github.com/'}, from: 14, to: 22}
-                ]
-              }),
+              })
             ]
           })]
         });
@@ -139,6 +144,7 @@
       });
 
       editor.install(carbon.SelfieExtension);
+      editor.install(carbon.LayoutingExtension);
       editor.render();
 
       var model = document.getElementById('model-viewer');

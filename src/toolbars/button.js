@@ -10,6 +10,7 @@ var Utils = require('../utils');
 var Button = function (optParams) {
   var params = Utils.extend({
     label: 'New Button',
+    icon: '',
     name: Utils.getUID(),
     fields: [],
     data: {}
@@ -48,7 +49,12 @@ var Button = function (optParams) {
    */
   this.buttonDom = document.createElement(Button.TAG_NAME);
   this.buttonDom.setAttribute('name', this.name);
-  Utils.setTextForElement(this.buttonDom, params.label);
+  var icon = document.createElement('i');
+  icon.className = params.icon;
+  this.buttonDom.appendChild(icon);
+  var span = document.createElement('span');
+  Utils.setTextForElement(span, params.label);
+  this.buttonDom.appendChild(span);
   this.buttonDom.addEventListener('click', this.handleClick.bind(this));
   this.dom.appendChild(this.buttonDom);
 

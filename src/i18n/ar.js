@@ -21,5 +21,12 @@ I18n.set('ar', 'button.gif'    , 'أدخل GIF');
 I18n.set('ar', 'button.quiz'   , 'أدخل عرض');
 I18n.set('ar', 'button.selfie' , 'نفصورة!');
 
+// Layouting Toolbar Buttons.
+I18n.set('ar', 'button.layout.single'   , 'خانة');
+I18n.set('ar', 'button.layout.bleed'    , 'رف');
+I18n.set('ar', 'button.layout.staged'   , 'مسرح');
+I18n.set('ar', 'button.layout.left'     , 'شمال');
+I18n.set('ar', 'button.layout.right'    , 'يمين');
+
 I18n.set('ar', 'regex.giphy', '^\\+جيفي\\s(.+[a-zA-Z])$');
 I18n.set('ar', 'regex.selfie', '^\\+(?:نفصور[ة|ه]|سي?لفي)$');

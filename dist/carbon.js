@@ -409,7 +409,7 @@ Article.prototype.handleResize_ = function() {
   }
 };
 
-},{"./loader":23,"./paragraph":25,"./section":26,"./selection":27,"./utils":31}],2:[function(require,module,exports){
+},{"./loader":25,"./paragraph":27,"./section":28,"./selection":29,"./utils":33}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -463,7 +463,6 @@ var Component = function(optParams) {
    * @type {string}
    */
   this.name = params.name;
-  Utils.setReference(this.name, this);
 
   /**
    * Section this Component belongs to.
@@ -595,6 +594,7 @@ Component.prototype.getIndexInSection = function() {
 Component.prototype.render = function(element, options) {
   this.editMode = !!(options && options.editMode);
   if (!this.isRendered && this.dom) {
+    Utils.setReference(this.name, this);
     this.isRendered = true;
     if (options && options.insertBefore) {
       element.insertBefore(this.dom, options.insertBefore);
@@ -691,7 +691,7 @@ Component.prototype.rerender = function () {
   // pass.
 };
 
-},{"./errors":4,"./loader":23,"./utils":31}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":25,"./utils":33}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -708,6 +708,7 @@ var Toolbar = require('./toolbars/toolbar');
 var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
 var I18n = require('./i18n');
+var Layout = require('./layout');
 
 
 /**
@@ -1101,6 +1102,7 @@ Editor.prototype.handleInputEvent = function() {
         {}, offset + direction, undefined,
         Utils.getTextFromElement(component.dom));
     self.article.transaction(ops);
+    self.editor.dispatchEvent(new Event('change'));
   }, 3);
 
   // Another way to do this is to use the following in compositionupdate event.
@@ -1235,6 +1237,23 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             insertType = Paragraph.Types.Paragraph;
           } else {
             insertType = Paragraph.Types.Paragraph;
+          }
+
+          // If current layout is not column get the next column layout and
+          // insert the new paragraph at the top of that layout.
+          // TODO(mkhatib): Maybe move this logic inside Layout to get the
+          // layout that enter should insert component at (e.g. getEnterOps).
+          if (currentComponent.section instanceof Layout &&
+              currentComponent.section.type !== Layout.Types.SingleColumn) {
+            var layouts = currentComponent.section.section.components;
+            var layoutIndex = currentComponent.section.getIndexInSection();
+            for (var i = layoutIndex; i < layouts.length; i++) {
+              if (layouts[i].type === Layout.Types.SingleColumn) {
+                insertInSection = layouts[i];
+                atIndex = 0;
+                break;
+              }
+            }
           }
 
           newP = new Paragraph({
@@ -1909,7 +1928,7 @@ Editor.prototype.handleCut = function() {
   }, 20);
 };
 
-},{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":15,"./extensions/toolbeltExtension":16,"./extensions/uploadExtension":17,"./figure":18,"./i18n":19,"./list":22,"./paragraph":25,"./section":26,"./selection":27,"./toolbars/toolbar":30,"./utils":31}],4:[function(require,module,exports){
+},{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":16,"./extensions/toolbeltExtension":17,"./extensions/uploadExtension":18,"./figure":19,"./i18n":20,"./layout":23,"./list":24,"./paragraph":27,"./section":28,"./selection":29,"./toolbars/toolbar":32,"./utils":33}],4:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -2059,7 +2078,7 @@ Attachment.prototype.setAttributes = function(attrs) {
   this.figure.updateAttributes(attrs);
 };
 
-},{"../utils":31}],7:[function(require,module,exports){
+},{"../utils":33}],7:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2266,7 +2285,7 @@ CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {
   return null;
 };
 
-},{"../utils":31,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
+},{"../utils":33,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -2501,6 +2520,15 @@ EmbeddedComponent.fromJSON = function (json) {
  * @param  {Editor} editor Instance of the editor that installed the module.
  */
 EmbeddedComponent.onInstall = function() {
+};
+
+
+/**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+EmbeddedComponent.prototype.getComponentClassName = function() {
+  return EmbeddedComponent.CLASS_NAME;
 };
 
 
@@ -2743,8 +2771,6 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
     var styles = window.getComputedStyle(this.dom);
     var containerWidth = parseInt(styles.width);
-    this.containerDom.style.width = this.getClosestSupportedScreenSize_(
-        containerWidth) + 'px';
 
     // TODO(mkhatib): Render a nice placeholder until the data has been
     // loaded.
@@ -2776,6 +2802,11 @@ EmbeddedComponent.prototype.render = function(element, options) {
       this.containerDom.appendChild(this.selectionDom);
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
+
+      if (!this.sizes) {
+        this.containerDom.style.width = this.getClosestSupportedScreenSize_(
+            containerWidth) + 'px';
+      }
     }
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
@@ -2839,7 +2870,7 @@ EmbeddedComponent.prototype.select = function () {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -2858,6 +2889,14 @@ EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  // If this is the only child of the layout delete the layout as well
+  // only if there are other layouts.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+
+  return ops;
 };
 
 
@@ -2898,7 +2937,7 @@ EmbeddedComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../i18n":19,"../loader":23,"../paragraph":25,"../selection":27,"../utils":31}],10:[function(require,module,exports){
+},{"../component":2,"../i18n":20,"../loader":25,"../paragraph":27,"../selection":29,"../utils":33}],10:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -3010,24 +3049,30 @@ EmbeddingExtension.prototype.init = function() {
   // Add embedding buttons to the toolbelt.
   var toolbeltButtons = [{
     label: I18n.get('button.video'),
+    icon: I18n.get('button.icon.video'),
     placeholder: I18n.get('placeholder.video')
   }, {
     label: I18n.get('button.photo'),
+    icon: I18n.get('button.icon.photo'),
     placeholder: I18n.get('placeholder.photo')
   }, {
     label: I18n.get('button.post'),
+    icon: I18n.get('button.icon.post'),
     placeholder: I18n.get('placeholder.post')
   }, {
     label: I18n.get('button.gif'),
+    icon: I18n.get('button.icon.gif'),
     placeholder: I18n.get('placeholder.gif')
   }, {
     label: I18n.get('button.quiz'),
+    icon: I18n.get('button.icon.quiz'),
     placeholder: I18n.get('placeholder.quiz')
   }];
 
   for (var i = 0; i < toolbeltButtons.length; i++) {
     var insertVideoButton = new Button({
       label: toolbeltButtons[i].label,
+      icon: toolbeltButtons[i].icon,
       data: { placeholder: toolbeltButtons[i].placeholder }
     });
     insertVideoButton.addEventListener(
@@ -3076,7 +3121,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   opsCallback(ops);
 };
 
-},{"../errors":4,"../i18n":19,"../loader":23,"../paragraph":25,"../toolbars/button":28,"../utils":31}],11:[function(require,module,exports){
+},{"../errors":4,"../i18n":20,"../loader":25,"../paragraph":27,"../toolbars/button":30,"../utils":33}],11:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -3170,7 +3215,7 @@ EmbedlyProvider.prototype.getUrlsRegex = function() {
   return EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING;
 };
 
-},{"../utils":31,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
+},{"../utils":33,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
 'use strict';
 
 var Paragraph = require('../paragraph');
@@ -3899,7 +3944,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../i18n":19,"../paragraph":25,"../selection":27,"../toolbars/button":28,"../toolbars/textField":29,"../utils":31}],13:[function(require,module,exports){
+},{"../i18n":20,"../paragraph":27,"../selection":29,"../toolbars/button":30,"../toolbars/textField":31,"../utils":33}],13:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -4077,6 +4122,15 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+GiphyComponent.prototype.getComponentClassName = function() {
+  return GiphyComponent.CLASS_NAME;
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this GiphyComponent.
  */
@@ -4141,7 +4195,7 @@ GiphyComponent.prototype.select = function () {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -4159,6 +4213,14 @@ GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  // If this is the only child of the layout delete the layout as well
+  // only if there are other layouts.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+
+  return ops;
 };
 
 
@@ -4198,7 +4260,253 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../i18n":19,"../loader":23,"../selection":27,"../utils":31}],14:[function(require,module,exports){
+},{"../component":2,"../i18n":20,"../loader":25,"../selection":29,"../utils":33}],14:[function(require,module,exports){
+'use strict';
+
+var Selection = require('../selection');
+var Toolbar = require('../toolbars/toolbar');
+var Button = require('../toolbars/button');
+var I18n = require('../i18n');
+var Figure = require('../figure');
+var Layout = require('../layout');
+var Utils = require('../utils');
+var Loader = require('../loader');
+var EmbeddedComponent = require('./embeddedComponent');
+var GiphyComponent = require('./giphyComponent');
+
+
+/**
+ * LayoutingExtension extension for the editor.
+ *   Adds an extendable toolbar for components to add buttons to.
+ */
+var LayoutingExtension = function () {
+
+  /**
+   * The editor this toolbelt belongs to.
+   * @type {Editor}
+   */
+  this.editor = null;
+
+  /**
+   * The layouting toolbar.
+   * @type {Toolbar}
+   */
+  this.toolbar = null;
+
+};
+module.exports = LayoutingExtension;
+
+
+/**
+ * Extension class name.
+ * @type {string}
+ */
+LayoutingExtension.CLASS_NAME = 'LayoutingExtension';
+
+
+/**
+ * Initializes the toolbelt extensions.
+ * @param  {Editor} editor Editor instance this installed on.
+ */
+LayoutingExtension.onInstall = function(editor) {
+  var toolbeltExtension = new LayoutingExtension();
+  toolbeltExtension.init(editor);
+};
+
+
+/**
+ * Call to destroy instance and cleanup dom and event listeners.
+ */
+LayoutingExtension.onDestroy = function() {
+  // pass
+};
+
+
+/**
+ * Initiates the toolbelt extension.
+ * @param  {Editor} editor The editor to initialize the extension for.
+ */
+LayoutingExtension.prototype.init = function(editor) {
+  this.editor = editor;
+
+  // Create a new toolbar for the toolbelt.
+  this.toolbar = new Toolbar({
+    name: LayoutingExtension.TOOLBAR_NAME,
+    classNames: [LayoutingExtension.TOOLBAR_CLASS_NAME],
+    rtl: this.editor.rtl
+  });
+
+  // TODO(mkhatib): Use Icons for buttons here.
+  // Add layouting buttons to the toolbar.
+  var buttons = [{
+    label: I18n.get('button.layout.single'),
+    icon: I18n.get('button.layout.icon.single'),
+    name: 'layout-single-column'
+  }, {
+    label: I18n.get('button.layout.bleed'),
+    icon: I18n.get('button.layout.icon.bleed'),
+    name: 'layout-bleed'
+  }, {
+    label: I18n.get('button.layout.staged'),
+    icon: I18n.get('button.layout.icon.staged'),
+    name: 'layout-staged'
+  }, {
+    label: I18n.get('button.layout.left'),
+    icon: I18n.get('button.layout.icon.left'),
+    name: 'layout-float-left'
+  }, {
+    label: I18n.get('button.layout.right'),
+    icon: I18n.get('button.layout.icon.right'),
+    name: 'layout-float-right'
+  }];
+
+  for (var i = 0; i < buttons.length; i++) {
+    var button = new Button({
+      label: buttons[i].label,
+      name: buttons[i].name,
+      icon: buttons[i].icon,
+      data: { name: buttons[i].name }
+    });
+    button.addEventListener(
+        'click', this.handleLayoutButtonClick.bind(this));
+    this.toolbar.addButton(button);
+  }
+
+  // Register the toolbelt toolbar with the editor.
+  this.editor.registerToolbar(LayoutingExtension.TOOLBAR_NAME, this.toolbar);
+
+  // Listen to selection changes.
+  this.editor.article.selection.addEventListener(
+      Selection.Events.SELECTION_CHANGED,
+      this.handleSelectionChangedEvent.bind(this));
+};
+
+
+/**
+ * LayoutingExtension toolbar name.
+ * @type {string}
+ */
+LayoutingExtension.TOOLBAR_NAME = 'layouting-toolbar';
+
+
+/**
+ * LayoutingExtension toolbar class name.
+ * @type {string}
+ */
+LayoutingExtension.TOOLBAR_CLASS_NAME = 'layouting-toolbar';
+
+
+/**
+ * Handles clicking the insert button to expand the toolbelt.
+ */
+LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
+  var ops = [];
+  var insertLayoutAtIndex;
+  var selectedComponent = this.editor.selection.getComponentAtStart();
+  var componentClassName = selectedComponent.getComponentClassName();
+  var ComponentClass = Loader.load(componentClassName);
+  var component;
+  var newLayout;
+
+  if (selectedComponent instanceof Figure ||
+      selectedComponent instanceof EmbeddedComponent ||
+      selectedComponent instanceof GiphyComponent) {
+    this.toolbar.setActiveButton(e.detail.target);
+    var currentLayout = selectedComponent.section;
+    var clickedLayout = e.detail.target.name;
+    var componentIndexInLayout = selectedComponent.getIndexInSection();
+    var isComponentAtStartOfLayout = componentIndexInLayout === 0;
+    var isComponentAtEndOfLayout = (
+        componentIndexInLayout === currentLayout.getLength() - 1);
+    if (currentLayout.type !== clickedLayout) {
+      // If figure is the only element in the layout, just change
+      // the layout type.
+      if (currentLayout.getLength() === 1) {
+        Utils.arrays.extend(ops, currentLayout.getUpdateOps({
+          type: clickedLayout
+        }));
+      }
+
+      // If figure is the first/last element in the layout, create a new
+      // layout and append it to the section before/after the current layout
+      // with the figure in it.
+      else if (isComponentAtStartOfLayout || isComponentAtEndOfLayout) {
+        insertLayoutAtIndex = currentLayout.getIndexInSection();
+        if (isComponentAtEndOfLayout) {
+          insertLayoutAtIndex++;
+        }
+        newLayout = new Layout({
+          type: clickedLayout,
+          section: currentLayout.section,
+          components: []
+        });
+        Utils.arrays.extend(ops, newLayout.getInsertOps(insertLayoutAtIndex));
+        Utils.arrays.extend(ops, selectedComponent.getDeleteOps());
+
+        component = ComponentClass.fromJSON(selectedComponent.getJSONModel());
+        component.section = newLayout;
+        Utils.arrays.extend(ops, component.getInsertOps(0));
+      }
+
+      // If figure is in the middle of a layout. Split layout in that index.
+      // Create a new layout and insert it in the middle.
+      else {
+        insertLayoutAtIndex = currentLayout.getIndexInSection() + 1;
+        newLayout = new Layout({
+          type: clickedLayout,
+          section: currentLayout.section,
+          components: []
+        });
+
+        Utils.arrays.extend(
+            ops, currentLayout.getSplitOps(componentIndexInLayout));
+        Utils.arrays.extend(ops, selectedComponent.getDeleteOps());
+        Utils.arrays.extend(ops, newLayout.getInsertOps(insertLayoutAtIndex));
+
+        component = ComponentClass.fromJSON(selectedComponent.getJSONModel());
+        component.section = newLayout;
+        Utils.arrays.extend(ops, component.getInsertOps(0));
+
+      }
+
+
+      this.editor.article.transaction(ops);
+      this.editor.dispatchEvent(new Event('change'));
+    }
+  }
+
+  this.toolbar.setPositionToTopOf(selectedComponent.dom);
+};
+
+
+/**
+ * Handles selection change event on the editor to hide the toolbelt.
+ */
+LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
+  var selectedComponent = this.editor.selection.getComponentAtStart();
+  if (selectedComponent instanceof Figure ||
+      selectedComponent instanceof EmbeddedComponent ||
+      selectedComponent instanceof GiphyComponent) {
+    var activeLayout = selectedComponent.section.type;
+    var activeLayoutButton = this.toolbar.getButtonByName(activeLayout);
+    this.toolbar.setActiveButton(activeLayoutButton);
+
+    this.toolbar.setPositionToTopOf(selectedComponent.dom);
+    this.toolbar.setVisible(true);
+  } else {
+    this.toolbar.setVisible(false);
+  }
+};
+
+
+/**
+ * Handles new button added to toolbelt to show the insert button.
+ */
+LayoutingExtension.prototype.handleButtonAdded = function () {
+  this.insertButton.setVisible(true);
+};
+
+},{"../figure":19,"../i18n":20,"../layout":23,"../loader":25,"../selection":29,"../toolbars/button":30,"../toolbars/toolbar":32,"../utils":33,"./embeddedComponent":9,"./giphyComponent":13}],15:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -4322,7 +4630,10 @@ SelfieExtension.prototype.init = function() {
       I18n.get('regex.selfie') || SelfieExtension.COMMAND_REGEX,
       this.handleMatchedRegex.bind(this));
 
-  var selfieButton = new Button({ label: I18n.get('button.selfie') });
+  var selfieButton = new Button({
+    label: I18n.get('button.selfie'),
+    icon: I18n.get('button.icon.selfie')
+  });
   selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
   this.toolbelt.addButton(selfieButton);
 };
@@ -4405,10 +4716,11 @@ SelfieExtension.prototype.handleInsertClicked = function() {
   var that = this;
   this.letMeTakeASelfie(function(ops) {
     that.editor.article.transaction(ops);
+    that.editor.dispatchEvent(new Event('change'));
   });
 };
 
-},{"../figure":18,"../i18n":19,"../toolbars/button":28,"../utils":31,"./attachment":6}],15:[function(require,module,exports){
+},{"../figure":19,"../i18n":20,"../toolbars/button":30,"../utils":33,"./attachment":6}],16:[function(require,module,exports){
 'use strict';
 
 
@@ -4547,7 +4859,7 @@ ShortcutsManager.prototype.onDestroy = function() {
   this.registery = {};
 };
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
 var Selection = require('../selection');
@@ -4689,7 +5001,7 @@ Toolbelt.prototype.handleButtonAdded = function () {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":27,"../toolbars/button":28,"../toolbars/toolbar":30}],17:[function(require,module,exports){
+},{"../selection":29,"../toolbars/button":30,"../toolbars/toolbar":32}],18:[function(require,module,exports){
 'use strict';
 
 var Button = require('../toolbars/button');
@@ -4706,6 +5018,7 @@ var I18n = require('../i18n');
 var UploadButton = function (optParams) {
   var params = Utils.extend({
     label: 'Upload',
+    icon: '',
   }, optParams);
 
   Button.call(this, params);
@@ -4821,7 +5134,8 @@ UploadExtension.prototype.init = function(editor) {
       UploadExtension.TOOLBELT_TOOLBAR_NAME);
 
   var uploadButton = new UploadButton({
-    label: I18n.get('button.upload')
+    label: I18n.get('button.upload'),
+    icon: I18n.get('button.icon.upload')
   });
   uploadButton.addEventListener('change', this.handleUpload.bind(this));
   this.toolbelt.addButton(uploadButton);
@@ -4846,6 +5160,7 @@ UploadExtension.prototype.handleUpload = function(event) {
     figure.section = selection.getSectionAtStart();
     var insertFigureOps = figure.getInsertOps(component.getIndexInSection());
     that.editor.article.transaction(insertFigureOps);
+    that.editor.dispatchEvent(new Event('change'));
 
     // Create an attachment to track the figure and insertion operations.
     var attachment = new Attachment({
@@ -4885,7 +5200,7 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":18,"../i18n":19,"../toolbars/button":28,"../utils":31,"./attachment":6}],18:[function(require,module,exports){
+},{"../figure":19,"../i18n":20,"../toolbars/button":30,"../utils":33,"./attachment":6}],19:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -4994,6 +5309,20 @@ Figure.CONTAINER_TAG_NAME = 'figure';
 
 
 /**
+ * Container element tag name to allow responsive images.
+ * @type {string}
+ */
+Figure.IMAGE_CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * Container element class name to allow responsive images.
+ * @type {string}
+ */
+Figure.IMAGE_CONTAINER_CLASS_NAME = 'image-container';
+
+
+/**
  * Image element tag name.
  * @type {string}
  */
@@ -5032,7 +5361,6 @@ Figure.fromJSON = function (json) {
  */
 Figure.onInstall = function(editor) {
   Figure.registerRegexes_(editor);
-  // TODO(mkhatib): Initialize a toolbar for all Figure components instances.
 };
 
 
@@ -5072,6 +5400,15 @@ Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Figure.prototype.getComponentClassName = function() {
+  return Figure.CLASS_NAME;
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this Figure.
  */
@@ -5106,21 +5443,16 @@ Figure.prototype.render = function(element, options) {
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
       this.imgDom.setAttribute('src', this.src);
-      if (this.width) {
-        this.imgDom.setAttribute('width', this.width);
-      }
-      if (this.height) {
-        this.imgDom.setAttribute('height', this.height);
-      }
-      this.dom.appendChild(this.imgDom);
 
-      this.imgDom.addEventListener('load', function () {
-        if (this.editMode) {
-          var styles = window.getComputedStyle(this.imgDom);
-          this.width = styles.width;
-          this.height = styles.height;
-        }
-      }.bind(this));
+      this.imgContainerDom = document.createElement(
+          Figure.IMAGE_CONTAINER_TAG_NAME);
+      if (this.width && this.height) {
+        this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
+        this.imgContainerDom.style.paddingBottom = (
+            (parseInt(this.height)/parseInt(this.width) * 100) + '%');
+      }
+      this.imgContainerDom.appendChild(this.imgDom);
+      this.dom.appendChild(this.imgContainerDom);
     }
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
@@ -5137,6 +5469,16 @@ Figure.prototype.render = function(element, options) {
       }
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
+
+      if (!this.width || !this.height) {
+        this.imgDom.addEventListener('load', function () {
+          if (this.editMode) {
+            var styles = window.getComputedStyle(this.imgDom);
+            this.width = styles.width;
+            this.height = styles.height;
+          }
+        }.bind(this));
+      }
     }
   }
 };
@@ -5161,7 +5503,7 @@ Figure.prototype.select = function () {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 Figure.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -5179,6 +5521,14 @@ Figure.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  // If this is the only child of the layout delete the layout as well
+  // only if there are other layouts.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+
+  return ops;
 };
 
 
@@ -5254,7 +5604,7 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./i18n":19,"./loader":23,"./paragraph":25,"./selection":27,"./utils":31}],19:[function(require,module,exports){
+},{"./component":2,"./i18n":20,"./loader":25,"./paragraph":27,"./selection":29,"./utils":33}],20:[function(require,module,exports){
 'use strict';
 
 var I18n = {};
@@ -5348,7 +5698,7 @@ I18n.get = function(id, optLocale) {
   return I18n.LANG_STRING_MAP[locale][id];
 };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 var I18n = require('../i18n');
@@ -5372,10 +5722,17 @@ I18n.set('ar', 'button.gif'    , 'أدخل GIF');
 I18n.set('ar', 'button.quiz'   , 'أدخل عرض');
 I18n.set('ar', 'button.selfie' , 'نفصورة!');
 
+// Layouting Toolbar Buttons.
+I18n.set('ar', 'button.layout.single'   , 'خانة');
+I18n.set('ar', 'button.layout.bleed'    , 'رف');
+I18n.set('ar', 'button.layout.staged'   , 'مسرح');
+I18n.set('ar', 'button.layout.left'     , 'شمال');
+I18n.set('ar', 'button.layout.right'    , 'يمين');
+
 I18n.set('ar', 'regex.giphy', '^\\+جيفي\\s(.+[a-zA-Z])$');
 I18n.set('ar', 'regex.selfie', '^\\+(?:نفصور[ة|ه]|سي?لفي)$');
 
-},{"../i18n":19}],21:[function(require,module,exports){
+},{"../i18n":20}],22:[function(require,module,exports){
 'use strict';
 
 var I18n = require('../i18n');
@@ -5399,10 +5756,304 @@ I18n.set('en', 'button.gif'    , 'Insert GIF');
 I18n.set('en', 'button.quiz'   , 'Insert Quiz or Slides');
 I18n.set('en', 'button.selfie' , 'Selfie!');
 
+I18n.set('en', 'button.icon.upload' , 'fa fa-upload');
+I18n.set('en', 'button.icon.video'  , 'fa fa-youtube-play');
+I18n.set('en', 'button.icon.photo'  , 'fa fa-picture-o');
+I18n.set('en', 'button.icon.post'   , 'fa fa-twitter');
+I18n.set('en', 'button.icon.gif'    , 'fa fa-child');
+I18n.set('en', 'button.icon.quiz'   , 'fa fa-question');
+I18n.set('en', 'button.icon.selfie' , 'fa fa-camera');
+
+// Layouting Toolbar Buttons.
+I18n.set('en', 'button.layout.single'   , 'Column');
+I18n.set('en', 'button.layout.bleed'    , 'Shelf');
+I18n.set('en', 'button.layout.staged'   , 'Stage');
+I18n.set('en', 'button.layout.left'     , 'Left');
+I18n.set('en', 'button.layout.right'    , 'Right');
+
+I18n.set('en', 'button.layout.icon.single'   , 'fa fa-align-justify');
+I18n.set('en', 'button.layout.icon.bleed'    , 'fa fa-arrows-h');
+I18n.set('en', 'button.layout.icon.staged'   , 'fa fa-desktop');
+I18n.set('en', 'button.layout.icon.left'     , 'fa fa-align-left');
+I18n.set('en', 'button.layout.icon.right'    , 'fa fa-align-right');
+
 I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
 I18n.set('en', 'regex.selfie', '^\\+selfie$');
 
-},{"../i18n":19}],22:[function(require,module,exports){
+
+},{"../i18n":20}],23:[function(require,module,exports){
+'use strict';
+
+var Utils = require('./utils');
+var Section = require('./section');
+var Paragrarph = require('./paragraph');
+var Loader = require('./loader');
+
+/**
+ * Layout main.
+ * @param {Object} optParams Optional params to initialize the Layout object.
+ * Default:
+ *   {
+ *     components: [Paragraph],
+ *     tagName: 'div',
+ *     type: 'layout-single-column'
+ *   }
+ */
+var Layout = function(optParams) {
+  // Override default params with passed ones if any.
+  var params = Utils.extend({
+    tagName: Layout.LAYOUT_TAG_NAME,
+    type: Layout.Types.SingleColumn,
+    components: [new Paragrarph({
+      paragraphType: Paragrarph.Types.Paragraph
+    })]
+  }, optParams);
+
+  Section.call(this, params);
+
+  this.type = params.type;
+
+  this.dom.classList.add(this.type);
+};
+Layout.prototype = Object.create(Section.prototype);
+module.exports = Layout;
+
+
+/**
+ * String name for the component class.
+ * @type {string}
+ */
+Layout.CLASS_NAME = 'Layout';
+Loader.register(Layout.CLASS_NAME, Layout);
+
+
+/**
+ * Unordered Layout component container element tag name.
+ * @type {string}
+ */
+Layout.LAYOUT_TAG_NAME = 'div';
+
+
+/**
+ * Layout types.
+ * @type {Object}
+ */
+Layout.Types = {
+  SingleColumn: 'layout-single-column',
+  Bleed: 'layout-bleed',
+  Staged: 'layout-staged',
+  FloatLeft: 'layout-float-left',
+  FloatRight: 'layout-float-right'
+};
+
+
+/**
+ * Create and initiate a list object from JSON.
+ * @param  {Object} json JSON representation of the list.
+ * @return {Layout} Layout object representing the JSON data.
+ */
+Layout.fromJSON = function (json) {
+  var components = [];
+  for (var i = 0; i < json.components.length; i++) {
+    var className = json.components[i].component;
+    var ComponentClass = Loader.load(className);
+    components.push(ComponentClass.fromJSON(json.components[i]));
+  }
+
+  return new Layout({
+    tagName: json.tagName,
+    name: json.name,
+    type: json.type,
+    components: components
+  });
+};
+
+
+/**
+ * Handles onInstall when Layout module is installed in an editor.
+ */
+Layout.onInstall = function() {
+  // pass.
+};
+
+
+/**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Layout.prototype.getComponentClassName = function() {
+  return Layout.CLASS_NAME;
+};
+
+
+/**
+ * Returns the operations to execute a deletion of list component.
+ * @param  {number=} optIndexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @return {Array.<Object>} Layout of operations needed to be executed.
+ */
+Layout.prototype.getDeleteOps = function (optIndexOffset) {
+  return [{
+    do: {
+      op: 'deleteComponent',
+      component: this.name
+    },
+    undo: {
+      op: 'insertComponent',
+      componentClass: 'Layout',
+      section: this.section.name,
+      component: this.name,
+      index: this.getIndexInSection() + (optIndexOffset || 0),
+      attrs: {
+        components: this.components,
+        tagName: this.tagName,
+        type: this.type
+      }
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute inserting a list.
+ * @param {number} index Index to insert the list at.
+ * @return {Array.<Object>} Operations for inserting the list.
+ */
+Layout.prototype.getInsertOps = function (index) {
+  return [{
+    do: {
+      op: 'insertComponent',
+      componentClass: 'Layout',
+      section: this.section.name,
+      cursorOffset: 0,
+      component: this.name,
+      index: index,
+      attrs: {
+        components: this.components,
+        tagName: this.tagName,
+        type: this.type
+      }
+    },
+    undo: {
+      op: 'deleteComponent',
+      component: this.name
+    }
+  }];
+};
+
+
+/**
+ * Returns the operations to execute splitting a list.
+ * @param {number} atIndex Index to split the list at.
+ * @return {Array.<Object>} Operations for splitting the list.
+ */
+Layout.prototype.getSplitOps = function (atIndex) {
+  var ops = [];
+  var i = atIndex;
+  for (i = atIndex; i < this.components.length; i++) {
+    Utils.arrays.extend(ops, this.components[i].getDeleteOps());
+  }
+
+  var newLayout = new Layout({
+    tagName: this.tagName,
+    section: this.section,
+    components: []
+  });
+  Utils.arrays.extend(ops, newLayout.getInsertOps(
+      this.getIndexInSection() + 1));
+  for (i = atIndex; i < this.components.length; i++) {
+    var className = this.components[i].getComponentClassName();
+    var ComponentClass = Loader.load(className);
+    var component = ComponentClass.fromJSON(this.components[i].getJSONModel());
+    component.section = newLayout;
+    Utils.arrays.extend(ops, component.getInsertOps(i - atIndex));
+  }
+
+  return ops;
+};
+
+
+/**
+ * @override
+ */
+Layout.prototype.getUpdateOps = function(
+    attrs, optCursorOffset, optSelectRange) {
+  return [{
+    do: {
+      op: 'updateComponent',
+      component: this.name,
+      cursorOffset: optCursorOffset,
+      selectRange: optSelectRange,
+      attrs: {
+        type: attrs.type
+      }
+    },
+    undo: {
+      op: 'updateComponent',
+      component: this.name,
+      cursorOffset: optCursorOffset,
+      selectRange: optSelectRange,
+      attrs: {
+        type: this.type
+      }
+    }
+  }];
+};
+
+
+/**
+ * Updates the type of the layout and reflect the changes to
+ * the dom of the layout component.
+ * @param  {string} type Type of the layout.
+ */
+Layout.prototype.updateType = function(type) {
+  this.dom.classList.remove(this.type);
+  this.type = type;
+  this.dom.classList.add(this.type);
+};
+
+
+/**
+ * Updates layout attributes.
+ * @param  {Object} attrs Attributes to update.
+ */
+Layout.prototype.updateAttributes = function(attrs) {
+  if (attrs.type) {
+    this.updateType(attrs.type);
+    // TODO(mkhatib): Update class on the layout dom.
+  }
+};
+
+/**
+ * Returns the length of the list content.
+ * @return {number} Length of the list content.
+ */
+Layout.prototype.getLength = function () {
+  return this.components.length;
+};
+
+
+/**
+ * Creates and return a JSON representation of the model.
+ * @return {Object} JSON representation of this list.
+ */
+Layout.prototype.getJSONModel = function() {
+  var layout = {
+    name: this.name,
+    tagName: this.tagName,
+    type: this.type,
+    component: Layout.CLASS_NAME,
+    components: []
+  };
+
+  for (var i = 0; i < this.components.length; i++) {
+    layout.components.push(this.components[i].getJSONModel());
+  }
+
+  return layout;
+};
+
+},{"./loader":25,"./paragraph":27,"./section":28,"./utils":33}],24:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5578,6 +6229,15 @@ List.handleOLMatchedRegex = function (matchedComponent, opsCallback) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+List.prototype.getComponentClassName = function() {
+  return List.CLASS_NAME;
+};
+
+
+/**
  * Returns the operations to execute a deletion of list component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
@@ -5637,43 +6297,26 @@ List.prototype.getInsertOps = function (index) {
  * @return {Array.<Object>} Operations for splitting the list.
  */
 List.prototype.getSplitOps = function (atIndex) {
-  var ops = this.getDeleteOps();
-  var newUID = Utils.getUID();
-  Utils.arrays.extend(ops, [{
-    do: {
-      op: 'insertComponent',
-      componentClass: 'List',
-      section: this.section.name,
-      cursorOffset: 0,
-      component: this.name,
-      index: this.getIndexInSection(),
-      attrs: {
-        components: this.components.slice(0, atIndex),
-        tagName: this.tagName
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: this.name
-    }
-  }, {
-    do: {
-      op: 'insertComponent',
-      componentClass: 'List',
-      section: this.section.name,
-      cursorOffset: 0,
-      component: newUID,
-      index: this.getIndexInSection() + 1,
-      attrs: {
-        components: this.components.slice(atIndex, this.getLength()),
-        tagName: this.tagName
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: newUID
-    }
-  }]);
+  var ops = [];
+  var i = atIndex;
+  for (i = atIndex; i < this.components.length; i++) {
+    Utils.arrays.extend(ops, this.components[i].getDeleteOps());
+  }
+
+  var newList = new List({
+    tagName: this.tagName,
+    section: this.section,
+    components: []
+  });
+  Utils.arrays.extend(ops, newList.getInsertOps(
+      this.getIndexInSection() + 1));
+  for (i = atIndex; i < this.components.length; i++) {
+    var className = this.components[i].getComponentClassName();
+    var ComponentClass = Loader.load(className);
+    var component = ComponentClass.fromJSON(this.components[i].getJSONModel());
+    component.section = newList;
+    Utils.arrays.extend(ops, component.getInsertOps(i - atIndex));
+  }
 
   return ops;
 };
@@ -5707,7 +6350,7 @@ List.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./loader":23,"./paragraph":25,"./section":26,"./utils":31}],23:[function(require,module,exports){
+},{"./loader":25,"./paragraph":27,"./section":28,"./utils":33}],25:[function(require,module,exports){
 'use strict';
 
 var Errors = require('./errors');
@@ -5768,7 +6411,7 @@ var Loader = (function() {
 })();
 module.exports = Loader;
 
-},{"./errors":4}],24:[function(require,module,exports){
+},{"./errors":4}],26:[function(require,module,exports){
 'use strict';
 
 // TODO(mkhatib): Figure out a better way to load translations lazily.
@@ -5782,6 +6425,7 @@ module.exports.Paragraph = require('./paragraph');
 module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.Section = require('./section');
+module.exports.Layout = require('./layout');
 module.exports.Selection = require('./selection');
 module.exports.Loader = require('./loader');
 
@@ -5808,7 +6452,9 @@ module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider')
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
-},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/selfieExtension":14,"./figure":18,"./i18n":19,"./i18n/ar":20,"./i18n/en":21,"./list":22,"./loader":23,"./paragraph":25,"./section":26,"./selection":27}],25:[function(require,module,exports){
+module.exports.LayoutingExtension = require('./extensions/layoutingExtension');
+
+},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/layoutingExtension":14,"./extensions/selfieExtension":15,"./figure":19,"./i18n":20,"./i18n/ar":21,"./i18n/en":22,"./layout":23,"./list":24,"./loader":25,"./paragraph":27,"./section":28,"./selection":29}],27:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5931,6 +6577,15 @@ Paragraph.fromJSON = function (json) {
  */
 Paragraph.onInstall = function (editor) {
   // jshint unused: false
+};
+
+
+/**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Paragraph.prototype.getComponentClassName = function() {
+  return Paragraph.CLASS_NAME;
 };
 
 
@@ -6580,7 +7235,7 @@ Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
 
-},{"./component":2,"./loader":23,"./utils":31}],26:[function(require,module,exports){
+},{"./component":2,"./loader":25,"./utils":33}],28:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -6675,6 +7330,15 @@ Section.fromJSON = function (json) {
     name: json.name,
     components: components
   });
+};
+
+
+/**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Section.prototype.getComponentClassName = function() {
+  return Section.CLASS_NAME;
 };
 
 
@@ -6880,7 +7544,7 @@ Section.prototype.getComponentByName = function(name) {
   }
 };
 
-},{"./component":2,"./loader":23,"./selection":27,"./utils":31}],27:[function(require,module,exports){
+},{"./component":2,"./loader":25,"./selection":29,"./utils":33}],29:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -7411,7 +8075,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":25,"./utils":31}],28:[function(require,module,exports){
+},{"./paragraph":27,"./utils":33}],30:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7424,6 +8088,7 @@ var Utils = require('../utils');
 var Button = function (optParams) {
   var params = Utils.extend({
     label: 'New Button',
+    icon: '',
     name: Utils.getUID(),
     fields: [],
     data: {}
@@ -7462,7 +8127,12 @@ var Button = function (optParams) {
    */
   this.buttonDom = document.createElement(Button.TAG_NAME);
   this.buttonDom.setAttribute('name', this.name);
-  Utils.setTextForElement(this.buttonDom, params.label);
+  var icon = document.createElement('i');
+  icon.className = params.icon;
+  this.buttonDom.appendChild(icon);
+  var span = document.createElement('span');
+  Utils.setTextForElement(span, params.label);
+  this.buttonDom.appendChild(span);
   this.buttonDom.addEventListener('click', this.handleClick.bind(this));
   this.dom.appendChild(this.buttonDom);
 
@@ -7618,7 +8288,7 @@ Button.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":31}],29:[function(require,module,exports){
+},{"../utils":33}],31:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7719,7 +8389,7 @@ TextField.prototype.setValue = function (value) {
   this.dom.value = value;
 };
 
-},{"../utils":31}],30:[function(require,module,exports){
+},{"../utils":33}],32:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -7939,7 +8609,29 @@ Toolbar.prototype.setVisible = function (isVisible) {
  * @param {HTMLElement} element Element to position the toolbar.
  */
 Toolbar.prototype.setPositionToStartTopOf = function (element) {
+  var wSelection = window.getSelection();
+  var oldRange = wSelection.getRangeAt(0);
   var bounds = element.getBoundingClientRect();
+  var tempRange = document.createRange();
+  // Set temporary selection at the element first text to allow the positioning
+  // to include any floating that is happening to the element.
+  try {
+    var tempSelectionOn = element;
+    if (element.childNodes) {
+      tempSelectionOn = element.childNodes[0];
+    }
+    tempRange.setStart(tempSelectionOn, 0);
+    tempRange.setEnd(tempSelectionOn, 1);
+    wSelection.removeAllRanges();
+    wSelection.addRange(tempRange);
+    bounds = tempRange.getBoundingClientRect();
+    wSelection.removeAllRanges();
+    wSelection.addRange(oldRange);
+  } catch (e) {
+    // pass.
+    console.warn(e);
+  }
+
 
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset;
@@ -7970,6 +8662,28 @@ Toolbar.prototype.setPositionToStartBottomOf = function (element) {
   }
   this.dom.style.top = top + 'px';
   this.dom.style.left = start + 'px';
+};
+
+
+/**
+ * Sets the toolbar position relative to middle top position of an element.
+ * @param {HTMLElement} element Element to position the toolbar.
+ */
+Toolbar.prototype.setPositionToTopOf = function (element) {
+  var bounds = element.getBoundingClientRect();
+  var windowRect = document.body.getBoundingClientRect();
+
+  // Calculate the left edge of the inline toolbar.
+  var clientRect = this.dom.getClientRects()[0];
+  var toolbarHeight = clientRect.height;
+  var toolbarWidth = clientRect.width;
+  var left = ((bounds.left + bounds.right) / 2) - toolbarWidth / 2;
+  left = Math.max(10, left);
+  left = Math.min(left, windowRect.width - toolbarWidth - 10);
+  // Offset the top bound with the scrolled amount of the page.
+  var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
+  this.dom.style.top = top + 'px';
+  this.dom.style.left = left + 'px';
 };
 
 
@@ -8037,7 +8751,7 @@ Toolbar.prototype.resetFields = function () {
   }
 };
 
-},{"../utils":31}],31:[function(require,module,exports){
+},{"../utils":33}],33:[function(require,module,exports){
 'use strict';
 
 var Utils = {};
@@ -8468,5 +9182,5 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
 
 })();
 
-},{}]},{},[24])(24)
+},{}]},{},[26])(26)
 });

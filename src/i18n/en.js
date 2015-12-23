@@ -21,5 +21,27 @@ I18n.set('en', 'button.gif'    , 'Insert GIF');
 I18n.set('en', 'button.quiz'   , 'Insert Quiz or Slides');
 I18n.set('en', 'button.selfie' , 'Selfie!');
 
+I18n.set('en', 'button.icon.upload' , 'fa fa-upload');
+I18n.set('en', 'button.icon.video'  , 'fa fa-youtube-play');
+I18n.set('en', 'button.icon.photo'  , 'fa fa-picture-o');
+I18n.set('en', 'button.icon.post'   , 'fa fa-twitter');
+I18n.set('en', 'button.icon.gif'    , 'fa fa-child');
+I18n.set('en', 'button.icon.quiz'   , 'fa fa-question');
+I18n.set('en', 'button.icon.selfie' , 'fa fa-camera');
+
+// Layouting Toolbar Buttons.
+I18n.set('en', 'button.layout.single'   , 'Column');
+I18n.set('en', 'button.layout.bleed'    , 'Shelf');
+I18n.set('en', 'button.layout.staged'   , 'Stage');
+I18n.set('en', 'button.layout.left'     , 'Left');
+I18n.set('en', 'button.layout.right'    , 'Right');
+
+I18n.set('en', 'button.layout.icon.single'   , 'fa fa-align-justify');
+I18n.set('en', 'button.layout.icon.bleed'    , 'fa fa-arrows-h');
+I18n.set('en', 'button.layout.icon.staged'   , 'fa fa-desktop');
+I18n.set('en', 'button.layout.icon.left'     , 'fa fa-align-left');
+I18n.set('en', 'button.layout.icon.right'    , 'fa fa-align-right');
+
 I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
 I18n.set('en', 'regex.selfie', '^\\+selfie$');
+

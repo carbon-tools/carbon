@@ -106,6 +106,20 @@ Figure.CONTAINER_TAG_NAME = 'figure';
 
 
 /**
+ * Container element tag name to allow responsive images.
+ * @type {string}
+ */
+Figure.IMAGE_CONTAINER_TAG_NAME = 'div';
+
+
+/**
+ * Container element class name to allow responsive images.
+ * @type {string}
+ */
+Figure.IMAGE_CONTAINER_CLASS_NAME = 'image-container';
+
+
+/**
  * Image element tag name.
  * @type {string}
  */
@@ -144,7 +158,6 @@ Figure.fromJSON = function (json) {
  */
 Figure.onInstall = function(editor) {
   Figure.registerRegexes_(editor);
-  // TODO(mkhatib): Initialize a toolbar for all Figure components instances.
 };
 
 
@@ -184,6 +197,15 @@ Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Figure.prototype.getComponentClassName = function() {
+  return Figure.CLASS_NAME;
+};
+
+
+/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this Figure.
  */
@@ -218,21 +240,16 @@ Figure.prototype.render = function(element, options) {
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
       this.imgDom.setAttribute('src', this.src);
-      if (this.width) {
-        this.imgDom.setAttribute('width', this.width);
-      }
-      if (this.height) {
-        this.imgDom.setAttribute('height', this.height);
-      }
-      this.dom.appendChild(this.imgDom);
 
-      this.imgDom.addEventListener('load', function () {
-        if (this.editMode) {
-          var styles = window.getComputedStyle(this.imgDom);
-          this.width = styles.width;
-          this.height = styles.height;
-        }
-      }.bind(this));
+      this.imgContainerDom = document.createElement(
+          Figure.IMAGE_CONTAINER_TAG_NAME);
+      if (this.width && this.height) {
+        this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
+        this.imgContainerDom.style.paddingBottom = (
+            (parseInt(this.height)/parseInt(this.width) * 100) + '%');
+      }
+      this.imgContainerDom.appendChild(this.imgDom);
+      this.dom.appendChild(this.imgContainerDom);
     }
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
@@ -249,6 +266,16 @@ Figure.prototype.render = function(element, options) {
       }
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
+
+      if (!this.width || !this.height) {
+        this.imgDom.addEventListener('load', function () {
+          if (this.editMode) {
+            var styles = window.getComputedStyle(this.imgDom);
+            this.width = styles.width;
+            this.height = styles.height;
+          }
+        }.bind(this));
+      }
     }
   }
 };
@@ -273,7 +300,7 @@ Figure.prototype.select = function () {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 Figure.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -291,6 +318,14 @@ Figure.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  // If this is the only child of the layout delete the layout as well
+  // only if there are other layouts.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+
+  return ops;
 };
 
 

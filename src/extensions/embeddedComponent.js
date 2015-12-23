@@ -175,6 +175,15 @@ EmbeddedComponent.onInstall = function() {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+EmbeddedComponent.prototype.getComponentClassName = function() {
+  return EmbeddedComponent.CLASS_NAME;
+};
+
+
+/**
  * Sets the loaded HTML data on the embedded component.
  * @param  {Object} oembedData Data returned from oEmbed API.
  */
@@ -413,8 +422,6 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
     var styles = window.getComputedStyle(this.dom);
     var containerWidth = parseInt(styles.width);
-    this.containerDom.style.width = this.getClosestSupportedScreenSize_(
-        containerWidth) + 'px';
 
     // TODO(mkhatib): Render a nice placeholder until the data has been
     // loaded.
@@ -446,6 +453,11 @@ EmbeddedComponent.prototype.render = function(element, options) {
       this.containerDom.appendChild(this.selectionDom);
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
+
+      if (!this.sizes) {
+        this.containerDom.style.width = this.getClosestSupportedScreenSize_(
+            containerWidth) + 'px';
+      }
     }
 
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
@@ -509,7 +521,7 @@ EmbeddedComponent.prototype.select = function () {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -528,6 +540,14 @@ EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  // If this is the only child of the layout delete the layout as well
+  // only if there are other layouts.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+    Utils.arrays.extend(ops, this.section.getDeleteOps());
+  }
+
+  return ops;
 };
 
 

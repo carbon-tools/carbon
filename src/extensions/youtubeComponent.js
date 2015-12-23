@@ -32,6 +32,7 @@ var YouTubeComponent = function(optParams) {
 YouTubeComponent.prototype = Object.create(IFrameComponent.prototype);
 module.exports = YouTubeComponent;
 
+
 /**
  * String name for the component class.
  * @type {string}
@@ -58,6 +59,7 @@ YouTubeComponent.YOUTUBE_URL_REGEXS = [
 YouTubeComponent.prototype.getComponentClassName = function() {
   return YouTubeComponent.CLASS_NAME;
 };
+
 
 /**
  * Create and initiate a youtube object from JSON.

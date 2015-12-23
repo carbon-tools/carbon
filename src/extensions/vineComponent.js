@@ -48,6 +48,7 @@ VineComponent.VINE_URL_REGEXS = [
     '^http(?:s?):\/\/(?:www\.)?vine\.co\/v\/([a-zA-Z0-9]{1,13})'
 ];
 
+
 /**
  * Returns the class name of the component.
  * @return {string} Class name of the component.
@@ -55,6 +56,7 @@ VineComponent.VINE_URL_REGEXS = [
 VineComponent.prototype.getComponentClassName = function() {
   return VineComponent.CLASS_NAME;
 };
+
 
 /**
  * Create and initiate a youtube object from JSON.

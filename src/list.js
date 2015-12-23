@@ -173,6 +173,15 @@ List.handleOLMatchedRegex = function (matchedComponent, opsCallback) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+List.prototype.getComponentClassName = function() {
+  return List.CLASS_NAME;
+};
+
+
+/**
  * Returns the operations to execute a deletion of list component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
@@ -232,43 +241,26 @@ List.prototype.getInsertOps = function (index) {
  * @return {Array.<Object>} Operations for splitting the list.
  */
 List.prototype.getSplitOps = function (atIndex) {
-  var ops = this.getDeleteOps();
-  var newUID = Utils.getUID();
-  Utils.arrays.extend(ops, [{
-    do: {
-      op: 'insertComponent',
-      componentClass: 'List',
-      section: this.section.name,
-      cursorOffset: 0,
-      component: this.name,
-      index: this.getIndexInSection(),
-      attrs: {
-        components: this.components.slice(0, atIndex),
-        tagName: this.tagName
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: this.name
-    }
-  }, {
-    do: {
-      op: 'insertComponent',
-      componentClass: 'List',
-      section: this.section.name,
-      cursorOffset: 0,
-      component: newUID,
-      index: this.getIndexInSection() + 1,
-      attrs: {
-        components: this.components.slice(atIndex, this.getLength()),
-        tagName: this.tagName
-      }
-    },
-    undo: {
-      op: 'deleteComponent',
-      component: newUID
-    }
-  }]);
+  var ops = [];
+  var i = atIndex;
+  for (i = atIndex; i < this.components.length; i++) {
+    Utils.arrays.extend(ops, this.components[i].getDeleteOps());
+  }
+
+  var newList = new List({
+    tagName: this.tagName,
+    section: this.section,
+    components: []
+  });
+  Utils.arrays.extend(ops, newList.getInsertOps(
+      this.getIndexInSection() + 1));
+  for (i = atIndex; i < this.components.length; i++) {
+    var className = this.components[i].getComponentClassName();
+    var ComponentClass = Loader.load(className);
+    var component = ComponentClass.fromJSON(this.components[i].getJSONModel());
+    component.section = newList;
+    Utils.arrays.extend(ops, component.getInsertOps(i - atIndex));
+  }
 
   return ops;
 };

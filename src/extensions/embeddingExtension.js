@@ -109,24 +109,30 @@ EmbeddingExtension.prototype.init = function() {
   // Add embedding buttons to the toolbelt.
   var toolbeltButtons = [{
     label: I18n.get('button.video'),
+    icon: I18n.get('button.icon.video'),
     placeholder: I18n.get('placeholder.video')
   }, {
     label: I18n.get('button.photo'),
+    icon: I18n.get('button.icon.photo'),
     placeholder: I18n.get('placeholder.photo')
   }, {
     label: I18n.get('button.post'),
+    icon: I18n.get('button.icon.post'),
     placeholder: I18n.get('placeholder.post')
   }, {
     label: I18n.get('button.gif'),
+    icon: I18n.get('button.icon.gif'),
     placeholder: I18n.get('placeholder.gif')
   }, {
     label: I18n.get('button.quiz'),
+    icon: I18n.get('button.icon.quiz'),
     placeholder: I18n.get('placeholder.quiz')
   }];
 
   for (var i = 0; i < toolbeltButtons.length; i++) {
     var insertVideoButton = new Button({
       label: toolbeltButtons[i].label,
+      icon: toolbeltButtons[i].icon,
       data: { placeholder: toolbeltButtons[i].placeholder }
     });
     insertVideoButton.addEventListener(

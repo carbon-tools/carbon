@@ -51,7 +51,6 @@ var Component = function(optParams) {
    * @type {string}
    */
   this.name = params.name;
-  Utils.setReference(this.name, this);
 
   /**
    * Section this Component belongs to.
@@ -183,6 +182,7 @@ Component.prototype.getIndexInSection = function() {
 Component.prototype.render = function(element, options) {
   this.editMode = !!(options && options.editMode);
   if (!this.isRendered && this.dom) {
+    Utils.setReference(this.name, this);
     this.isRendered = true;
     if (options && options.insertBefore) {
       element.insertBefore(this.dom, options.insertBefore);

@@ -96,6 +96,15 @@ Section.fromJSON = function (json) {
 
 
 /**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Section.prototype.getComponentClassName = function() {
+  return Section.CLASS_NAME;
+};
+
+
+/**
  * Inserts a component in the section.
  * @param  {Component} component Component to insert.
  * @param  {number} index Where to insert the component.

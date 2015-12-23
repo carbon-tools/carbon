@@ -14,6 +14,7 @@ var I18n = require('../i18n');
 var UploadButton = function (optParams) {
   var params = Utils.extend({
     label: 'Upload',
+    icon: '',
   }, optParams);
 
   Button.call(this, params);
@@ -129,7 +130,8 @@ UploadExtension.prototype.init = function(editor) {
       UploadExtension.TOOLBELT_TOOLBAR_NAME);
 
   var uploadButton = new UploadButton({
-    label: I18n.get('button.upload')
+    label: I18n.get('button.upload'),
+    icon: I18n.get('button.icon.upload')
   });
   uploadButton.addEventListener('change', this.handleUpload.bind(this));
   this.toolbelt.addButton(uploadButton);
@@ -154,6 +156,7 @@ UploadExtension.prototype.handleUpload = function(event) {
     figure.section = selection.getSectionAtStart();
     var insertFigureOps = figure.getInsertOps(component.getIndexInSection());
     that.editor.article.transaction(insertFigureOps);
+    that.editor.dispatchEvent(new Event('change'));
 
     // Create an attachment to track the figure and insertion operations.
     var attachment = new Attachment({

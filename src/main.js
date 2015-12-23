@@ -11,6 +11,7 @@ module.exports.Paragraph = require('./paragraph');
 module.exports.List = require('./list');
 module.exports.Figure = require('./figure');
 module.exports.Section = require('./section');
+module.exports.Layout = require('./layout');
 module.exports.Selection = require('./selection');
 module.exports.Loader = require('./loader');
 
@@ -36,3 +37,5 @@ module.exports.EmbedlyProvider = require('./extensions/embedlyProvider');
 module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider');
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
+
+module.exports.LayoutingExtension = require('./extensions/layoutingExtension');

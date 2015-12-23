@@ -48,6 +48,7 @@ VimeoComponent.VIMEO_URL_REGEXS = [
     '^http(?:s?):\/\/(?:www\.)?vimeo\.com\/([0-9]+)'
 ];
 
+
 /**
  * Returns the class name of the component.
  * @return {string} Class name of the component.
@@ -55,6 +56,7 @@ VimeoComponent.VIMEO_URL_REGEXS = [
 VimeoComponent.prototype.getComponentClassName = function() {
   return VimeoComponent.CLASS_NAME;
 };
+
 
 /**
  * Create and initiate a youtube object from JSON.

@@ -14,6 +14,7 @@ var Toolbar = require('./toolbars/toolbar');
 var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
 var I18n = require('./i18n');
+var Layout = require('./layout');
 
 
 /**
@@ -407,6 +408,7 @@ Editor.prototype.handleInputEvent = function() {
         {}, offset + direction, undefined,
         Utils.getTextFromElement(component.dom));
     self.article.transaction(ops);
+    self.editor.dispatchEvent(new Event('change'));
   }, 3);
 
   // Another way to do this is to use the following in compositionupdate event.
@@ -541,6 +543,23 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             insertType = Paragraph.Types.Paragraph;
           } else {
             insertType = Paragraph.Types.Paragraph;
+          }
+
+          // If current layout is not column get the next column layout and
+          // insert the new paragraph at the top of that layout.
+          // TODO(mkhatib): Maybe move this logic inside Layout to get the
+          // layout that enter should insert component at (e.g. getEnterOps).
+          if (currentComponent.section instanceof Layout &&
+              currentComponent.section.type !== Layout.Types.SingleColumn) {
+            var layouts = currentComponent.section.section.components;
+            var layoutIndex = currentComponent.section.getIndexInSection();
+            for (var i = layoutIndex; i < layouts.length; i++) {
+              if (layouts[i].type === Layout.Types.SingleColumn) {
+                insertInSection = layouts[i];
+                atIndex = 0;
+                break;
+              }
+            }
           }
 
           newP = new Paragraph({
