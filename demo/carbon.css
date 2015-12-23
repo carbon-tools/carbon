@@ -49,14 +49,14 @@
   float: left;
   margin: 0;
   margin-right: 2em;
-  max-width: 300px;
+  width: 300px;
 }
 
 .carbon .layout-float-right figure {
   float: right;
   margin: 0;
   margin-left: 2em;
-  max-width: 300px;
+  width: 300px;
 }
 
 .carbon figure {
