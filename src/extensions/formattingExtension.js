@@ -324,9 +324,41 @@ Formatting.prototype.handleInlineInputFieldKeyUp = function(event) {
 
 
 /**
+ * Checks if this is a selection change due to change of formatting.
+ * @return {boolean}
+ * @private
+ */
+Formatting.prototype.didSelectionActuallyChanged_ = function() {
+  var selection = Selection.getInstance();
+  if (this.lastSelection_ &&
+      this.lastSelection_.start.component === selection.start.component &&
+      this.lastSelection_.end.component === selection.end.component &&
+      this.lastSelection_.start.offset === selection.start.offset &&
+      this.lastSelection_.end.offset === selection.end.offset) {
+    return false;
+  }
+
+  this.lastSelection_ = {
+    start: {
+      component: selection.start.component,
+      offset: selection.start.offset
+    },
+    end: {
+      component: selection.end.component,
+      offset: selection.end.offset
+    }
+  };
+  return true;
+};
+
+
+/**
  * Handles changing in selection or cursor.
  */
 Formatting.prototype.handleSelectionChangedEvent = function() {
+  if (!this.didSelectionActuallyChanged_()) {
+    return;
+  }
   var wSelection = window.getSelection();
   var selection = Selection.getInstance();
   var startComp = selection.getComponentAtStart();
@@ -347,9 +379,11 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
         // Don't show the inline toolbar when multiple paragraphs are selected.
         startComp === endComp) {
     // Otherwise, show the inline toolbar.
-    this.inlineToolbar.setPositionTopOfSelection();
-    this.inlineToolbar.setVisible(true);
-    this.reloadInlineToolbarStatus();
+    setTimeout(function(){
+      this.inlineToolbar.setPositionTopOfSelection();
+      this.inlineToolbar.setVisible(true);
+      this.reloadInlineToolbarStatus();
+    }.bind(this), 150);
   }
 };
 

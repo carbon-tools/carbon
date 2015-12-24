@@ -114,7 +114,10 @@ Component.prototype.getNextComponent = function() {
     if (!component) {
       // If the component is the last component in its section, then return
       // the new component after this section.
-      return this.section.getNextComponent();
+      component = this.section.getNextComponent();
+      if (component && component.components) {
+        return component.getFirstComponent();
+      }
     }
     return component;
   }
@@ -130,7 +133,10 @@ Component.prototype.getPreviousComponent = function() {
     var i = this.section.components.indexOf(this);
     var component = this.section.components[i - 1];
     if (!component) {
-      return this.section.getPreviousComponent();
+      component = this.section.getPreviousComponent();
+      if (component && component.components) {
+        return component.getLastComponent();
+      }
     }
     return component;
   }

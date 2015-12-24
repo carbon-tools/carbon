@@ -29,6 +29,7 @@ var Layout = function(optParams) {
 
   this.type = params.type;
 
+  this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };
 Layout.prototype = Object.create(Section.prototype);

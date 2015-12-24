@@ -146,14 +146,33 @@ Paragraph.prototype.isHeader = function() {
 
 
 /**
+ * Returns the text if this is a header otherwise null.
+ * @return {string|null}
+ */
+Paragraph.prototype.getTitle = function() {
+  return this.isHeader() ? this.text : null;
+};
+
+
+/**
+ * Returns the text if this is a paragraph otherwise null.
+ * @return {string|null}
+ */
+Paragraph.prototype.getSnippet = function() {
+  return Paragraph.Types.Paragraph === this.paragraphType ? this.text : null;
+};
+
+
+
+/**
  * Updates the text for the paragraph.
  * @param {string} text Text to update to.
  */
 Paragraph.prototype.setText = function(text) {
   this.text = text || '';
-  // Cleanup &nbsp; mess only if there isn't one at the end of the string.
-  if (text && !text.match(/\s$/)) {
-    this.text = text.replace(/\s/g, ' ');
+  // Cleanup &nbsp; mess only between words and non-repeating spaces.
+  if (text) {
+    this.text = text.replace(/(\S)\s(\S)/g, '$1 $2');
   }
   if (!this.text.length) {
     this.dom.innerHTML = '&#8203;';
@@ -628,9 +647,9 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
     }
   }];
 
-  // If this is ListItem and it's the last element in the
-  if (this.paragraphType === Paragraph.Types.ListItem &&
-      this.section.components.length < 2) {
+  // If this is the last element in the section/layout/list delete the container
+  // as well. Only if there are other containers.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;

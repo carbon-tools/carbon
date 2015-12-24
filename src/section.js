@@ -262,8 +262,8 @@ Section.prototype.getLength = function() {
  */
 Section.prototype.getTitle = function() {
   for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].isHeader && this.components[i].isHeader()) {
-      return this.components[i].text;
+    if (this.components[i].getTitle && this.components[i].getTitle()) {
+      return this.components[i].getTitle();
     }
   }
   return null;
@@ -276,8 +276,8 @@ Section.prototype.getTitle = function() {
  */
 Section.prototype.getSnippet = function() {
   for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].isHeader && !this.components[i].isHeader()) {
-      return this.components[i].text;
+    if (this.components[i].getSnippet && this.components[i].getSnippet()) {
+      return this.components[i].getSnippet();
     }
   }
   return null;

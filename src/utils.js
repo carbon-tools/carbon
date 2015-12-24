@@ -154,10 +154,31 @@ Utils.isSelectAll = function(event) {
           event.keyCode === 65 && !event.shiftKey);
 };
 
+
+/**
+ * Returns true if the user is on a mobile device.
+ * @return {boolean}
+ */
+Utils.isMobile = function () {
+  return !!(/Mobi|iPhone|iPod|iPad|BlackBerry|Android/i.test(
+                navigator.userAgent));
+};
+
+
+/**
+ * Returns true if user is on firefox.
+ * @return {boolean}
+ */
 Utils.isFirefox = function () {
   return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 };
 
+
+/**
+ * Returns the text property name of the element.
+ * @param  {HTMLElement} element.
+ * @return {string}
+ */
 Utils.getTextProperty = function (element) {
   var textProp;
   if (element.nodeType === Node.TEXT_NODE) {
@@ -171,10 +192,21 @@ Utils.getTextProperty = function (element) {
 };
 
 
+/**
+ * Sets the text property for the element.
+ * @param {HTMLElement} element.
+ * @param {string} value Value to set.
+ */
 Utils.setTextForElement = function(element, value) {
   element[Utils.getTextProperty(element)] = value;
 };
 
+
+/**
+ * Gets the text inside the element.
+ * @param  {HTMLElement} element
+ * @return {string}
+ */
 Utils.getTextFromElement = function(element) {
   return element[Utils.getTextProperty(element)];
 };

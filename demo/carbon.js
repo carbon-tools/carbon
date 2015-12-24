@@ -526,7 +526,10 @@ Component.prototype.getNextComponent = function() {
     if (!component) {
       // If the component is the last component in its section, then return
       // the new component after this section.
-      return this.section.getNextComponent();
+      component = this.section.getNextComponent();
+      if (component && component.components) {
+        return component.getFirstComponent();
+      }
     }
     return component;
   }
@@ -542,7 +545,10 @@ Component.prototype.getPreviousComponent = function() {
     var i = this.section.components.indexOf(this);
     var component = this.section.components[i - 1];
     if (!component) {
-      return this.section.getPreviousComponent();
+      component = this.section.getPreviousComponent();
+      if (component && component.components) {
+        return component.getLastComponent();
+      }
     }
     return component;
   }
@@ -898,7 +904,11 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
-  this.element.addEventListener('input', this.handleInputEvent.bind(this));
+
+  // This is only needed on mobile.
+  if (Utils.isMobile()) {
+    this.element.addEventListener('input', this.handleInputEvent.bind(this));
+  }
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.classList.add('carbon-editor');
@@ -1102,7 +1112,7 @@ Editor.prototype.handleInputEvent = function() {
         {}, offset + direction, undefined,
         Utils.getTextFromElement(component.dom));
     self.article.transaction(ops);
-    self.editor.dispatchEvent(new Event('change'));
+    self.dispatchEvent(new Event('change'));
   }, 3);
 
   // Another way to do this is to use the following in compositionupdate event.
@@ -1164,6 +1174,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     Utils.arrays.extend(ops, this.getDeleteSelectionOps());
 
     this.article.transaction(ops);
+    selection.setCursor(selection.start);
     ops = [];
 
     // Only stop propagation on special characters (Enter, Delete, Backspace)
@@ -1270,7 +1281,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Backspace.
     case 8:
-      if (!currentIsParagraph) {
+      if (!currentIsParagraph || !currentComponent.getLength()) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length));
         if (prevComponent) {
@@ -1422,13 +1433,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (nextComponent) {
         if (nextIsParagraph && !currentIsParagraph) {
           currentOffset = selection.end.offset;
-          offset = Math.min(nextComponent.getLength(), currentOffset);
-          selection.setCursor({
-            component: nextComponent,
-            offset: offset
-          });
-          preventDefault = true;
         }
+        offset = Math.min(nextComponent.getLength(), currentOffset);
+        selection.setCursor({
+          component: nextComponent,
+          offset: offset
+        });
+        preventDefault = true;
       }
       break;
 
@@ -3542,9 +3553,41 @@ Formatting.prototype.handleInlineInputFieldKeyUp = function(event) {
 
 
 /**
+ * Checks if this is a selection change due to change of formatting.
+ * @return {boolean}
+ * @private
+ */
+Formatting.prototype.didSelectionActuallyChanged_ = function() {
+  var selection = Selection.getInstance();
+  if (this.lastSelection_ &&
+      this.lastSelection_.start.component === selection.start.component &&
+      this.lastSelection_.end.component === selection.end.component &&
+      this.lastSelection_.start.offset === selection.start.offset &&
+      this.lastSelection_.end.offset === selection.end.offset) {
+    return false;
+  }
+
+  this.lastSelection_ = {
+    start: {
+      component: selection.start.component,
+      offset: selection.start.offset
+    },
+    end: {
+      component: selection.end.component,
+      offset: selection.end.offset
+    }
+  };
+  return true;
+};
+
+
+/**
  * Handles changing in selection or cursor.
  */
 Formatting.prototype.handleSelectionChangedEvent = function() {
+  if (!this.didSelectionActuallyChanged_()) {
+    return;
+  }
   var wSelection = window.getSelection();
   var selection = Selection.getInstance();
   var startComp = selection.getComponentAtStart();
@@ -3565,9 +3608,11 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
         // Don't show the inline toolbar when multiple paragraphs are selected.
         startComp === endComp) {
     // Otherwise, show the inline toolbar.
-    this.inlineToolbar.setPositionTopOfSelection();
-    this.inlineToolbar.setVisible(true);
-    this.reloadInlineToolbarStatus();
+    setTimeout(function(){
+      this.inlineToolbar.setPositionTopOfSelection();
+      this.inlineToolbar.setVisible(true);
+      this.reloadInlineToolbarStatus();
+    }.bind(this), 150);
   }
 };
 
@@ -5813,6 +5858,7 @@ var Layout = function(optParams) {
 
   this.type = params.type;
 
+  this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };
 Layout.prototype = Object.create(Section.prototype);
@@ -6603,14 +6649,33 @@ Paragraph.prototype.isHeader = function() {
 
 
 /**
+ * Returns the text if this is a header otherwise null.
+ * @return {string|null}
+ */
+Paragraph.prototype.getTitle = function() {
+  return this.isHeader() ? this.text : null;
+};
+
+
+/**
+ * Returns the text if this is a paragraph otherwise null.
+ * @return {string|null}
+ */
+Paragraph.prototype.getSnippet = function() {
+  return Paragraph.Types.Paragraph === this.paragraphType ? this.text : null;
+};
+
+
+
+/**
  * Updates the text for the paragraph.
  * @param {string} text Text to update to.
  */
 Paragraph.prototype.setText = function(text) {
   this.text = text || '';
-  // Cleanup &nbsp; mess only if there isn't one at the end of the string.
-  if (text && !text.match(/\s$/)) {
-    this.text = text.replace(/\s/g, ' ');
+  // Cleanup &nbsp; mess only between words and non-repeating spaces.
+  if (text) {
+    this.text = text.replace(/(\S)\s(\S)/g, '$1 $2');
   }
   if (!this.text.length) {
     this.dom.innerHTML = '&#8203;';
@@ -7085,9 +7150,9 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
     }
   }];
 
-  // If this is ListItem and it's the last element in the
-  if (this.paragraphType === Paragraph.Types.ListItem &&
-      this.section.components.length < 2) {
+  // If this is the last element in the section/layout/list delete the container
+  // as well. Only if there are other containers.
+  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
@@ -7500,8 +7565,8 @@ Section.prototype.getLength = function() {
  */
 Section.prototype.getTitle = function() {
   for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].isHeader && this.components[i].isHeader()) {
-      return this.components[i].text;
+    if (this.components[i].getTitle && this.components[i].getTitle()) {
+      return this.components[i].getTitle();
     }
   }
   return null;
@@ -7514,8 +7579,8 @@ Section.prototype.getTitle = function() {
  */
 Section.prototype.getSnippet = function() {
   for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].isHeader && !this.components[i].isHeader()) {
-      return this.components[i].text;
+    if (this.components[i].getSnippet && this.components[i].getSnippet()) {
+      return this.components[i].getSnippet();
     }
   }
   return null;
@@ -8908,10 +8973,31 @@ Utils.isSelectAll = function(event) {
           event.keyCode === 65 && !event.shiftKey);
 };
 
+
+/**
+ * Returns true if the user is on a mobile device.
+ * @return {boolean}
+ */
+Utils.isMobile = function () {
+  return !!(/Mobi|iPhone|iPod|iPad|BlackBerry|Android/i.test(
+                navigator.userAgent));
+};
+
+
+/**
+ * Returns true if user is on firefox.
+ * @return {boolean}
+ */
 Utils.isFirefox = function () {
   return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 };
 
+
+/**
+ * Returns the text property name of the element.
+ * @param  {HTMLElement} element.
+ * @return {string}
+ */
 Utils.getTextProperty = function (element) {
   var textProp;
   if (element.nodeType === Node.TEXT_NODE) {
@@ -8925,10 +9011,21 @@ Utils.getTextProperty = function (element) {
 };
 
 
+/**
+ * Sets the text property for the element.
+ * @param {HTMLElement} element.
+ * @param {string} value Value to set.
+ */
 Utils.setTextForElement = function(element, value) {
   element[Utils.getTextProperty(element)] = value;
 };
 
+
+/**
+ * Gets the text inside the element.
+ * @param  {HTMLElement} element
+ * @return {string}
+ */
 Utils.getTextFromElement = function(element) {
   return element[Utils.getTextProperty(element)];
 };

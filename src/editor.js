@@ -204,7 +204,11 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
-  this.element.addEventListener('input', this.handleInputEvent.bind(this));
+
+  // This is only needed on mobile.
+  if (Utils.isMobile()) {
+    this.element.addEventListener('input', this.handleInputEvent.bind(this));
+  }
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.classList.add('carbon-editor');
@@ -408,7 +412,7 @@ Editor.prototype.handleInputEvent = function() {
         {}, offset + direction, undefined,
         Utils.getTextFromElement(component.dom));
     self.article.transaction(ops);
-    self.editor.dispatchEvent(new Event('change'));
+    self.dispatchEvent(new Event('change'));
   }, 3);
 
   // Another way to do this is to use the following in compositionupdate event.
@@ -470,6 +474,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     Utils.arrays.extend(ops, this.getDeleteSelectionOps());
 
     this.article.transaction(ops);
+    selection.setCursor(selection.start);
     ops = [];
 
     // Only stop propagation on special characters (Enter, Delete, Backspace)
@@ -576,7 +581,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Backspace.
     case 8:
-      if (!currentIsParagraph) {
+      if (!currentIsParagraph || !currentComponent.getLength()) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length));
         if (prevComponent) {
@@ -728,13 +733,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (nextComponent) {
         if (nextIsParagraph && !currentIsParagraph) {
           currentOffset = selection.end.offset;
-          offset = Math.min(nextComponent.getLength(), currentOffset);
-          selection.setCursor({
-            component: nextComponent,
-            offset: offset
-          });
-          preventDefault = true;
         }
+        offset = Math.min(nextComponent.getLength(), currentOffset);
+        selection.setCursor({
+          component: nextComponent,
+          offset: offset
+        });
+        preventDefault = true;
       }
       break;
 

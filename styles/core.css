@@ -96,6 +96,7 @@
   font-style: italic;
   font-size: 0.8em;
   outline: none;
+  padding: 0.5em 0;
 }
 
 .carbon figure .inner-container {

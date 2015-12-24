@@ -58,10 +58,10 @@
   position: absolute;
   width: 0;
   height: 0;
-  border-width: 10px;
+  border-width: 5px;
   border-style: solid;
   border-color: #FF5722 transparent transparent transparent;
-  bottom: -20px;
+  bottom: -10px;
   left: 45%;
 }
 
@@ -80,6 +80,12 @@
 
 .editor-toolbar-buttons .button-container {
   display: inline-block;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 .editor-toolbar-buttons .button-container.hidden {
