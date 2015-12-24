@@ -267,7 +267,7 @@ Figure.prototype.render = function(element, options) {
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
 
-      if (!this.width || !this.height) {
+      if (this.imgDom && (!this.width || !this.height)) {
         this.imgDom.addEventListener('load', function () {
           if (this.editMode) {
             var styles = window.getComputedStyle(this.imgDom);
