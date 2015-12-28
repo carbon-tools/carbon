@@ -5,6 +5,8 @@ var Paragraph = require('./paragraph');
 var Section = require('./section');
 var Utils = require('./utils');
 var Loader = require('./loader');
+var Layout = require('./layout');
+var Figure = require('./figure');
 
 
 /**
@@ -186,6 +188,23 @@ Article.prototype.getFirstComponent = function() {
  */
 Article.prototype.getLastComponent = function() {
   return this.sections[this.sections.length - 1].getLastComponent();
+};
+
+
+/**
+ * Returns true if the first component in the article is an image inside
+ * a bleed or staged layouts.
+ * @return {boolean}
+ */
+Article.prototype.hasCover = function() {
+  var coverLayouts = [Layout.Types.Staged, Layout.Types.Bleed];
+  var layout = this.getFirstComponent();
+  while (!layout.getLength() && layout.getNextComponent()) {
+    layout = layout.getNextComponent();
+  }
+  var firstComponent = layout.getFirstComponent();
+  return (firstComponent instanceof Figure &&
+          coverLayouts.indexOf(layout.type) !== -1);
 };
 
 
