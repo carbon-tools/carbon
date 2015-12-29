@@ -7,6 +7,7 @@
   top: -99999px;
   left: -99999px;
   z-index: 999;
+  font-size: 18px;
 }
 
 .editor-toolbar.rtl {

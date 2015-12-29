@@ -235,7 +235,7 @@ module.exports = function(grunt) {
     grunt.task.run([
       'clean',
       'build',
-      'connect:livereload',
+      'connect:livereload:dist',
       'watch'
     ]);
   });

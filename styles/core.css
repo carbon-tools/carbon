@@ -195,3 +195,18 @@
 .carbon-editor .carbon figure.editor-selected .inner-container {
   border: 3px solid #FF5722 !important;
 }
+
+
+@media (max-width: 500px) {
+  .carbon .layout-float-left figure {
+    float: none;
+    margin-right: auto;
+    width: auto;
+  }
+
+  .carbon .layout-float-right figure {
+    float: none;
+    margin-left: 2em;
+    width: auto;
+  }
+}
