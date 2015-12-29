@@ -225,14 +225,17 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
   // to include any floating that is happening to the element.
   try {
     var tempSelectionOn = element;
-    if (element.childNodes) {
+    if (element.childNodes && element.childNodes[0].length) {
       tempSelectionOn = element.childNodes[0];
     }
     tempRange.setStart(tempSelectionOn, 0);
     tempRange.setEnd(tempSelectionOn, 1);
     wSelection.removeAllRanges();
     wSelection.addRange(tempRange);
-    bounds = tempRange.getBoundingClientRect();
+    var newBounds = tempRange.getBoundingClientRect();
+    if (newBounds.left && newBounds.right) {
+      bounds = newBounds;
+    }
     wSelection.removeAllRanges();
     wSelection.addRange(oldRange);
   } catch (e) {

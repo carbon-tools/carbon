@@ -380,6 +380,10 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
         startComp === endComp) {
     // Otherwise, show the inline toolbar.
     setTimeout(function(){
+      var wSelection = window.getSelection();
+      if (wSelection.isCollapsed) {
+        return;
+      }
       this.inlineToolbar.setPositionTopOfSelection();
       this.inlineToolbar.setVisible(true);
       this.reloadInlineToolbarStatus();

@@ -202,9 +202,11 @@ Article.prototype.hasCover = function() {
   while (!layout.getLength() && layout.getNextComponent()) {
     layout = layout.getNextComponent();
   }
-  var firstComponent = layout.getFirstComponent();
-  return (firstComponent instanceof Figure &&
-          coverLayouts.indexOf(layout.type) !== -1);
+  if (layout instanceof Layout) {
+    var firstComponent = layout.getFirstComponent();
+    return (firstComponent instanceof Figure &&
+            coverLayouts.indexOf(layout.type) !== -1);
+  }
 };
 
 

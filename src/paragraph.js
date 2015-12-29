@@ -150,7 +150,8 @@ Paragraph.prototype.isHeader = function() {
  * @return {string|null}
  */
 Paragraph.prototype.getTitle = function() {
-  return this.isHeader() ? this.text : null;
+  var isEmpty = this.text.replace(/\s/, '').length < 1;
+  return this.isHeader() && !isEmpty ? this.text : null;
 };
 
 
@@ -174,7 +175,7 @@ Paragraph.prototype.setText = function(text) {
   if (text) {
     this.text = text.replace(/(\S)\s(\S)/g, '$1 $2');
   }
-  if (!this.text.length) {
+  if (!this.text.replace(/\s/, '').length) {
     this.dom.innerHTML = '&#8203;';
     this.dom.classList.add('show-placeholder');
   } else {

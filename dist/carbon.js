@@ -203,9 +203,11 @@ Article.prototype.hasCover = function() {
   while (!layout.getLength() && layout.getNextComponent()) {
     layout = layout.getNextComponent();
   }
-  var firstComponent = layout.getFirstComponent();
-  return (firstComponent instanceof Figure &&
-          coverLayouts.indexOf(layout.type) !== -1);
+  if (layout instanceof Layout) {
+    var firstComponent = layout.getFirstComponent();
+    return (firstComponent instanceof Figure &&
+            coverLayouts.indexOf(layout.type) !== -1);
+  }
 };
 
 
@@ -1174,12 +1176,14 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     this.article.redo();
     preventDefault = true;
   } else if (Utils.isSelectAll(event)) {
+    var firstLayout = article.getFirstComponent();
+    var lastLayout = article.getLastComponent();
     selection.select({
-      component: article.getFirstComponent(),
+      component: firstLayout.getFirstComponent(),
       offset: 0
     }, {
-      component: article.getLastComponent(),
-      offset: article.getLastComponent().getLength()
+      component: lastLayout.getLastComponent(),
+      offset: lastLayout.getLastComponent().getLength()
     });
     preventDefault = true;
   }
@@ -3635,6 +3639,10 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
         startComp === endComp) {
     // Otherwise, show the inline toolbar.
     setTimeout(function(){
+      var wSelection = window.getSelection();
+      if (wSelection.isCollapsed) {
+        return;
+      }
       this.inlineToolbar.setPositionTopOfSelection();
       this.inlineToolbar.setVisible(true);
       this.reloadInlineToolbarStatus();
@@ -6679,7 +6687,8 @@ Paragraph.prototype.isHeader = function() {
  * @return {string|null}
  */
 Paragraph.prototype.getTitle = function() {
-  return this.isHeader() ? this.text : null;
+  var isEmpty = this.text.replace(/\s/, '').length < 1;
+  return this.isHeader() && !isEmpty ? this.text : null;
 };
 
 
@@ -6703,7 +6712,7 @@ Paragraph.prototype.setText = function(text) {
   if (text) {
     this.text = text.replace(/(\S)\s(\S)/g, '$1 $2');
   }
-  if (!this.text.length) {
+  if (!this.text.replace(/\s/, '').length) {
     this.dom.innerHTML = '&#8203;';
     this.dom.classList.add('show-placeholder');
   } else {
@@ -8708,14 +8717,17 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
   // to include any floating that is happening to the element.
   try {
     var tempSelectionOn = element;
-    if (element.childNodes) {
+    if (element.childNodes && element.childNodes[0].length) {
       tempSelectionOn = element.childNodes[0];
     }
     tempRange.setStart(tempSelectionOn, 0);
     tempRange.setEnd(tempSelectionOn, 1);
     wSelection.removeAllRanges();
     wSelection.addRange(tempRange);
-    bounds = tempRange.getBoundingClientRect();
+    var newBounds = tempRange.getBoundingClientRect();
+    if (newBounds.left && newBounds.right) {
+      bounds = newBounds;
+    }
     wSelection.removeAllRanges();
     wSelection.addRange(oldRange);
   } catch (e) {

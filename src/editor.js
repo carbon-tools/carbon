@@ -455,12 +455,14 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     this.article.redo();
     preventDefault = true;
   } else if (Utils.isSelectAll(event)) {
+    var firstLayout = article.getFirstComponent();
+    var lastLayout = article.getLastComponent();
     selection.select({
-      component: article.getFirstComponent(),
+      component: firstLayout.getFirstComponent(),
       offset: 0
     }, {
-      component: article.getLastComponent(),
-      offset: article.getLastComponent().getLength()
+      component: lastLayout.getLastComponent(),
+      offset: lastLayout.getLastComponent().getLength()
     });
     preventDefault = true;
   }
