@@ -253,7 +253,7 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
   }
 
   this.dom.style.top = Math.max(top, 10) + 'px';
-  this.dom.style.left = start + 'px';
+  this.dom.style.left = Math.max(start, 0) + 'px';
 };
 
 
@@ -271,8 +271,8 @@ Toolbar.prototype.setPositionToStartBottomOf = function (element) {
     var toolbarBounds = this.dom.getBoundingClientRect();
     start = bounds.right - toolbarBounds.width;
   }
-  this.dom.style.top = top + 'px';
-  this.dom.style.left = start + 'px';
+  this.dom.style.top = Math.max(top, 0) + 'px';
+  this.dom.style.left = Math.max(start, 0) + 'px';
 };
 
 
@@ -294,7 +294,7 @@ Toolbar.prototype.setPositionToTopOf = function (element) {
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
   this.dom.style.top = Math.max(top, 10) + 'px';
-  this.dom.style.left = left + 'px';
+  this.dom.style.left = Math.max(left, 0) + 'px';
 };
 
 
@@ -317,7 +317,7 @@ Toolbar.prototype.setPositionTopOfSelection = function () {
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
   this.dom.style.top = Math.max(top, 10) + 'px';
-  this.dom.style.left = left + 'px';
+  this.dom.style.left = Math.max(left, 0) + 'px';
 };
 
 
