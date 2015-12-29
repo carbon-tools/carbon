@@ -556,14 +556,21 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           // layout that enter should insert component at (e.g. getEnterOps).
           if (currentComponent.section instanceof Layout &&
               currentComponent.section.type !== Layout.Types.SingleColumn) {
-            var layouts = currentComponent.section.section.components;
-            var layoutIndex = currentComponent.section.getIndexInSection();
-            for (var i = layoutIndex; i < layouts.length; i++) {
-              if (layouts[i].type === Layout.Types.SingleColumn) {
-                insertInSection = layouts[i];
-                atIndex = 0;
-                break;
-              }
+            insertInSection = currentComponent.section.getNextComponent();
+            atIndex = 0;
+
+            // If next layout is not single-column create one and insert the new
+            // paragraph into.
+            if (!insertInSection ||
+                insertInSection.type !== Layout.Types.SingleColumn) {
+              insertInSection = new Layout({
+                type: Layout.Types.SingleColumn,
+                section: currentComponent.section.section,
+                components: []
+              });
+              Utils.arrays.extend(
+                  ops, insertInSection.getInsertOps(
+                      currentComponent.section.getIndexInSection() + 1));
             }
           }
 
