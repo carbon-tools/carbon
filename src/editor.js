@@ -505,14 +505,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           !currentComponent.inline) {
         Utils.arrays.extend(ops, this.getSplitParagraphOps(
             -inBetweenComponents.length));
-      } else if (nextIsParagraph &&
-          (nextComponent.isPlaceholder() || currentComponent.inline)) {
-        // If the next paragraph is a placeholder, just move the cursor to it
-        // and don't insert a new paragraph.
-        selection.setCursor({
-          component: nextComponent,
-          offset: 0
-        });
       } else {
         var factoryMethod;
         if (currentIsParagraph) {
@@ -526,6 +518,14 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             setTimeout(function() {
               that.dispatchEvent(new Event('change'));
             }, 10);
+          });
+        } else if (nextIsParagraph &&
+                   (nextComponent.isPlaceholder() || currentComponent.inline)) {
+          // If the next paragraph is a placeholder, just move the cursor to it
+          // and don't insert a new paragraph.
+          selection.setCursor({
+            component: nextComponent,
+            offset: 0
           });
         } else {
           var insertType = currentComponent.paragraphType;
