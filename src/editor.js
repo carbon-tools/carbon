@@ -413,7 +413,7 @@ Editor.prototype.handleInputEvent = function() {
         Utils.getTextFromElement(component.dom));
     self.article.transaction(ops);
     self.dispatchEvent(new Event('change'));
-  }, 3);
+  }, 2);
 
   // Another way to do this is to use the following in compositionupdate event.
   // Though found this to be slightly buggier from the above.
@@ -791,7 +791,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       }
 
       article.transaction(ops);
-    }, 3);
+    }, 2);
   }
 
   // Dispatch a `change` event

@@ -173,7 +173,13 @@ Paragraph.prototype.setText = function(text) {
   this.text = text || '';
   // Cleanup &nbsp; mess only between words and non-repeating spaces.
   if (text) {
-    this.text = text.replace(/(\S)\s(\S)/g, '$1 $2');
+    this.text = text.replace(/(\S)\s(\S)/g, '$1 $2')
+        // Keep the non-breaking space at the end of the string.
+        .replace(/\s$/g, '\xa0')
+        // Keep the non-breaking space for multiple spaces.
+        .replace(/(\s{2,})/g, function(match) {
+          return new Array(match.length + 1).join('\xa0');
+        });
   }
   if (!this.text.replace(/\s/, '').length) {
     this.dom.innerHTML = '&#8203;';

@@ -1134,7 +1134,7 @@ Editor.prototype.handleInputEvent = function() {
         Utils.getTextFromElement(component.dom));
     self.article.transaction(ops);
     self.dispatchEvent(new Event('change'));
-  }, 3);
+  }, 2);
 
   // Another way to do this is to use the following in compositionupdate event.
   // Though found this to be slightly buggier from the above.
@@ -1512,7 +1512,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       }
 
       article.transaction(ops);
-    }, 3);
+    }, 2);
   }
 
   // Dispatch a `change` event
@@ -6710,7 +6710,13 @@ Paragraph.prototype.setText = function(text) {
   this.text = text || '';
   // Cleanup &nbsp; mess only between words and non-repeating spaces.
   if (text) {
-    this.text = text.replace(/(\S)\s(\S)/g, '$1 $2');
+    this.text = text.replace(/(\S)\s(\S)/g, '$1 $2')
+        // Keep the non-breaking space at the end of the string.
+        .replace(/\s$/g, '\xa0')
+        // Keep the non-breaking space for multiple spaces.
+        .replace(/(\s{2,})/g, function(match) {
+          return new Array(match.length + 1).join('\xa0');
+        });
   }
   if (!this.text.replace(/\s/, '').length) {
     this.dom.innerHTML = '&#8203;';
@@ -8745,7 +8751,7 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
   }
 
   this.dom.style.top = Math.max(top, 10) + 'px';
-  this.dom.style.left = start + 'px';
+  this.dom.style.left = Math.max(start, 0) + 'px';
 };
 
 
@@ -8763,8 +8769,8 @@ Toolbar.prototype.setPositionToStartBottomOf = function (element) {
     var toolbarBounds = this.dom.getBoundingClientRect();
     start = bounds.right - toolbarBounds.width;
   }
-  this.dom.style.top = top + 'px';
-  this.dom.style.left = start + 'px';
+  this.dom.style.top = Math.max(top, 0) + 'px';
+  this.dom.style.left = Math.max(start, 0) + 'px';
 };
 
 
@@ -8786,7 +8792,7 @@ Toolbar.prototype.setPositionToTopOf = function (element) {
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
   this.dom.style.top = Math.max(top, 10) + 'px';
-  this.dom.style.left = left + 'px';
+  this.dom.style.left = Math.max(left, 0) + 'px';
 };
 
 
@@ -8809,7 +8815,7 @@ Toolbar.prototype.setPositionTopOfSelection = function () {
   // Offset the top bound with the scrolled amount of the page.
   var top = bounds.top + window.pageYOffset - toolbarHeight - 10;
   this.dom.style.top = Math.max(top, 10) + 'px';
-  this.dom.style.left = left + 'px';
+  this.dom.style.left = Math.max(left, 0) + 'px';
 };
 
 
