@@ -1063,8 +1063,9 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
 
-  var INLINE_ELEMENTS = 'B BR BIG I SMALL ABBR ACRONYM CITE EM STRONG A BDO'+
-      ' STRIKE S SPAN SUB SUP #text META'.split(' ');
+  var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
+      'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
+      '#text', 'META'];
 
   function hasOnlyInlineChildNodes(elem) {
     var children = elem.childNodes;

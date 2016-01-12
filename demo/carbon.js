@@ -406,8 +406,24 @@ Article.prototype.exec = function(operation, action) {
       }
     }
   } else if (op === 'deleteComponent') {
+    var selectComponent, selectOffset;
     component = Utils.getReference(operation[action].component);
+    var componentIndex = component.getIndexInSection();
+    if (componentIndex === 0) {
+      selectComponent = component.getNextComponent();
+      selectOffset = 0;
+    } else if (componentIndex === component.section.getLength() - 1) {
+      selectComponent = component.getPreviousComponent();
+      selectOffset = component.getLength();
+    }
     component.section.removeComponent(component);
+
+    if (selectComponent) {
+      selection.setCursor({
+        component: selectComponent,
+        offset: selectOffset
+      });
+    }
   } else if (op === 'insertComponent') {
     // TODO(mkhatib): Insert components inside a component.
     var section = Utils.getReference(operation[action].section);
@@ -1786,8 +1802,9 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
 
-  var INLINE_ELEMENTS = 'B BR BIG I SMALL ABBR ACRONYM CITE EM STRONG A BDO'+
-      ' STRIKE S SPAN SUB SUP #text META'.split(' ');
+  var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
+      'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
+      '#text', 'META'];
 
   function hasOnlyInlineChildNodes(elem) {
     var children = elem.childNodes;
