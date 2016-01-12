@@ -984,9 +984,9 @@ Editor.prototype.handlePaste = function(event) {
   }
 
   var ops = this.getDeleteSelectionOps();
-  var pasteOps = this.processPastedContent(tempEl);
-  Utils.arrays.extend(ops, pasteOps);
   this.article.transaction(ops);
+  var pasteOps = this.processPastedContent(tempEl);
+  this.article.transaction(pasteOps);
 
   var factoryMethod;
   var that = this;
@@ -1127,11 +1127,11 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     Utils.arrays.extend(
         ops, newP.getInsertOps(currentIndex++));
   } else {
-    // When pasting multi-line split the current paragraph if pasting
+    // When pasting multi-line, split the current paragraph if pasting
     // mid-paragraph.
     if (!selection.isCursorAtEnding()) {
       Utils.arrays.extend(ops, this.getSplitParagraphOps(
-          currentIndex));
+          currentIndex++));
     }
     for (var i = 0; i < children.length; i++) {
       var el = children[i];

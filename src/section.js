@@ -192,7 +192,10 @@ Section.prototype.getComponentsBetween = function(
   // Get components between the parent component.
   var start = startComponent.parentComponent || startComponent;
   var end = endComponent.parentComponent || endComponent;
-  var next = start;
+  if (start === end) {
+    return [];
+  }
+  var next = start.getNextComponent();
   while (next && next !== end) {
     components.push(next);
     next = next.getNextComponent();
