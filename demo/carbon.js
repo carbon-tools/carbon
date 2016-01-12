@@ -8,6 +8,7 @@ var Utils = require('./utils');
 var Loader = require('./loader');
 var Layout = require('./layout');
 var Figure = require('./figure');
+var EmbeddedComponent = require('./extensions/embeddedComponent');
 
 
 /**
@@ -205,7 +206,8 @@ Article.prototype.hasCover = function() {
   }
   if (layout instanceof Layout) {
     var firstComponent = layout.getFirstComponent();
-    return (firstComponent instanceof Figure &&
+    return ((firstComponent instanceof Figure ||
+             firstComponent instanceof EmbeddedComponent) &&
             coverLayouts.indexOf(layout.type) !== -1);
   }
 };
@@ -430,7 +432,7 @@ Article.prototype.handleResize_ = function() {
   }
 };
 
-},{"./figure":19,"./layout":23,"./loader":25,"./paragraph":27,"./section":28,"./selection":29,"./utils":33}],2:[function(require,module,exports){
+},{"./extensions/embeddedComponent":9,"./figure":19,"./layout":23,"./loader":25,"./paragraph":27,"./section":28,"./selection":29,"./utils":33}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -1558,12 +1560,17 @@ Editor.prototype.getDeleteSelectionOps = function() {
           selection.start.offset, firstParagraphOldText.length);
 
       var selectRange = firstParagraphOldText.length - selection.start.offset;
-      Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-        formats: startParagraphFormats
-      }, selection.start.offset, selectRange));
+      if ((startParagraphFormats && startParagraphFormats.length) ||
+          selectRange) {
+        Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+          formats: startParagraphFormats
+        }, selection.start.offset, selectRange));
+      }
 
-      Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
-          firstParagraphText, selection.start.offset));
+      if (firstParagraphText && firstParagraphText.length) {
+        Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
+            firstParagraphText, selection.start.offset));
+      }
 
       var lastCount = lastParagraphOldText.length - lastParagraphText.length;
       Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
@@ -1699,7 +1706,9 @@ Editor.prototype.handlePaste = function(event) {
     startComponent = startComponent.getPreviousComponent();
   }
 
-  var ops = this.processPastedContent(tempEl);
+  var ops = this.getDeleteSelectionOps();
+  var pasteOps = this.processPastedContent(tempEl);
+  Utils.arrays.extend(ops, pasteOps);
   this.article.transaction(ops);
 
   var factoryMethod;
@@ -1795,6 +1804,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     for (var i = 0; i < children.length; i++) {
       if (children[i] && children[i].nodeName.toLowerCase() === 'meta') {
         metaNodes++;
+      } else if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
+        return false;
       }
     }
 
@@ -1845,7 +1856,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       Utils.arrays.extend(ops, this.getSplitParagraphOps(
           currentIndex));
     }
-    currentIndex++;
     for (var i = 0; i < children.length; i++) {
       var el = children[i];
       var tag = el.nodeName && el.nodeName.toLowerCase();
@@ -1929,14 +1939,14 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
                 children[i], currentIndex);
 
             // Increase the currentIndex by the amount of paragraphs we've added
-            // which is the amount of operations over 2 (2 operations per
-            // paragraph, one insert one update.).
-            currentIndex += appendOperations.length/2;
+            // which is the amount of operations.
+            currentIndex += appendOperations.length;
           }
       }
 
       if (appendOperations) {
         Utils.arrays.extend(ops, appendOperations);
+        appendOperations = null;
       } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
         text = Utils.getTextFromElement(el);
@@ -7171,6 +7181,11 @@ Paragraph.prototype.render = function(element, options) {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
+  // In case of a nested-component inside another. Let the parent
+  // handle its deletion (e.g. figcaption inside a figure).
+  if (!this.section) {
+    return [];
+  }
   var ops = [{
     do: {
       op: 'deleteComponent',
@@ -7532,10 +7547,14 @@ Section.prototype.getLastComponent = function() {
 Section.prototype.getComponentsBetween = function(
     startComponent, endComponent) {
   var components = [];
-  var startIndex = this.components.indexOf(startComponent) + 1;
-  var endIndex = this.components.indexOf(endComponent);
-  for (var i = startIndex; i < endIndex; i++) {
-    components.push(this.components[i]);
+  // In case of this is a nested component.
+  // Get components between the parent component.
+  var start = startComponent.parentComponent || startComponent;
+  var end = endComponent.parentComponent || endComponent;
+  var next = start;
+  while (next && next !== end) {
+    components.push(next);
+    next = next.getNextComponent();
   }
   return components;
 };

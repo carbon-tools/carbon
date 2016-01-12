@@ -7,6 +7,7 @@ var Utils = require('./utils');
 var Loader = require('./loader');
 var Layout = require('./layout');
 var Figure = require('./figure');
+var EmbeddedComponent = require('./extensions/embeddedComponent');
 
 
 /**
@@ -204,7 +205,8 @@ Article.prototype.hasCover = function() {
   }
   if (layout instanceof Layout) {
     var firstComponent = layout.getFirstComponent();
-    return (firstComponent instanceof Figure &&
+    return ((firstComponent instanceof Figure ||
+             firstComponent instanceof EmbeddedComponent) &&
             coverLayouts.indexOf(layout.type) !== -1);
   }
 };

@@ -188,10 +188,14 @@ Section.prototype.getLastComponent = function() {
 Section.prototype.getComponentsBetween = function(
     startComponent, endComponent) {
   var components = [];
-  var startIndex = this.components.indexOf(startComponent) + 1;
-  var endIndex = this.components.indexOf(endComponent);
-  for (var i = startIndex; i < endIndex; i++) {
-    components.push(this.components[i]);
+  // In case of this is a nested component.
+  // Get components between the parent component.
+  var start = startComponent.parentComponent || startComponent;
+  var end = endComponent.parentComponent || endComponent;
+  var next = start;
+  while (next && next !== end) {
+    components.push(next);
+    next = next.getNextComponent();
   }
   return components;
 };

@@ -14,7 +14,7 @@
   line-height: 1.5;
 }
 
-.carbon p.empty-paragraph {
+.carbon .empty-paragraph {
   display: none;
 }
 

@@ -837,12 +837,17 @@ Editor.prototype.getDeleteSelectionOps = function() {
           selection.start.offset, firstParagraphOldText.length);
 
       var selectRange = firstParagraphOldText.length - selection.start.offset;
-      Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-        formats: startParagraphFormats
-      }, selection.start.offset, selectRange));
+      if ((startParagraphFormats && startParagraphFormats.length) ||
+          selectRange) {
+        Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+          formats: startParagraphFormats
+        }, selection.start.offset, selectRange));
+      }
 
-      Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
-          firstParagraphText, selection.start.offset));
+      if (firstParagraphText && firstParagraphText.length) {
+        Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
+            firstParagraphText, selection.start.offset));
+      }
 
       var lastCount = lastParagraphOldText.length - lastParagraphText.length;
       Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
@@ -978,7 +983,9 @@ Editor.prototype.handlePaste = function(event) {
     startComponent = startComponent.getPreviousComponent();
   }
 
-  var ops = this.processPastedContent(tempEl);
+  var ops = this.getDeleteSelectionOps();
+  var pasteOps = this.processPastedContent(tempEl);
+  Utils.arrays.extend(ops, pasteOps);
   this.article.transaction(ops);
 
   var factoryMethod;
@@ -1074,6 +1081,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     for (var i = 0; i < children.length; i++) {
       if (children[i] && children[i].nodeName.toLowerCase() === 'meta') {
         metaNodes++;
+      } else if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
+        return false;
       }
     }
 
@@ -1124,7 +1133,6 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       Utils.arrays.extend(ops, this.getSplitParagraphOps(
           currentIndex));
     }
-    currentIndex++;
     for (var i = 0; i < children.length; i++) {
       var el = children[i];
       var tag = el.nodeName && el.nodeName.toLowerCase();
@@ -1208,14 +1216,14 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
                 children[i], currentIndex);
 
             // Increase the currentIndex by the amount of paragraphs we've added
-            // which is the amount of operations over 2 (2 operations per
-            // paragraph, one insert one update.).
-            currentIndex += appendOperations.length/2;
+            // which is the amount of operations.
+            currentIndex += appendOperations.length;
           }
       }
 
       if (appendOperations) {
         Utils.arrays.extend(ops, appendOperations);
+        appendOperations = null;
       } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
         text = Utils.getTextFromElement(el);

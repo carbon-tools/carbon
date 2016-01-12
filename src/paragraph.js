@@ -634,6 +634,11 @@ Paragraph.prototype.render = function(element, options) {
  * @return {Array.<Object>} List of operations needed to be executed.
  */
 Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
+  // In case of a nested-component inside another. Let the parent
+  // handle its deletion (e.g. figcaption inside a figure).
+  if (!this.section) {
+    return [];
+  }
   var ops = [{
     do: {
       op: 'deleteComponent',
