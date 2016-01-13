@@ -506,6 +506,8 @@ var Selection = (function() {
       // Clicking a key would probably also cause the cursor to move.
       element.addEventListener('keyup',
           this.updateSelectionFromWindow.bind(this));
+      element.addEventListener('keydown',
+          this.updateSelectionFromWindow.bind(this));
     };
 
     var instance;

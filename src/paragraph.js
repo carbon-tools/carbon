@@ -631,9 +631,10 @@ Paragraph.prototype.render = function(element, options) {
  *   For partial deletion pass optFrom and optTo.
  * @param  {number=} optIndexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
+Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -642,7 +643,8 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -671,9 +673,11 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
 /**
  * Returns the operations to execute inserting a paragarph.
  * @param {number} index Index to insert the paragarph at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the paragraph.
  */
-Paragraph.prototype.getInsertOps = function (index) {
+Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -691,7 +695,8 @@ Paragraph.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };

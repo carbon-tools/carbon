@@ -406,22 +406,13 @@ Article.prototype.exec = function(operation, action) {
       }
     }
   } else if (op === 'deleteComponent') {
-    var selectComponent, selectOffset;
     component = Utils.getReference(operation[action].component);
-    var componentIndex = component.getIndexInSection();
-    if (componentIndex === 0) {
-      selectComponent = component.getNextComponent();
-      selectOffset = 0;
-    } else if (componentIndex === component.section.getLength() - 1) {
-      selectComponent = component.getPreviousComponent();
-      selectOffset = component.getLength();
-    }
     component.section.removeComponent(component);
 
-    if (selectComponent) {
+    if (operation[action].cursor) {
       selection.setCursor({
-        component: selectComponent,
-        offset: selectOffset
+        offset: operation[action].cursor.offset,
+        component: Utils.getReference(operation[action].cursor.component)
       });
     }
   } else if (op === 'insertComponent') {
@@ -434,6 +425,7 @@ Article.prototype.exec = function(operation, action) {
     var constructorName = operation[action].componentClass;
     var ComponentClass = Loader.load(constructorName);
     component = new ComponentClass(options);
+    component.section = section;
     section.insertComponentAt(component, operation[action].index);
   }
 };
@@ -1002,9 +994,8 @@ Editor.prototype.render = function() {
     this.element.removeChild(this.element.firstChild);
   }
   this.article.render(this.element, {editMode: true});
-  // this.element.appendChild(this.article.dom);
   this.selection.setCursor({
-    component: this.article.sections[0].components[0],
+    component: this.article.sections[0].getFirstComponent().getFirstComponent(),
     offset: 0
   });
   this.dispatchEvent(new Event('change'));
@@ -1186,12 +1177,15 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var inBetweenComponents = [];
   var offset, currentOffset;
   var that = this;
+  var cursor = null;
 
   if (Utils.isUndo(event)) {
     this.article.undo();
+    selection.updateSelectionFromWindow();
     preventDefault = true;
   } else if (Utils.isRedo(event)) {
     this.article.redo();
+    selection.updateSelectionFromWindow();
     preventDefault = true;
   } else if (Utils.isSelectAll(event)) {
     var firstLayout = article.getFirstComponent();
@@ -1270,6 +1264,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           var insertType = currentComponent.paragraphType;
           var insertInSection = selection.getSectionAtEnd();
           var atIndex = currentIndex - inBetweenComponents.length + 1;
+          cursor = {
+            component: currentComponent.name,
+            offset: selection.end.offset
+          };
           if (insertType === Paragraph.Types.ListItem) {
             if (currentComponent.getLength() === 0) {
               var list = insertInSection;
@@ -1279,7 +1277,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
               if (atIndex < list.getLength()) {
                 Utils.arrays.extend(ops, list.getSplitOps(atIndex));
               }
-              Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
+              Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+                  atIndex, cursor));
               atIndex = selection.getSectionAtEnd().getIndexInSection() + 1;
             }
           } else if (currentComponent.parentComponent &&
@@ -1319,7 +1318,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             section: insertInSection,
             paragraphType: insertType
           });
-          Utils.arrays.extend(ops, newP.getInsertOps(atIndex));
+          Utils.arrays.extend(ops, newP.getInsertOps(atIndex, cursor));
         }
       }
 
@@ -1330,31 +1329,30 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Backspace.
     case 8:
       if (!currentIsParagraph || !currentComponent.getLength()) {
-        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
-            -inBetweenComponents.length));
+        cursor = null;
         if (prevComponent) {
-          this.article.transaction(ops);
-          offset = 0;
+          cursor = { offset: 0 };
           if (prevIsParagraph) {
-            offset = prevComponent.getLength();
+            cursor.offset = prevComponent.getLength();
           }
-          selection.setCursor({
-            component: prevComponent,
-            offset: offset
-          });
+          cursor.component = prevComponent.name;
         } else if (nextComponent) {
-          this.article.transaction(ops);
-          selection.setCursor({
-            component: nextComponent,
-            offset: 0
-          });
-        } else {
+          cursor = {
+            offset: 0,
+            component: nextComponent.name
+          };
+        }
+
+        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+            -inBetweenComponents.length, cursor));
+
+        if (!prevComponent && !nextComponent) {
           newP = new Paragraph({section: selection.getSectionAtEnd()});
           Utils.arrays.extend(
               ops, newP.getInsertOps(
-                  currentIndex - inBetweenComponents.length));
-          this.article.transaction(ops);
+                  currentIndex - inBetweenComponents.length, cursor));
         }
+        this.article.transaction(ops);
         preventDefault = true;
       } else if (selection.isCursorAtBeginning() && prevComponent) {
         offsetAfterOperation = 0;
@@ -1382,27 +1380,29 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Delete.
     case 46:
       if (!currentIsParagraph) {
-        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
-            -inBetweenComponents.length));
+        cursor = null;
         if (prevComponent) {
-          this.article.transaction(ops);
-          selection.setCursor({
-            component: prevComponent,
+          cursor = {
+            component: prevComponent.name,
             offset: prevComponent.getLength()
-          });
+          };
         } else if (nextComponent) {
-          this.article.transaction(ops);
-          selection.setCursor({
-            component: nextComponent,
+          cursor = {
+            component: nextComponent.name,
             offset: 0
-          });
-        } else {
+          };
+        }
+
+        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+            -inBetweenComponents.length, cursor));
+
+        if (!nextComponent && !prevComponent) {
           newP = new Paragraph({section: selection.getSectionAtEnd()});
           Utils.arrays.extend(
               ops, newP.getInsertOps(
-                  currentIndex - inBetweenComponents.length));
-          this.article.transaction(ops);
+                  currentIndex - inBetweenComponents.length, cursor));
         }
+        this.article.transaction(ops);
         preventDefault = true;
       } else if (selection.isCursorAtEnding() && nextComponent) {
         // If cursor at the end of the paragraph. Merge Paragraphs if the
@@ -1755,6 +1755,7 @@ Editor.prototype.handlePaste = function(event) {
     currentComponent = currentComponent.getNextComponent();
   }
 
+  this.selection.updateSelectionFromWindow();
   event.preventDefault();
 };
 
@@ -1801,6 +1802,10 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var section = selection.getSectionAtStart();
   var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
+  var cursor = {
+    component: currentComponent.name,
+    offset: selection.end.offset
+  };
 
   var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
       'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
@@ -1852,7 +1857,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
               text: lines[lineNum]
           });
           Utils.arrays.extend(
-              ops, newP.getInsertOps(currentIndex++));
+              ops, newP.getInsertOps(currentIndex++, cursor));
         }
       }
     }
@@ -1865,7 +1870,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         formats: FormattingExtension.generateFormatsForNode(element)
     });
     Utils.arrays.extend(
-        ops, newP.getInsertOps(currentIndex++));
+        ops, newP.getInsertOps(currentIndex++, cursor));
   } else {
     // When pasting multi-line, split the current paragraph if pasting
     // mid-paragraph.
@@ -1897,7 +1902,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
             });
             component.section = selection.getSectionAtEnd();
             Utils.arrays.extend(
-                ops, component.getInsertOps(currentIndex++));
+                ops, component.getInsertOps(currentIndex++), cursor);
           }
           paragraphType = null;
           break;
@@ -1907,7 +1912,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           });
           component.section = selection.getSectionAtEnd();
           Utils.arrays.extend(
-              ops, component.getInsertOps(currentIndex++));
+              ops, component.getInsertOps(currentIndex++, cursor));
           paragraphType = null;
           break;
         // All the following will just insert a normal paragraph for now.
@@ -1975,7 +1980,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
             formats: FormattingExtension.generateFormatsForNode(el)
         });
         Utils.arrays.extend(
-            ops, newP.getInsertOps(currentIndex++));
+            ops, newP.getInsertOps(currentIndex++, cursor));
       }
     }
   }
@@ -7195,9 +7200,10 @@ Paragraph.prototype.render = function(element, options) {
  *   For partial deletion pass optFrom and optTo.
  * @param  {number=} optIndexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
+Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -7206,7 +7212,8 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -7235,9 +7242,11 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset) {
 /**
  * Returns the operations to execute inserting a paragarph.
  * @param {number} index Index to insert the paragarph at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the paragraph.
  */
-Paragraph.prototype.getInsertOps = function (index) {
+Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -7255,7 +7264,8 @@ Paragraph.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };
@@ -8197,6 +8207,8 @@ var Selection = (function() {
 
       // Clicking a key would probably also cause the cursor to move.
       element.addEventListener('keyup',
+          this.updateSelectionFromWindow.bind(this));
+      element.addEventListener('keydown',
           this.updateSelectionFromWindow.bind(this));
     };
 

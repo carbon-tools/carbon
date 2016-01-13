@@ -405,22 +405,13 @@ Article.prototype.exec = function(operation, action) {
       }
     }
   } else if (op === 'deleteComponent') {
-    var selectComponent, selectOffset;
     component = Utils.getReference(operation[action].component);
-    var componentIndex = component.getIndexInSection();
-    if (componentIndex === 0) {
-      selectComponent = component.getNextComponent();
-      selectOffset = 0;
-    } else if (componentIndex === component.section.getLength() - 1) {
-      selectComponent = component.getPreviousComponent();
-      selectOffset = component.getLength();
-    }
     component.section.removeComponent(component);
 
-    if (selectComponent) {
+    if (operation[action].cursor) {
       selection.setCursor({
-        component: selectComponent,
-        offset: selectOffset
+        offset: operation[action].cursor.offset,
+        component: Utils.getReference(operation[action].cursor.component)
       });
     }
   } else if (op === 'insertComponent') {
@@ -433,6 +424,7 @@ Article.prototype.exec = function(operation, action) {
     var constructorName = operation[action].componentClass;
     var ComponentClass = Loader.load(constructorName);
     component = new ComponentClass(options);
+    component.section = section;
     section.insertComponentAt(component, operation[action].index);
   }
 };

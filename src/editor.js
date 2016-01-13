@@ -263,9 +263,8 @@ Editor.prototype.render = function() {
     this.element.removeChild(this.element.firstChild);
   }
   this.article.render(this.element, {editMode: true});
-  // this.element.appendChild(this.article.dom);
   this.selection.setCursor({
-    component: this.article.sections[0].components[0],
+    component: this.article.sections[0].getFirstComponent().getFirstComponent(),
     offset: 0
   });
   this.dispatchEvent(new Event('change'));
@@ -447,12 +446,15 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var inBetweenComponents = [];
   var offset, currentOffset;
   var that = this;
+  var cursor = null;
 
   if (Utils.isUndo(event)) {
     this.article.undo();
+    selection.updateSelectionFromWindow();
     preventDefault = true;
   } else if (Utils.isRedo(event)) {
     this.article.redo();
+    selection.updateSelectionFromWindow();
     preventDefault = true;
   } else if (Utils.isSelectAll(event)) {
     var firstLayout = article.getFirstComponent();
@@ -531,6 +533,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           var insertType = currentComponent.paragraphType;
           var insertInSection = selection.getSectionAtEnd();
           var atIndex = currentIndex - inBetweenComponents.length + 1;
+          cursor = {
+            component: currentComponent.name,
+            offset: selection.end.offset
+          };
           if (insertType === Paragraph.Types.ListItem) {
             if (currentComponent.getLength() === 0) {
               var list = insertInSection;
@@ -540,7 +546,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
               if (atIndex < list.getLength()) {
                 Utils.arrays.extend(ops, list.getSplitOps(atIndex));
               }
-              Utils.arrays.extend(ops, currentComponent.getDeleteOps(atIndex));
+              Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+                  atIndex, cursor));
               atIndex = selection.getSectionAtEnd().getIndexInSection() + 1;
             }
           } else if (currentComponent.parentComponent &&
@@ -580,7 +587,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             section: insertInSection,
             paragraphType: insertType
           });
-          Utils.arrays.extend(ops, newP.getInsertOps(atIndex));
+          Utils.arrays.extend(ops, newP.getInsertOps(atIndex, cursor));
         }
       }
 
@@ -591,31 +598,30 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Backspace.
     case 8:
       if (!currentIsParagraph || !currentComponent.getLength()) {
-        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
-            -inBetweenComponents.length));
+        cursor = null;
         if (prevComponent) {
-          this.article.transaction(ops);
-          offset = 0;
+          cursor = { offset: 0 };
           if (prevIsParagraph) {
-            offset = prevComponent.getLength();
+            cursor.offset = prevComponent.getLength();
           }
-          selection.setCursor({
-            component: prevComponent,
-            offset: offset
-          });
+          cursor.component = prevComponent.name;
         } else if (nextComponent) {
-          this.article.transaction(ops);
-          selection.setCursor({
-            component: nextComponent,
-            offset: 0
-          });
-        } else {
+          cursor = {
+            offset: 0,
+            component: nextComponent.name
+          };
+        }
+
+        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+            -inBetweenComponents.length, cursor));
+
+        if (!prevComponent && !nextComponent) {
           newP = new Paragraph({section: selection.getSectionAtEnd()});
           Utils.arrays.extend(
               ops, newP.getInsertOps(
-                  currentIndex - inBetweenComponents.length));
-          this.article.transaction(ops);
+                  currentIndex - inBetweenComponents.length, cursor));
         }
+        this.article.transaction(ops);
         preventDefault = true;
       } else if (selection.isCursorAtBeginning() && prevComponent) {
         offsetAfterOperation = 0;
@@ -643,27 +649,29 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Delete.
     case 46:
       if (!currentIsParagraph) {
-        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
-            -inBetweenComponents.length));
+        cursor = null;
         if (prevComponent) {
-          this.article.transaction(ops);
-          selection.setCursor({
-            component: prevComponent,
+          cursor = {
+            component: prevComponent.name,
             offset: prevComponent.getLength()
-          });
+          };
         } else if (nextComponent) {
-          this.article.transaction(ops);
-          selection.setCursor({
-            component: nextComponent,
+          cursor = {
+            component: nextComponent.name,
             offset: 0
-          });
-        } else {
+          };
+        }
+
+        Utils.arrays.extend(ops, currentComponent.getDeleteOps(
+            -inBetweenComponents.length, cursor));
+
+        if (!nextComponent && !prevComponent) {
           newP = new Paragraph({section: selection.getSectionAtEnd()});
           Utils.arrays.extend(
               ops, newP.getInsertOps(
-                  currentIndex - inBetweenComponents.length));
-          this.article.transaction(ops);
+                  currentIndex - inBetweenComponents.length, cursor));
         }
+        this.article.transaction(ops);
         preventDefault = true;
       } else if (selection.isCursorAtEnding() && nextComponent) {
         // If cursor at the end of the paragraph. Merge Paragraphs if the
@@ -1016,6 +1024,7 @@ Editor.prototype.handlePaste = function(event) {
     currentComponent = currentComponent.getNextComponent();
   }
 
+  this.selection.updateSelectionFromWindow();
   event.preventDefault();
 };
 
@@ -1062,6 +1071,10 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var section = selection.getSectionAtStart();
   var startParagraphIndex = currentComponent.getIndexInSection();
   var currentIndex = indexOffset || startParagraphIndex;
+  var cursor = {
+    component: currentComponent.name,
+    offset: selection.end.offset
+  };
 
   var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
       'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
@@ -1113,7 +1126,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
               text: lines[lineNum]
           });
           Utils.arrays.extend(
-              ops, newP.getInsertOps(currentIndex++));
+              ops, newP.getInsertOps(currentIndex++, cursor));
         }
       }
     }
@@ -1126,7 +1139,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         formats: FormattingExtension.generateFormatsForNode(element)
     });
     Utils.arrays.extend(
-        ops, newP.getInsertOps(currentIndex++));
+        ops, newP.getInsertOps(currentIndex++, cursor));
   } else {
     // When pasting multi-line, split the current paragraph if pasting
     // mid-paragraph.
@@ -1158,7 +1171,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
             });
             component.section = selection.getSectionAtEnd();
             Utils.arrays.extend(
-                ops, component.getInsertOps(currentIndex++));
+                ops, component.getInsertOps(currentIndex++), cursor);
           }
           paragraphType = null;
           break;
@@ -1168,7 +1181,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           });
           component.section = selection.getSectionAtEnd();
           Utils.arrays.extend(
-              ops, component.getInsertOps(currentIndex++));
+              ops, component.getInsertOps(currentIndex++, cursor));
           paragraphType = null;
           break;
         // All the following will just insert a normal paragraph for now.
@@ -1236,7 +1249,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
             formats: FormattingExtension.generateFormatsForNode(el)
         });
         Utils.arrays.extend(
-            ops, newP.getInsertOps(currentIndex++));
+            ops, newP.getInsertOps(currentIndex++, cursor));
       }
     }
   }
