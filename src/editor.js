@@ -473,8 +473,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   // i.e. Enter, characters, space, backspace...etc
   else if (selection.isRange() && Utils.willTypeCharacter(event)) {
     var section = selection.getSectionAtStart();
-    inBetweenComponents = section.getComponentsBetween(
-        selection.getComponentAtStart(), selection.getComponentAtEnd());
+    if(section) {
+      inBetweenComponents = section.getComponentsBetween(
+          selection.getComponentAtStart(), selection.getComponentAtEnd());
+    }
     Utils.arrays.extend(ops, this.getDeleteSelectionOps());
 
     this.article.transaction(ops);
@@ -819,8 +821,11 @@ Editor.prototype.getDeleteSelectionOps = function() {
   var count;
   var selection = this.article.selection;
   var section = selection.getSectionAtStart();
-  var inBetweenComponents = section.getComponentsBetween(
+  var inBetweenComponents = [];
+  if(section) {
+    inBetweenComponents = section.getComponentsBetween(
       selection.getComponentAtStart(), selection.getComponentAtEnd());
+  }
 
   for (var i = 0; i < inBetweenComponents.length; i++) {
     Utils.arrays.extend(ops, inBetweenComponents[i].getDeleteOps(-i));

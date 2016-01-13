@@ -14,7 +14,7 @@
   line-height: 1.5;
 }
 
-.carbon .empty-paragraph {
+.carbon figcaption.empty-paragraph {
   display: none;
 }
 
@@ -62,6 +62,9 @@
 .carbon figure {
   margin: 2em 0;
   text-align: center;
+  /* To fix the position of toolbar when div is floated */
+  display: inline-block;
+  width: 100%;
 }
 
 .carbon figure .image-container {
