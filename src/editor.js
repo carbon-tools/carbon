@@ -1149,8 +1149,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     // When pasting multi-line, split the current paragraph if pasting
     // mid-paragraph.
     if (!selection.isCursorAtEnding()) {
-      Utils.arrays.extend(ops, this.getSplitParagraphOps(
-          currentIndex++));
+      Utils.arrays.extend(ops, this.getSplitParagraphOps(0));
+      currentIndex++;
     }
     for (var i = 0; i < children.length; i++) {
       var el = children[i];
