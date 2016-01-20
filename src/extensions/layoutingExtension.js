@@ -203,9 +203,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
         component = ComponentClass.fromJSON(selectedComponent.getJSONModel());
         component.section = newLayout;
         Utils.arrays.extend(ops, component.getInsertOps(0));
-
       }
-
 
       this.editor.article.transaction(ops);
       this.editor.dispatchEvent(new Event('change'));

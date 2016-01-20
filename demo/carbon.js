@@ -766,8 +766,10 @@ var Editor = function (element, optParams) {
     locale: 'en',
     article: new Article({
       sections: [new Section({
-        components: [new Paragraph({
-          placeholder: 'Editor'
+        components: [new Layout({
+          components: [new Paragraph({
+            placeholder: 'Editor'
+          })]
         })]
       })]
     }),
@@ -935,11 +937,8 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('input', this.handleInputEvent.bind(this));
 
-  // This is only needed on mobile.
-  if (Utils.isMobile()) {
-    this.element.addEventListener('input', this.handleInputEvent.bind(this));
-  }
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.classList.add('carbon-editor');
@@ -1134,13 +1133,11 @@ Editor.prototype.handleInputEvent = function() {
   setTimeout(function() {
     var component = self.selection.start.component;
     var newLength = Utils.getTextFromElement(component.dom).length;
-    var direction = 1;
-    if (newLength < currentLength) {
-      direction = -1;
-    }
+    var direction = newLength - currentLength;
     var ops = component.getUpdateOps(
         {}, offset + direction, undefined,
-        Utils.getTextFromElement(component.dom));
+        Utils.getTextFromElement(component.dom),
+        offset);
     self.article.transaction(ops);
     self.dispatchEvent(new Event('change'));
   }, 2);
@@ -1504,35 +1501,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   } else if (preventDefault) {
     event.preventDefault();
     event.stopPropagation();
-  } else if (currentComponent && Utils.willTypeCharacter(event)) {
-    // Update current paragraph internal text model.
-    var oldValue = currentComponent.text;
-    var oldOffset = selection.end.offset;
-    var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
-    var cursorOffsetDirection = 1;
-    if (event.keyCode === 8) {
-      cursorOffsetDirection = -1;
-    } else if (event.keyCode === 46) {
-      cursorOffsetDirection = 0;
-    }
-
-    setTimeout(function() {
-      var newValue = Utils.getTextFromElement(currentComponent.dom);
-      var newOffset = oldOffset + cursorOffsetDirection;
-
-      if (!isRemoveOp) {
-        var insertedChar = newValue.charAt(
-            Math.min(newOffset, newValue.length) - 1);
-        Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
-            insertedChar, oldOffset));
-      } else if (oldValue) {
-        var deletedChar = oldValue.charAt(newOffset);
-        Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
-            deletedChar, newOffset, cursorOffsetDirection));
-      }
-
-      article.transaction(ops);
-    }, 2);
   }
 
   // Dispatch a `change` event
@@ -4582,9 +4550,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
         component = ComponentClass.fromJSON(selectedComponent.getJSONModel());
         component.section = newLayout;
         Utils.arrays.extend(ops, component.getInsertOps(0));
-
       }
-
 
       this.editor.article.transaction(ops);
       this.editor.dispatchEvent(new Event('change'));
@@ -7355,10 +7321,12 @@ Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
  * @param  {number=} optCursorOffset Optional cursor offset.
  * @param  {number=} optSelectRange Optional selecting range.
  * @param  {string=} optValue Optional value to update the component with.
+ * @param  {number=} optCursorOffsetBeforeOp Optional cursor offset before
+ * operation execution (to correctly undo cursor offset).
  * @return {Array.<Object>} Operations for updating a paragraph attributes.
  */
 Paragraph.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange, optValue) {
+    attrs, optCursorOffset, optSelectRange, optValue, optCursorOffsetBeforeOp) {
   return [{
     do: {
       op: 'updateComponent',
@@ -7371,7 +7339,7 @@ Paragraph.prototype.getUpdateOps = function(
     undo: {
       op: 'updateComponent',
       component: this.name,
-      cursorOffset: optCursorOffset,
+      cursorOffset: optCursorOffsetBeforeOp,
       selectRange: optSelectRange,
       formats: attrs.formats,
       value: optValue ? this.text : undefined
@@ -7914,14 +7882,6 @@ var Selection = (function() {
       if (this.start.offset > 0) {
         startNode = this.getTextNodeAtOffset_(
             this.start.component.dom, startOffset);
-
-        // TODO(mkhatib): FIGURE OUT WHY start.offset sometimes larger than
-        // the current length of the content. This is a hack to fix not finding
-        // the startNode when this happens.
-        if (!startNode) {
-          startNode = this.getTextNodeAtOffset_(
-              this.start.component.dom, startOffset - 1);
-        }
         var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
             this.start.component.dom, // Component node
             startNode); // Start node to calculate new offset from
@@ -7931,7 +7891,9 @@ var Selection = (function() {
       try {
         range.setStart(startNode, startOffset);
       } catch (e) {
-        range.setStart(startNode, startOffset - 1);
+        if (e.code === e.INDEX_SIZE_ERR) {
+          range.setStart(startNode, startNode.length);
+        }
       }
 
       endNode = this.end.component.dom;
@@ -7939,13 +7901,6 @@ var Selection = (function() {
       if (this.end.offset > 0) {
         endNode = this.getTextNodeAtOffset_(
             this.end.component.dom, endOffset);
-        // TODO(mkhatib): FIGURE OUT WHY end.offset sometimes larger than
-        // the current length of the content. This is a hack to fix not finding
-        // the endNode when this happens.
-        if (!endNode) {
-          endNode = this.getTextNodeAtOffset_(
-              this.end.component.dom, endOffset - 1);
-        }
         var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
             this.end.component.dom, // Component node
             endNode); // Start node to calculate new offset from
@@ -7954,7 +7909,9 @@ var Selection = (function() {
       try {
         range.setEnd(endNode, endOffset);
       } catch (e) {
-        range.setEnd(endNode, endOffset - 1);
+        if (e.code === e.INDEX_SIZE_ERR) {
+          range.setEnd(endNode, endNode.length);
+        }
       }
       var selection = window.getSelection();
       selection.removeAllRanges();
@@ -7995,8 +7952,15 @@ var Selection = (function() {
         prevOffset += currentOffset;
       }
 
-      // Didn't find any node at the offset.
-      return null;
+      // Didn't find any node at the offset - return at the offset - 1 until
+      // offset is 0.
+      if (offset > 0) {
+        return this.getTextNodeAtOffset_(parent, offset - 1);
+      } else {
+        var textNode = document.createTextNode('');
+        parent.appendChild(textNode);
+        return textNode;
+      }
     };
 
 

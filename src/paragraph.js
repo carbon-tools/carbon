@@ -781,10 +781,12 @@ Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
  * @param  {number=} optCursorOffset Optional cursor offset.
  * @param  {number=} optSelectRange Optional selecting range.
  * @param  {string=} optValue Optional value to update the component with.
+ * @param  {number=} optCursorOffsetBeforeOp Optional cursor offset before
+ * operation execution (to correctly undo cursor offset).
  * @return {Array.<Object>} Operations for updating a paragraph attributes.
  */
 Paragraph.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange, optValue) {
+    attrs, optCursorOffset, optSelectRange, optValue, optCursorOffsetBeforeOp) {
   return [{
     do: {
       op: 'updateComponent',
@@ -797,7 +799,7 @@ Paragraph.prototype.getUpdateOps = function(
     undo: {
       op: 'updateComponent',
       component: this.name,
-      cursorOffset: optCursorOffset,
+      cursorOffset: optCursorOffsetBeforeOp,
       selectRange: optSelectRange,
       formats: attrs.formats,
       value: optValue ? this.text : undefined

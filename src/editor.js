@@ -35,8 +35,10 @@ var Editor = function (element, optParams) {
     locale: 'en',
     article: new Article({
       sections: [new Section({
-        components: [new Paragraph({
-          placeholder: 'Editor'
+        components: [new Layout({
+          components: [new Paragraph({
+            placeholder: 'Editor'
+          })]
         })]
       })]
     }),
@@ -204,11 +206,8 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('input', this.handleInputEvent.bind(this));
 
-  // This is only needed on mobile.
-  if (Utils.isMobile()) {
-    this.element.addEventListener('input', this.handleInputEvent.bind(this));
-  }
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
   this.element.classList.add('carbon-editor');
@@ -403,13 +402,11 @@ Editor.prototype.handleInputEvent = function() {
   setTimeout(function() {
     var component = self.selection.start.component;
     var newLength = Utils.getTextFromElement(component.dom).length;
-    var direction = 1;
-    if (newLength < currentLength) {
-      direction = -1;
-    }
+    var direction = newLength - currentLength;
     var ops = component.getUpdateOps(
         {}, offset + direction, undefined,
-        Utils.getTextFromElement(component.dom));
+        Utils.getTextFromElement(component.dom),
+        offset);
     self.article.transaction(ops);
     self.dispatchEvent(new Event('change'));
   }, 2);
@@ -773,35 +770,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   } else if (preventDefault) {
     event.preventDefault();
     event.stopPropagation();
-  } else if (currentComponent && Utils.willTypeCharacter(event)) {
-    // Update current paragraph internal text model.
-    var oldValue = currentComponent.text;
-    var oldOffset = selection.end.offset;
-    var isRemoveOp = [46, 8].indexOf(event.keyCode) !== -1;
-    var cursorOffsetDirection = 1;
-    if (event.keyCode === 8) {
-      cursorOffsetDirection = -1;
-    } else if (event.keyCode === 46) {
-      cursorOffsetDirection = 0;
-    }
-
-    setTimeout(function() {
-      var newValue = Utils.getTextFromElement(currentComponent.dom);
-      var newOffset = oldOffset + cursorOffsetDirection;
-
-      if (!isRemoveOp) {
-        var insertedChar = newValue.charAt(
-            Math.min(newOffset, newValue.length) - 1);
-        Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
-            insertedChar, oldOffset));
-      } else if (oldValue) {
-        var deletedChar = oldValue.charAt(newOffset);
-        Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
-            deletedChar, newOffset, cursorOffsetDirection));
-      }
-
-      article.transaction(ops);
-    }, 2);
   }
 
   // Dispatch a `change` event

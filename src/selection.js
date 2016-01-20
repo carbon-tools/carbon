@@ -207,14 +207,6 @@ var Selection = (function() {
       if (this.start.offset > 0) {
         startNode = this.getTextNodeAtOffset_(
             this.start.component.dom, startOffset);
-
-        // TODO(mkhatib): FIGURE OUT WHY start.offset sometimes larger than
-        // the current length of the content. This is a hack to fix not finding
-        // the startNode when this happens.
-        if (!startNode) {
-          startNode = this.getTextNodeAtOffset_(
-              this.start.component.dom, startOffset - 1);
-        }
         var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
             this.start.component.dom, // Component node
             startNode); // Start node to calculate new offset from
@@ -224,7 +216,9 @@ var Selection = (function() {
       try {
         range.setStart(startNode, startOffset);
       } catch (e) {
-        range.setStart(startNode, startOffset - 1);
+        if (e.code === e.INDEX_SIZE_ERR) {
+          range.setStart(startNode, startNode.length);
+        }
       }
 
       endNode = this.end.component.dom;
@@ -232,13 +226,6 @@ var Selection = (function() {
       if (this.end.offset > 0) {
         endNode = this.getTextNodeAtOffset_(
             this.end.component.dom, endOffset);
-        // TODO(mkhatib): FIGURE OUT WHY end.offset sometimes larger than
-        // the current length of the content. This is a hack to fix not finding
-        // the endNode when this happens.
-        if (!endNode) {
-          endNode = this.getTextNodeAtOffset_(
-              this.end.component.dom, endOffset - 1);
-        }
         var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
             this.end.component.dom, // Component node
             endNode); // Start node to calculate new offset from
@@ -247,7 +234,9 @@ var Selection = (function() {
       try {
         range.setEnd(endNode, endOffset);
       } catch (e) {
-        range.setEnd(endNode, endOffset - 1);
+        if (e.code === e.INDEX_SIZE_ERR) {
+          range.setEnd(endNode, endNode.length);
+        }
       }
       var selection = window.getSelection();
       selection.removeAllRanges();
@@ -288,8 +277,15 @@ var Selection = (function() {
         prevOffset += currentOffset;
       }
 
-      // Didn't find any node at the offset.
-      return null;
+      // Didn't find any node at the offset - return at the offset - 1 until
+      // offset is 0.
+      if (offset > 0) {
+        return this.getTextNodeAtOffset_(parent, offset - 1);
+      } else {
+        var textNode = document.createTextNode('');
+        parent.appendChild(textNode);
+        return textNode;
+      }
     };
 
 
