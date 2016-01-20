@@ -72,6 +72,7 @@ var Figure = function(optParams) {
    */
   this.captionParagraph = new Paragrarph({
     placeholderText: params.captionPlaceholder,
+    name: this.name + '-caption',
     text: params.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
@@ -297,13 +298,15 @@ Figure.prototype.select = function () {
  * Returns the operations to execute a deletion of the image component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Figure.prototype.getDeleteOps = function (optIndexOffset) {
+Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -313,7 +316,7 @@ Figure.prototype.getDeleteOps = function (optIndexOffset) {
       index: this.getIndexInSection() + (optIndexOffset || 0),
       attrs: {
         src: this.src,
-        caption: this.caption,
+        caption: this.captionParagraph.text,
         width: this.width
       }
     }
@@ -332,9 +335,11 @@ Figure.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a figure.
  * @param {number} index Index to insert the figure at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the figure.
  */
-Figure.prototype.getInsertOps = function (index) {
+Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -346,12 +351,13 @@ Figure.prototype.getInsertOps = function (index) {
       attrs: {
         src: this.src,
         width: this.width,
-        caption: this.caption
+        caption: this.captionParagraph.text
       }
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };

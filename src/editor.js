@@ -948,18 +948,26 @@ Editor.prototype.getMergeParagraphsOps = function(
  * @param  {Event} event Paste Event.
  */
 Editor.prototype.handlePaste = function(event) {
+  var startComponent = this.selection.getComponentAtEnd();
   var pastedContent;
   if (window.clipboardData && window.clipboardData.getData) { // IE
     pastedContent = window.clipboardData.getData('Text');
   } else if (event.clipboardData && event.clipboardData.getData) {
-    pastedContent = event.clipboardData.getData('text/html') ||
-        event.clipboardData.getData('text/plain');
+    var cbData = event.clipboardData;
+    // Enforce inline paste when pasting in an inline component
+    // (e.g. figcaption).
+    if (startComponent.inline) {
+      pastedContent = cbData.getData('text/plain');
+      pastedContent = pastedContent.split('\n').join(' ');
+    } else {
+      pastedContent = (
+          cbData.getData('text/html') || cbData.getData('text/plain'));
+    }
   }
 
   var tempEl = document.createElement('div');
   tempEl.innerHTML = pastedContent;
 
-  var startComponent = this.selection.getComponentAtEnd();
   if (startComponent.getPreviousComponent()) {
     startComponent = startComponent.getPreviousComponent();
   }
@@ -984,7 +992,7 @@ Editor.prototype.handlePaste = function(event) {
     }, 2);
   };
 
-  while (currentComponent !== endComponent) {
+  while (currentComponent && currentComponent !== endComponent) {
     var currentIsParagraph = currentComponent instanceof Paragraph;
     if (currentIsParagraph) {
       factoryMethod = this.componentFactory.match(
@@ -1157,11 +1165,34 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
               ops, component.getInsertOps(currentIndex++, cursor));
           paragraphType = null;
           break;
-        // All the following will just insert a normal paragraph for now.
-        // TODO(mkhatib): When the editor supports more paragraph types
-        // fix this to allow pasting lists and other types.
         case 'ul':
         case 'ol':
+          var tagName = List.UNORDERED_LIST_TAG;
+          if (tag === 'ol') {
+            tagName = List.ORDERED_LIST_TAG;
+          }
+          var lis = el.getElementsByTagName('li');
+          if (!lis || !lis.length) {
+            continue;
+          }
+          component = new List({
+            tagName: tagName,
+            components: []
+          });
+          component.section = selection.getSectionAtEnd();
+          Utils.arrays.extend(
+              ops, component.getInsertOps(currentIndex++, cursor));
+          for (j = 0; j < lis.length; j++) {
+            newP = new Paragraph({
+              paragraphType: Paragraph.Types.ListItem,
+              text: Utils.getTextFromElement(lis[j])
+            });
+            newP.section = component;
+            Utils.arrays.extend(
+                ops, newP.getInsertOps(j, cursor));
+          }
+          paragraphType = null;
+          break;
         case 'p':
         case '#text':
           paragraphType = Paragraph.Types.Paragraph;

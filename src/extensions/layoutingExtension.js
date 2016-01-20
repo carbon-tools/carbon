@@ -210,7 +210,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
     }
   }
 
-  this.toolbar.setPositionToTopOf(selectedComponent.dom);
+  this.handleSelectionChangedEvent();
 };
 
 
