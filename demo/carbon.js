@@ -1532,8 +1532,10 @@ Editor.prototype.getDeleteSelectionOps = function() {
 
   if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
     var lastComponent = selection.getComponentAtEnd();
-    Utils.arrays.extend(ops, lastComponent.getDeleteOps(
-        -inBetweenComponents.length));
+    if (lastComponent instanceof Paragraph || selection.end.offset > 0) {
+      Utils.arrays.extend(ops, lastComponent.getDeleteOps(
+          -inBetweenComponents.length));
+    }
 
     if (lastComponent instanceof Paragraph) {
       var lastParagraphOldText = lastComponent.text;
@@ -1797,6 +1799,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     for (var i = 0; i < children.length ; i++) {
       if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
         return false;
+      } else if (children[i].childNodes) {
+        var subChilds = children[i].childNodes;
+        for (var k = 0; k < subChilds.length; k++) {
+          if (!isInlinePaste(subChilds) || !hasOnlyInlineChildNodes(subChilds[k])) {
+            return false;
+          }
+        }
       }
     }
     return true;
@@ -1817,7 +1826,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     }
   }
 
-  if (!children || !children.length || isInlinePaste(children)) {
+  if (!children || !children.length ||
+      (isInlinePaste(children) && hasOnlyInlineChildNodes(element))) {
     var lines = textPasted.split('\n');
     if (lines.length < 2) {
       // Text before and after pasting.
@@ -2082,6 +2092,7 @@ AbstractEmbedProvider.prototype.getUrlsRegex = function() {
 'use strict';
 
 var Utils = require('../utils');
+var Selection = require('../selection');
 
 
 /**
@@ -2153,9 +2164,17 @@ Attachment.prototype.setAttributes = function(attrs) {
   }
   // Update the figure object attributes to reflect the changes.
   this.figure.updateAttributes(attrs);
+
+  // If the figure finished uploading and it's still selected,
+  // reselect to show the toolbar.
+  var selection = Selection.getInstance();
+  var selectedComponent = selection.getComponentAtStart();
+  if (selectedComponent === this.figure) {
+    this.figure.select();
+  }
 };
 
-},{"../utils":33}],7:[function(require,module,exports){
+},{"../selection":29,"../utils":33}],7:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -3752,6 +3771,9 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var paragraphs = selection.getSelectedComponents();
   var ops = [];
 
+  var section = selection.getSectionAtStart();
+  var prevCursorOffset = selection.start.offset;
+  var prevCompIndex = selection.getComponentAtStart().getIndexInSection();
   for (var i = 0; i < paragraphs.length; i++) {
     var toType = clickedFormatter;
     if (paragraphs[i].paragraphType === clickedFormatter) {
@@ -3760,7 +3782,8 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
     var index = paragraphs[i].getIndexInSection() + i;
     // Step 1: deleteComponent to remove current Paragraph.
-    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps());
+    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps(
+        null, null, true));
     // Step 2: insertComponent to Insert a new Paragraph in its place with the
     // new paragraph type. Make sure to keep the name of the paragraph.
     paragraphs[i].paragraphType = toType;
@@ -3772,6 +3795,11 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
   // Tell listeners that there was a change in the editor.
   this.editor.dispatchEvent(new Event('change'));
+
+  selection.setCursor({
+    offset: prevCursorOffset,
+    component: section.components[prevCompIndex]
+  });
 };
 
 
@@ -4603,7 +4631,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
  */
 LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   var selectedComponent = this.editor.selection.getComponentAtStart();
-  if (selectedComponent instanceof Figure ||
+  if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
     var activeLayout = selectedComponent.section.type;
@@ -7220,10 +7248,13 @@ Paragraph.prototype.render = function(element, options) {
  *   For partial deletion pass optFrom and optTo.
  * @param  {number=} optIndexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
+ * @param {Object=} optCursorAfterOp Where to move cursor to after deletion.
+ * @param {boolean=} optKeepEmptyContainer Whether to keep the empty container
+ * or delete it.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
+Paragraph.prototype.getDeleteOps = function(
+    optIndexOffset, optCursorAfterOp, optKeepEmptyContainer) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -7252,7 +7283,8 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
 
   // If this is the last element in the section/layout/list delete the container
   // as well. Only if there are other containers.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  if (!optKeepEmptyContainer &&
+      this.section.getLength() < 2 && this.section.section.getLength() > 1) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
@@ -8160,9 +8192,18 @@ var Selection = (function() {
 
       // Update the selection end point.
       var endNode = this.getEndComponentFromWindowSelection_(selection);
+      var endComponent = Utils.getReference(endNode.getAttribute('name'));
+      var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
+      if (endComponent.components) {
+        endComponent = endComponent.getFirstComponent();
+        if (endOffset === 0) {
+          endComponent = endComponent.getPreviousComponent();
+          endOffset = endComponent.getLength();
+        }
+      }
       var end = {
-        component: Utils.getReference(endNode.getAttribute('name')),
-        offset: this.calculateEndOffsetFromWindowSelection_(selection)
+        component: endComponent,
+        offset: endOffset
       };
 
       var endIndex = end.component.getIndexInSection();

@@ -801,8 +801,10 @@ Editor.prototype.getDeleteSelectionOps = function() {
 
   if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
     var lastComponent = selection.getComponentAtEnd();
-    Utils.arrays.extend(ops, lastComponent.getDeleteOps(
-        -inBetweenComponents.length));
+    if (lastComponent instanceof Paragraph || selection.end.offset > 0) {
+      Utils.arrays.extend(ops, lastComponent.getDeleteOps(
+          -inBetweenComponents.length));
+    }
 
     if (lastComponent instanceof Paragraph) {
       var lastParagraphOldText = lastComponent.text;
@@ -1066,6 +1068,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     for (var i = 0; i < children.length ; i++) {
       if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
         return false;
+      } else if (children[i].childNodes) {
+        var subChilds = children[i].childNodes;
+        for (var k = 0; k < subChilds.length; k++) {
+          if (!isInlinePaste(subChilds) || !hasOnlyInlineChildNodes(subChilds[k])) {
+            return false;
+          }
+        }
       }
     }
     return true;
@@ -1086,7 +1095,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     }
   }
 
-  if (!children || !children.length || isInlinePaste(children)) {
+  if (!children || !children.length ||
+      (isInlinePaste(children) && hasOnlyInlineChildNodes(element))) {
     var lines = textPasted.split('\n');
     if (lines.length < 2) {
       // Text before and after pasting.

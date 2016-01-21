@@ -631,10 +631,13 @@ Paragraph.prototype.render = function(element, options) {
  *   For partial deletion pass optFrom and optTo.
  * @param  {number=} optIndexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
+ * @param {Object=} optCursorAfterOp Where to move cursor to after deletion.
+ * @param {boolean=} optKeepEmptyContainer Whether to keep the empty container
+ * or delete it.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
+Paragraph.prototype.getDeleteOps = function(
+    optIndexOffset, optCursorAfterOp, optKeepEmptyContainer) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -663,7 +666,8 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
 
   // If this is the last element in the section/layout/list delete the container
   // as well. Only if there are other containers.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  if (!optKeepEmptyContainer &&
+      this.section.getLength() < 2 && this.section.section.getLength() > 1) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
