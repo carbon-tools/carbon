@@ -110,7 +110,7 @@ Layout.prototype.getComponentClassName = function() {
  * @return {Array.<Object>} Layout of operations needed to be executed.
  */
 Layout.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -128,6 +128,17 @@ Layout.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  if (this.section.getLength() < 2) {
+    var newLayout = new Layout({
+      name: this.name,
+      components: []
+    });
+    newLayout.section = this.section;
+    Utils.arrays.extend(ops, newLayout.getInsertOps(0));
+  }
+
+  return ops;
 };
 
 

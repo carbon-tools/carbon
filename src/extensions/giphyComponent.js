@@ -269,7 +269,7 @@ GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
 
   // If this is the only child of the layout delete the layout as well
   // only if there are other layouts.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  if (this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
 

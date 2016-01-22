@@ -146,26 +146,6 @@ Paragraph.prototype.isHeader = function() {
 
 
 /**
- * Returns the text if this is a header otherwise null.
- * @return {string|null}
- */
-Paragraph.prototype.getTitle = function() {
-  var isEmpty = this.text.replace(/\s/, '').length < 1;
-  return this.isHeader() && !isEmpty ? this.text : null;
-};
-
-
-/**
- * Returns the text if this is a paragraph otherwise null.
- * @return {string|null}
- */
-Paragraph.prototype.getSnippet = function() {
-  return Paragraph.Types.Paragraph === this.paragraphType ? this.text : null;
-};
-
-
-
-/**
  * Updates the text for the paragraph.
  * @param {string} text Text to update to.
  */
@@ -665,9 +645,8 @@ Paragraph.prototype.getDeleteOps = function(
   }];
 
   // If this is the last element in the section/layout/list delete the container
-  // as well. Only if there are other containers.
-  if (!optKeepEmptyContainer &&
-      this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  // as well.
+  if (!optKeepEmptyContainer && this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;

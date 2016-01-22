@@ -267,20 +267,70 @@ Article.prototype.getLength = function() {
 
 
 /**
- * Returns the first header paragraph in the article.
+ * Returns first paragraph component if it is a header.
  * @return {string} First header of the article.
  */
-Article.prototype.getTitle = function() {
-  return this.sections[0].getTitle();
+Article.prototype.getFirstTextComponent = function() {
+  var firstLayout = this.sections[0].components[0];
+  var firstComponent = firstLayout.getFirstComponent();
+  var next = firstComponent;
+  while (next && !(next instanceof Paragraph)) {
+    next = next.getNextComponent();
+  }
+
+  if (next) {
+    return next;
+  }
 };
 
 
 /**
- * Returns the first non-header paragraph in the article.
- * @return {string} First non-header paragraph of the article.
+ * Returns first paragraph text if it is a header.
+ * @return {string}
  */
-Article.prototype.getSnippet = function() {
-  return this.sections[0].getSnippet();
+Article.prototype.getTitle = function() {
+  var component = this.getFirstTextComponent();
+  if (component && component.isHeader()) {
+    return component.text;
+  }
+};
+
+
+/**
+ * Computes a snippet of text from the paragraphs of the article. Skipping the
+ * title (if any).
+ * @param {number=} optWordCount Number of words to return in the snippet.
+ * @return {string}
+ */
+Article.prototype.getSnippet = function(optWordCount) {
+  var component = this.getFirstTextComponent();
+  if (component && component.isHeader()) {
+    component = component.getNextComponent();
+  }
+
+  var wordCount = optWordCount || 35;
+  var count = 0;
+  var strings = [];
+  while (component) {
+    if (component instanceof Paragraph) {
+      var text = component.text.replace(/\s/, '');
+      if (text.length) {
+        strings.push(component.text);
+        count += component.text.split(/\s/).length;
+      }
+    }
+
+    if (count >= wordCount) {
+      break;
+    }
+    component = component.getNextComponent();
+  }
+
+  var words = strings.join(' ').split(' ');
+  words = words.slice(0, wordCount);
+  if (words && words.length) {
+    return words.join(' ') + '...';
+  }
 };
 
 
@@ -1053,10 +1103,11 @@ Editor.prototype.getTitle = function() {
 
 /**
  * Returns the first non-header paragraph in the article.
+ * @param {number=} optWordCount Number of words to return in the snippet.
  * @return {string} First non-header paragraph of the article.
  */
-Editor.prototype.getSnippet = function() {
-  return this.article.getSnippet();
+Editor.prototype.getSnippet = function(optWordCount) {
+  return this.article.getSnippet(optWordCount);
 };
 
 
@@ -1355,6 +1406,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length, cursor));
 
+        // If this is the last component in the article, insert a new paragraph
+        // to make sure the editor always have a place to type.
         if (!prevComponent && !nextComponent) {
           newP = new Paragraph({section: selection.getSectionAtEnd()});
           Utils.arrays.extend(
@@ -2022,9 +2075,9 @@ Editor.prototype.handleCut = function() {
   var dispatchEvent = this.dispatchEvent.bind(this);
   setTimeout(function() {
     article.transaction(ops);
+    this.disableInputHandler = false;
     dispatchEvent(new Event('change'));
   }, 20);
-  this.disableInputHandler = false;
 };
 
 },{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":16,"./extensions/toolbeltExtension":17,"./extensions/uploadExtension":18,"./figure":19,"./i18n":20,"./layout":23,"./list":24,"./paragraph":27,"./section":28,"./selection":29,"./toolbars/toolbar":32,"./utils":33}],4:[function(require,module,exports){
@@ -3001,9 +3054,8 @@ EmbeddedComponent.prototype.getDeleteOps = function (
     }
   }];
 
-  // If this is the only child of the layout delete the layout as well
-  // only if there are other layouts.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  // If this is the only child of the layout delete the layout as well.
+  if (this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
 
@@ -4377,7 +4429,7 @@ GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
 
   // If this is the only child of the layout delete the layout as well
   // only if there are other layouts.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  if (this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
 
@@ -5369,6 +5421,7 @@ var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
 var I18n = require('./i18n');
 
+
 /**
  * Figure main.
  * @param {Object} optParams Optional params to initialize the Figure object.
@@ -5684,9 +5737,8 @@ Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
     }
   }];
 
-  // If this is the only child of the layout delete the layout as well
-  // only if there are other layouts.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  // If this is the only child of the layout delete the layout as well.
+  if (this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
 
@@ -6059,7 +6111,7 @@ Layout.prototype.getComponentClassName = function() {
  * @return {Array.<Object>} Layout of operations needed to be executed.
  */
 Layout.prototype.getDeleteOps = function (optIndexOffset) {
-  return [{
+  var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name
@@ -6077,6 +6129,17 @@ Layout.prototype.getDeleteOps = function (optIndexOffset) {
       }
     }
   }];
+
+  if (this.section.getLength() < 2) {
+    var newLayout = new Layout({
+      name: this.name,
+      components: []
+    });
+    newLayout.section = this.section;
+    Utils.arrays.extend(ops, newLayout.getInsertOps(0));
+  }
+
+  return ops;
 };
 
 
@@ -6775,26 +6838,6 @@ Paragraph.prototype.isHeader = function() {
 
 
 /**
- * Returns the text if this is a header otherwise null.
- * @return {string|null}
- */
-Paragraph.prototype.getTitle = function() {
-  var isEmpty = this.text.replace(/\s/, '').length < 1;
-  return this.isHeader() && !isEmpty ? this.text : null;
-};
-
-
-/**
- * Returns the text if this is a paragraph otherwise null.
- * @return {string|null}
- */
-Paragraph.prototype.getSnippet = function() {
-  return Paragraph.Types.Paragraph === this.paragraphType ? this.text : null;
-};
-
-
-
-/**
  * Updates the text for the paragraph.
  * @param {string} text Text to update to.
  */
@@ -7294,9 +7337,8 @@ Paragraph.prototype.getDeleteOps = function(
   }];
 
   // If this is the last element in the section/layout/list delete the container
-  // as well. Only if there are other containers.
-  if (!optKeepEmptyContainer &&
-      this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  // as well.
+  if (!optKeepEmptyContainer && this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
@@ -7712,34 +7754,6 @@ Section.prototype.getLength = function() {
     length += this.components[i].getLength();
   }
   return length;
-};
-
-
-/**
- * Returns the first header paragraph in the article.
- * @return {string} First header of the article.
- */
-Section.prototype.getTitle = function() {
-  for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].getTitle && this.components[i].getTitle()) {
-      return this.components[i].getTitle();
-    }
-  }
-  return null;
-};
-
-
-/**
- * Returns the first non-header paragraph in the article.
- * @return {string} First non-header paragraph of the article.
- */
-Section.prototype.getSnippet = function() {
-  for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].getSnippet && this.components[i].getSnippet()) {
-      return this.components[i].getSnippet();
-    }
-  }
-  return null;
 };
 
 

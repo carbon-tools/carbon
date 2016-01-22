@@ -322,10 +322,11 @@ Editor.prototype.getTitle = function() {
 
 /**
  * Returns the first non-header paragraph in the article.
+ * @param {number=} optWordCount Number of words to return in the snippet.
  * @return {string} First non-header paragraph of the article.
  */
-Editor.prototype.getSnippet = function() {
-  return this.article.getSnippet();
+Editor.prototype.getSnippet = function(optWordCount) {
+  return this.article.getSnippet(optWordCount);
 };
 
 
@@ -624,6 +625,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         Utils.arrays.extend(ops, currentComponent.getDeleteOps(
             -inBetweenComponents.length, cursor));
 
+        // If this is the last component in the article, insert a new paragraph
+        // to make sure the editor always have a place to type.
         if (!prevComponent && !nextComponent) {
           newP = new Paragraph({section: selection.getSectionAtEnd()});
           Utils.arrays.extend(
@@ -1291,7 +1294,7 @@ Editor.prototype.handleCut = function() {
   var dispatchEvent = this.dispatchEvent.bind(this);
   setTimeout(function() {
     article.transaction(ops);
+    this.disableInputHandler = false;
     dispatchEvent(new Event('change'));
   }, 20);
-  this.disableInputHandler = false;
 };

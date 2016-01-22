@@ -266,20 +266,70 @@ Article.prototype.getLength = function() {
 
 
 /**
- * Returns the first header paragraph in the article.
+ * Returns first paragraph component if it is a header.
  * @return {string} First header of the article.
  */
-Article.prototype.getTitle = function() {
-  return this.sections[0].getTitle();
+Article.prototype.getFirstTextComponent = function() {
+  var firstLayout = this.sections[0].components[0];
+  var firstComponent = firstLayout.getFirstComponent();
+  var next = firstComponent;
+  while (next && !(next instanceof Paragraph)) {
+    next = next.getNextComponent();
+  }
+
+  if (next) {
+    return next;
+  }
 };
 
 
 /**
- * Returns the first non-header paragraph in the article.
- * @return {string} First non-header paragraph of the article.
+ * Returns first paragraph text if it is a header.
+ * @return {string}
  */
-Article.prototype.getSnippet = function() {
-  return this.sections[0].getSnippet();
+Article.prototype.getTitle = function() {
+  var component = this.getFirstTextComponent();
+  if (component && component.isHeader()) {
+    return component.text;
+  }
+};
+
+
+/**
+ * Computes a snippet of text from the paragraphs of the article. Skipping the
+ * title (if any).
+ * @param {number=} optWordCount Number of words to return in the snippet.
+ * @return {string}
+ */
+Article.prototype.getSnippet = function(optWordCount) {
+  var component = this.getFirstTextComponent();
+  if (component && component.isHeader()) {
+    component = component.getNextComponent();
+  }
+
+  var wordCount = optWordCount || 35;
+  var count = 0;
+  var strings = [];
+  while (component) {
+    if (component instanceof Paragraph) {
+      var text = component.text.replace(/\s/, '');
+      if (text.length) {
+        strings.push(component.text);
+        count += component.text.split(/\s/).length;
+      }
+    }
+
+    if (count >= wordCount) {
+      break;
+    }
+    component = component.getNextComponent();
+  }
+
+  var words = strings.join(' ').split(' ');
+  words = words.slice(0, wordCount);
+  if (words && words.length) {
+    return words.join(' ') + '...';
+  }
 };
 
 

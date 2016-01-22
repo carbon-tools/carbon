@@ -264,34 +264,6 @@ Section.prototype.getLength = function() {
 
 
 /**
- * Returns the first header paragraph in the article.
- * @return {string} First header of the article.
- */
-Section.prototype.getTitle = function() {
-  for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].getTitle && this.components[i].getTitle()) {
-      return this.components[i].getTitle();
-    }
-  }
-  return null;
-};
-
-
-/**
- * Returns the first non-header paragraph in the article.
- * @return {string} First non-header paragraph of the article.
- */
-Section.prototype.getSnippet = function() {
-  for (var i = 0; i < this.components.length; i++) {
-    if (this.components[i].getSnippet && this.components[i].getSnippet()) {
-      return this.components[i].getSnippet();
-    }
-  }
-  return null;
-};
-
-
-/**
  * Called when the module is installed on in an editor.
  * @param  {Editor} editor Editor instance which installed the module.
  */

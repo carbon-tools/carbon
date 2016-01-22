@@ -7,6 +7,7 @@ var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
 var I18n = require('./i18n');
 
+
 /**
  * Figure main.
  * @param {Object} optParams Optional params to initialize the Figure object.
@@ -322,9 +323,8 @@ Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
     }
   }];
 
-  // If this is the only child of the layout delete the layout as well
-  // only if there are other layouts.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  // If this is the only child of the layout delete the layout as well.
+  if (this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
 
