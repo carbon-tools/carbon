@@ -1542,8 +1542,10 @@ Editor.prototype.getDeleteSelectionOps = function() {
 
   if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
     var lastComponent = selection.getComponentAtEnd();
-    Utils.arrays.extend(ops, lastComponent.getDeleteOps(
-        -inBetweenComponents.length));
+    if (lastComponent instanceof Paragraph || selection.end.offset > 0) {
+      Utils.arrays.extend(ops, lastComponent.getDeleteOps(
+          -inBetweenComponents.length));
+    }
 
     if (lastComponent instanceof Paragraph) {
       var lastParagraphOldText = lastComponent.text;
@@ -1689,18 +1691,26 @@ Editor.prototype.getMergeParagraphsOps = function(
  * @param  {Event} event Paste Event.
  */
 Editor.prototype.handlePaste = function(event) {
+  var startComponent = this.selection.getComponentAtEnd();
   var pastedContent;
   if (window.clipboardData && window.clipboardData.getData) { // IE
     pastedContent = window.clipboardData.getData('Text');
   } else if (event.clipboardData && event.clipboardData.getData) {
-    pastedContent = event.clipboardData.getData('text/html') ||
-        event.clipboardData.getData('text/plain');
+    var cbData = event.clipboardData;
+    // Enforce inline paste when pasting in an inline component
+    // (e.g. figcaption).
+    if (startComponent.inline) {
+      pastedContent = cbData.getData('text/plain');
+      pastedContent = pastedContent.split('\n').join(' ');
+    } else {
+      pastedContent = (
+          cbData.getData('text/html') || cbData.getData('text/plain'));
+    }
   }
 
   var tempEl = document.createElement('div');
   tempEl.innerHTML = pastedContent;
 
-  var startComponent = this.selection.getComponentAtEnd();
   if (startComponent.getPreviousComponent()) {
     startComponent = startComponent.getPreviousComponent();
   }
@@ -1725,7 +1735,7 @@ Editor.prototype.handlePaste = function(event) {
     }, 2);
   };
 
-  while (currentComponent !== endComponent) {
+  while (currentComponent && currentComponent !== endComponent) {
     var currentIsParagraph = currentComponent instanceof Paragraph;
     if (currentIsParagraph) {
       factoryMethod = this.componentFactory.match(
@@ -1799,6 +1809,13 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     for (var i = 0; i < children.length ; i++) {
       if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
         return false;
+      } else if (children[i].childNodes) {
+        var subChilds = children[i].childNodes;
+        for (var k = 0; k < subChilds.length; k++) {
+          if (!isInlinePaste(subChilds) || !hasOnlyInlineChildNodes(subChilds[k])) {
+            return false;
+          }
+        }
       }
     }
     return true;
@@ -1819,7 +1836,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     }
   }
 
-  if (!children || !children.length || isInlinePaste(children)) {
+  if (!children || !children.length ||
+      (isInlinePaste(children) && hasOnlyInlineChildNodes(element))) {
     var lines = textPasted.split('\n');
     if (lines.length < 2) {
       // Text before and after pasting.
@@ -1898,11 +1916,34 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
               ops, component.getInsertOps(currentIndex++, cursor));
           paragraphType = null;
           break;
-        // All the following will just insert a normal paragraph for now.
-        // TODO(mkhatib): When the editor supports more paragraph types
-        // fix this to allow pasting lists and other types.
         case 'ul':
         case 'ol':
+          var tagName = List.UNORDERED_LIST_TAG;
+          if (tag === 'ol') {
+            tagName = List.ORDERED_LIST_TAG;
+          }
+          var lis = el.getElementsByTagName('li');
+          if (!lis || !lis.length) {
+            continue;
+          }
+          component = new List({
+            tagName: tagName,
+            components: []
+          });
+          component.section = selection.getSectionAtEnd();
+          Utils.arrays.extend(
+              ops, component.getInsertOps(currentIndex++, cursor));
+          for (j = 0; j < lis.length; j++) {
+            newP = new Paragraph({
+              paragraphType: Paragraph.Types.ListItem,
+              text: Utils.getTextFromElement(lis[j])
+            });
+            newP.section = component;
+            Utils.arrays.extend(
+                ops, newP.getInsertOps(j, cursor));
+          }
+          paragraphType = null;
+          break;
         case 'p':
         case '#text':
           paragraphType = Paragraph.Types.Paragraph;
@@ -2063,6 +2104,7 @@ AbstractEmbedProvider.prototype.getUrlsRegex = function() {
 'use strict';
 
 var Utils = require('../utils');
+var Selection = require('../selection');
 
 
 /**
@@ -2134,9 +2176,17 @@ Attachment.prototype.setAttributes = function(attrs) {
   }
   // Update the figure object attributes to reflect the changes.
   this.figure.updateAttributes(attrs);
+
+  // If the figure finished uploading and it's still selected,
+  // reselect to show the toolbar.
+  var selection = Selection.getInstance();
+  var selectedComponent = selection.getComponentAtStart();
+  if (selectedComponent === this.figure) {
+    this.figure.select();
+  }
 };
 
-},{"../utils":33}],7:[function(require,module,exports){
+},{"../selection":29,"../utils":33}],7:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2925,13 +2975,16 @@ EmbeddedComponent.prototype.select = function () {
  * Returns the operations to execute a deletion of the embedded component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
+EmbeddedComponent.prototype.getDeleteOps = function (
+    optIndexOffset, optCursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -2961,9 +3014,11 @@ EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a embedded component.
  * @param {number} index Index to insert the embedded component at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the embedded component.
  */
-EmbeddedComponent.prototype.getInsertOps = function (index) {
+EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -2981,7 +3036,8 @@ EmbeddedComponent.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };
@@ -3727,6 +3783,9 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var paragraphs = selection.getSelectedComponents();
   var ops = [];
 
+  var section = selection.getSectionAtStart();
+  var prevCursorOffset = selection.start.offset;
+  var prevCompIndex = selection.getComponentAtStart().getIndexInSection();
   for (var i = 0; i < paragraphs.length; i++) {
     var toType = clickedFormatter;
     if (paragraphs[i].paragraphType === clickedFormatter) {
@@ -3735,7 +3794,8 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
     var index = paragraphs[i].getIndexInSection() + i;
     // Step 1: deleteComponent to remove current Paragraph.
-    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps());
+    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps(
+        null, null, true));
     // Step 2: insertComponent to Insert a new Paragraph in its place with the
     // new paragraph type. Make sure to keep the name of the paragraph.
     paragraphs[i].paragraphType = toType;
@@ -3747,6 +3807,11 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
   // Tell listeners that there was a change in the editor.
   this.editor.dispatchEvent(new Event('change'));
+
+  selection.setCursor({
+    offset: prevCursorOffset,
+    component: section.components[prevCompIndex]
+  });
 };
 
 
@@ -4569,7 +4634,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
     }
   }
 
-  this.toolbar.setPositionToTopOf(selectedComponent.dom);
+  this.handleSelectionChangedEvent();
 };
 
 
@@ -4578,7 +4643,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
  */
 LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   var selectedComponent = this.editor.selection.getComponentAtStart();
-  if (selectedComponent instanceof Figure ||
+  if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
     var activeLayout = selectedComponent.section.type;
@@ -5369,6 +5434,7 @@ var Figure = function(optParams) {
    */
   this.captionParagraph = new Paragrarph({
     placeholderText: params.captionPlaceholder,
+    name: this.name + '-caption',
     text: params.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
@@ -5594,13 +5660,15 @@ Figure.prototype.select = function () {
  * Returns the operations to execute a deletion of the image component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Figure.prototype.getDeleteOps = function (optIndexOffset) {
+Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -5610,7 +5678,7 @@ Figure.prototype.getDeleteOps = function (optIndexOffset) {
       index: this.getIndexInSection() + (optIndexOffset || 0),
       attrs: {
         src: this.src,
-        caption: this.caption,
+        caption: this.captionParagraph.text,
         width: this.width
       }
     }
@@ -5629,9 +5697,11 @@ Figure.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a figure.
  * @param {number} index Index to insert the figure at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the figure.
  */
-Figure.prototype.getInsertOps = function (index) {
+Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -5643,12 +5713,13 @@ Figure.prototype.getInsertOps = function (index) {
       attrs: {
         src: this.src,
         width: this.width,
-        caption: this.caption
+        caption: this.captionParagraph.text
       }
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };
@@ -6045,8 +6116,9 @@ Layout.prototype.getInsertOps = function (index) {
 Layout.prototype.getSplitOps = function (atIndex) {
   var ops = [];
   var i = atIndex;
+  var indexOffset = 0;
   for (i = atIndex; i < this.components.length; i++) {
-    Utils.arrays.extend(ops, this.components[i].getDeleteOps());
+    Utils.arrays.extend(ops, this.components[i].getDeleteOps(indexOffset--));
   }
 
   var newLayout = new Layout({
@@ -6336,13 +6408,15 @@ List.prototype.getComponentClassName = function() {
  * Returns the operations to execute a deletion of list component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-List.prototype.getDeleteOps = function (optIndexOffset) {
+List.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
   return [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -6362,9 +6436,11 @@ List.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a list.
  * @param {number} index Index to insert the list at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the list.
  */
-List.prototype.getInsertOps = function (index) {
+List.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -6380,7 +6456,8 @@ List.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };
@@ -7183,10 +7260,13 @@ Paragraph.prototype.render = function(element, options) {
  *   For partial deletion pass optFrom and optTo.
  * @param  {number=} optIndexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
+ * @param {Object=} optCursorAfterOp Where to move cursor to after deletion.
+ * @param {boolean=} optKeepEmptyContainer Whether to keep the empty container
+ * or delete it.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
+Paragraph.prototype.getDeleteOps = function(
+    optIndexOffset, optCursorAfterOp, optKeepEmptyContainer) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -7215,7 +7295,8 @@ Paragraph.prototype.getDeleteOps = function(optIndexOffset, optCursorAfterOp) {
 
   // If this is the last element in the section/layout/list delete the container
   // as well. Only if there are other containers.
-  if (this.section.getLength() < 2 && this.section.section.getLength() > 1) {
+  if (!optKeepEmptyContainer &&
+      this.section.getLength() < 2 && this.section.section.getLength() > 1) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
@@ -8123,9 +8204,18 @@ var Selection = (function() {
 
       // Update the selection end point.
       var endNode = this.getEndComponentFromWindowSelection_(selection);
+      var endComponent = Utils.getReference(endNode.getAttribute('name'));
+      var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
+      if (endComponent.components) {
+        endComponent = endComponent.getFirstComponent();
+        if (endOffset === 0) {
+          endComponent = endComponent.getPreviousComponent();
+          endOffset = endComponent.getLength();
+        }
+      }
       var end = {
-        component: Utils.getReference(endNode.getAttribute('name')),
-        offset: this.calculateEndOffsetFromWindowSelection_(selection)
+        component: endComponent,
+        offset: endOffset
       };
 
       var endIndex = end.component.getIndexInSection();

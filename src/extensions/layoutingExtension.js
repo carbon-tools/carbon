@@ -210,7 +210,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
     }
   }
 
-  this.toolbar.setPositionToTopOf(selectedComponent.dom);
+  this.handleSelectionChangedEvent();
 };
 
 
@@ -219,7 +219,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
  */
 LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   var selectedComponent = this.editor.selection.getComponentAtStart();
-  if (selectedComponent instanceof Figure ||
+  if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
     var activeLayout = selectedComponent.section.type;

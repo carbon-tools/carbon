@@ -451,6 +451,9 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var paragraphs = selection.getSelectedComponents();
   var ops = [];
 
+  var section = selection.getSectionAtStart();
+  var prevCursorOffset = selection.start.offset;
+  var prevCompIndex = selection.getComponentAtStart().getIndexInSection();
   for (var i = 0; i < paragraphs.length; i++) {
     var toType = clickedFormatter;
     if (paragraphs[i].paragraphType === clickedFormatter) {
@@ -459,7 +462,8 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
     var index = paragraphs[i].getIndexInSection() + i;
     // Step 1: deleteComponent to remove current Paragraph.
-    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps());
+    Utils.arrays.extend(ops, paragraphs[i].getDeleteOps(
+        null, null, true));
     // Step 2: insertComponent to Insert a new Paragraph in its place with the
     // new paragraph type. Make sure to keep the name of the paragraph.
     paragraphs[i].paragraphType = toType;
@@ -471,6 +475,11 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
   // Tell listeners that there was a change in the editor.
   this.editor.dispatchEvent(new Event('change'));
+
+  selection.setCursor({
+    offset: prevCursorOffset,
+    component: section.components[prevCompIndex]
+  });
 };
 
 

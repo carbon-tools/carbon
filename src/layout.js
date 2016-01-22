@@ -167,8 +167,9 @@ Layout.prototype.getInsertOps = function (index) {
 Layout.prototype.getSplitOps = function (atIndex) {
   var ops = [];
   var i = atIndex;
+  var indexOffset = 0;
   for (i = atIndex; i < this.components.length; i++) {
-    Utils.arrays.extend(ops, this.components[i].getDeleteOps());
+    Utils.arrays.extend(ops, this.components[i].getDeleteOps(indexOffset--));
   }
 
   var newLayout = new Layout({

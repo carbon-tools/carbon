@@ -518,13 +518,16 @@ EmbeddedComponent.prototype.select = function () {
  * Returns the operations to execute a deletion of the embedded component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
+EmbeddedComponent.prototype.getDeleteOps = function (
+    optIndexOffset, optCursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -554,9 +557,11 @@ EmbeddedComponent.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a embedded component.
  * @param {number} index Index to insert the embedded component at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the embedded component.
  */
-EmbeddedComponent.prototype.getInsertOps = function (index) {
+EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -574,7 +579,8 @@ EmbeddedComponent.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };

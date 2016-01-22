@@ -185,13 +185,15 @@ List.prototype.getComponentClassName = function() {
  * Returns the operations to execute a deletion of list component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-List.prototype.getDeleteOps = function (optIndexOffset) {
+List.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
   return [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -211,9 +213,11 @@ List.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a list.
  * @param {number} index Index to insert the list at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the list.
  */
-List.prototype.getInsertOps = function (index) {
+List.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -229,7 +233,8 @@ List.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };

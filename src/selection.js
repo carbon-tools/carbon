@@ -436,9 +436,18 @@ var Selection = (function() {
 
       // Update the selection end point.
       var endNode = this.getEndComponentFromWindowSelection_(selection);
+      var endComponent = Utils.getReference(endNode.getAttribute('name'));
+      var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
+      if (endComponent.components) {
+        endComponent = endComponent.getFirstComponent();
+        if (endOffset === 0) {
+          endComponent = endComponent.getPreviousComponent();
+          endOffset = endComponent.getLength();
+        }
+      }
       var end = {
-        component: Utils.getReference(endNode.getAttribute('name')),
-        offset: this.calculateEndOffsetFromWindowSelection_(selection)
+        component: endComponent,
+        offset: endOffset
       };
 
       var endIndex = end.component.getIndexInSection();

@@ -1,6 +1,7 @@
 'use strict';
 
 var Utils = require('../utils');
+var Selection = require('../selection');
 
 
 /**
@@ -72,4 +73,12 @@ Attachment.prototype.setAttributes = function(attrs) {
   }
   // Update the figure object attributes to reflect the changes.
   this.figure.updateAttributes(attrs);
+
+  // If the figure finished uploading and it's still selected,
+  // reselect to show the toolbar.
+  var selection = Selection.getInstance();
+  var selectedComponent = selection.getComponentAtStart();
+  if (selectedComponent === this.figure) {
+    this.figure.select();
+  }
 };
