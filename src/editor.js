@@ -96,6 +96,11 @@ var Editor = function (element, optParams) {
   this.selection = Selection.getInstance();
 
   /**
+   * Flag used to disable handleInputEvent
+   */
+  this.disableInputHandler = false;
+
+  /**
    * Editor's inline toolbar.
    * @type {Toolbar}
    */
@@ -385,6 +390,11 @@ Editor.prototype.handleSelectionChanged = function(event) {
  *
  */
 Editor.prototype.handleInputEvent = function() {
+  // Short circuit the function if handling input is disabled
+  if (this.disableInputHandler === true) {
+    return;
+  }
+
   var currentLength = this.selection.start.component.getLength();
   var self = this;
   var offset = this.selection.start.offset;
@@ -1234,6 +1244,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
  * Handles cut event for the editor.
  */
 Editor.prototype.handleCut = function() {
+  this.disableInputHandler = true;
   var ops = this.getDeleteSelectionOps();
   var article = this.article;
   var dispatchEvent = this.dispatchEvent.bind(this);
@@ -1241,4 +1252,5 @@ Editor.prototype.handleCut = function() {
     article.transaction(ops);
     dispatchEvent(new Event('change'));
   }, 20);
+  this.disableInputHandler = false;
 };

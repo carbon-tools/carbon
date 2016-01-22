@@ -827,6 +827,11 @@ var Editor = function (element, optParams) {
   this.selection = Selection.getInstance();
 
   /**
+   * Flag used to disable handleInputEvent
+   */
+  this.disableInputHandler = false;
+
+  /**
    * Editor's inline toolbar.
    * @type {Toolbar}
    */
@@ -1116,6 +1121,11 @@ Editor.prototype.handleSelectionChanged = function(event) {
  *
  */
 Editor.prototype.handleInputEvent = function() {
+  // Short circuit the function if handling input is disabled
+  if (this.disableInputHandler === true) {
+    return;
+  }
+
   var currentLength = this.selection.start.component.getLength();
   var self = this;
   var offset = this.selection.start.offset;
@@ -1965,6 +1975,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
  * Handles cut event for the editor.
  */
 Editor.prototype.handleCut = function() {
+  this.disableInputHandler = true;
   var ops = this.getDeleteSelectionOps();
   var article = this.article;
   var dispatchEvent = this.dispatchEvent.bind(this);
@@ -1972,6 +1983,7 @@ Editor.prototype.handleCut = function() {
     article.transaction(ops);
     dispatchEvent(new Event('change'));
   }, 20);
+  this.disableInputHandler = false;
 };
 
 },{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":16,"./extensions/toolbeltExtension":17,"./extensions/uploadExtension":18,"./figure":19,"./i18n":20,"./layout":23,"./list":24,"./paragraph":27,"./section":28,"./selection":29,"./toolbars/toolbar":32,"./utils":33}],4:[function(require,module,exports){
