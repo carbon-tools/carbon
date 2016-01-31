@@ -13,17 +13,23 @@ Carbon is still in early alpha and you might run into bugs. If you do, please fi
 
 ## Usage
 
-You can grab carbon source code using bower:
+You can load Carbon from our CDN (Recommended)
+```html
+<link href="https://cdn.carbon.tools/carbon.min.css"></script>
+<script src="https://cdn.carbon.tools/carbon.min.js"></script>
+```
+
+Or you can grab carbon source code (including minified files) using bower:
 ```sh
 bower install manshar/carbon
 ```
 
-
-To use Carbon include the main Carbon script:
+And then include the main Carbon scripts and css:
 ```html
 <link href="bower_components/carbon/dist/carbon.min.css"/>
 <script src="bower_components/carbon/dist/carbon.min.js"></script>
 ```
+
 
 After that you can create a new Carbon object and pass it the element you want to transfer into your editor.
 

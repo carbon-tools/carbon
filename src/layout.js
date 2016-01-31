@@ -28,7 +28,7 @@ var Layout = function(optParams) {
   Section.call(this, params);
 
   this.type = params.type;
-
+  this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };

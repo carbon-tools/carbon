@@ -127,7 +127,6 @@ Section.prototype.insertComponentAt = function(component, index) {
         insertBefore: nextComponent.dom,
         editMode: this.editMode
       });
-      // this.dom.insertBefore(component.dom, nextComponent.dom);
     }
     // Set the cursor to the new component.
     Selection.getInstance().setCursor({
@@ -139,6 +138,7 @@ Section.prototype.insertComponentAt = function(component, index) {
   this.components.splice(index, 0, component);
   return component;
 };
+
 
 /**
  * Removes a component from a section.

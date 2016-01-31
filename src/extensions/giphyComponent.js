@@ -1,7 +1,6 @@
 'use strict';
 
 var Utils = require('../utils');
-var Selection = require('../selection');
 var Component = require('../component');
 var Loader = require('../loader');
 var I18n = require('../i18n');
@@ -230,28 +229,19 @@ GiphyComponent.prototype.render = function(element, options) {
 
 
 /**
- * Handles clicking on the GiphyComponent component to update the selection.
- */
-GiphyComponent.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
-};
-
-
-/**
  * Returns the operations to execute a deletion of the giphy component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
+GiphyComponent.prototype.getDeleteOps = function (
+    optIndexOffset, optCursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -280,9 +270,11 @@ GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a GiphyComponent.
  * @param {number} index Index to insert the GiphyComponent at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the GiphyComponent.
  */
-GiphyComponent.prototype.getInsertOps = function (index) {
+GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -299,7 +291,8 @@ GiphyComponent.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };

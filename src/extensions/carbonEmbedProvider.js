@@ -15,13 +15,13 @@ var CarbonEmbedProvider = function (optParams) {
       facebookNotes: true,
       twitter: true,
       instagram: true,
-      github: true,
+      github: false,
       soundcloud: false,
       youtube: false,
       vimeo: false,
       vine: false,
       slideshare: false,
-      facebookPosts: false,
+      facebookPosts: true,
       facebookVideos: false,
     }
   }, optParams);
@@ -54,7 +54,7 @@ CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
   },
   facebookPosts: {
     // Matches Facebook Posts URLs. (incl. posts, photos, story...etc)
-    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?fbid=\\d+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|activity)\/\\d+|permalink\.php\?story_fbid=\\d+|media\/set\?set=\\d+|questions\/\\d+))$':
+    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?.+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|photos|activity)\/.+|permalink\.php\?story_fbid=\\\d+|media\/set\?set=\\d+|questions\/\\d+))':
         // oEmbed endpoint for facebook posts.
         'https://apps.facebook.com/plugins/post/oembed.json/'
         // 'https://noembed.com/embed'

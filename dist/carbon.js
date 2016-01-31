@@ -460,10 +460,9 @@ Article.prototype.exec = function(operation, action) {
     component.section.removeComponent(component);
 
     if (operation[action].cursor) {
-      selection.setCursor({
-        offset: operation[action].cursor.offset,
-        component: Utils.getReference(operation[action].cursor.component)
-      });
+      var selectedComponent = Utils.getReference(
+          operation[action].cursor.component);
+      selectedComponent.select(operation[action].cursor.offset);
     }
   } else if (op === 'insertComponent') {
     // TODO(mkhatib): Insert components inside a component.
@@ -496,6 +495,7 @@ Article.prototype.handleResize_ = function() {
 var Utils = require('./utils');
 var Errors = require('./errors');
 var Loader = require('./loader');
+var Selection = require('./selection');
 
 /**
  * Component main.
@@ -568,6 +568,13 @@ var Component = function(optParams) {
    * @type {boolean}
    */
   this.editMode = false;
+
+
+  /**
+   * Used to focus non-focusable elements (e.g. figure);
+   * @type {HTMLElement}
+   */
+  this.selectionDom = null;
 
 };
 module.exports = Component;
@@ -681,6 +688,7 @@ Component.prototype.getIndexInSection = function() {
 Component.prototype.render = function(element, options) {
   this.editMode = !!(options && options.editMode);
   if (!this.isRendered && this.dom) {
+    this.dom.setAttribute('carbon', '1');
     Utils.setReference(this.name, this);
     this.isRendered = true;
     if (options && options.insertBefore) {
@@ -754,6 +762,22 @@ Component.prototype.getUpdateOps = function(
 
 
 /**
+ * Selects the component.
+ * @param  {number} offset Selection offset.
+ */
+Component.prototype.select = function(offset) {
+  if (this.selectionDom) {
+    this.selectionDom.focus();
+  }
+  var selection = Selection.getInstance();
+  selection.setCursor({
+    component: this,
+    offset: offset
+  });
+};
+
+
+/**
  * Returns the length of the component content.
  * @return {number} Length of the component content.
  */
@@ -778,7 +802,7 @@ Component.prototype.rerender = function () {
   // pass.
 };
 
-},{"./errors":4,"./loader":25,"./utils":33}],3:[function(require,module,exports){
+},{"./errors":4,"./loader":25,"./selection":29,"./utils":33}],3:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
@@ -2257,13 +2281,13 @@ var CarbonEmbedProvider = function (optParams) {
       facebookNotes: true,
       twitter: true,
       instagram: true,
-      github: true,
+      github: false,
       soundcloud: false,
       youtube: false,
       vimeo: false,
       vine: false,
       slideshare: false,
-      facebookPosts: false,
+      facebookPosts: true,
       facebookVideos: false,
     }
   }, optParams);
@@ -2296,7 +2320,7 @@ CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
   },
   facebookPosts: {
     // Matches Facebook Posts URLs. (incl. posts, photos, story...etc)
-    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?fbid=\\d+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|activity)\/\\d+|permalink\.php\?story_fbid=\\d+|media\/set\?set=\\d+|questions\/\\d+))$':
+    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?.+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|photos|activity)\/.+|permalink\.php\?story_fbid=\\\d+|media\/set\?set=\\d+|questions\/\\d+))':
         // oEmbed endpoint for facebook posts.
         'https://apps.facebook.com/plugins/post/oembed.json/'
         // 'https://noembed.com/embed'
@@ -2511,7 +2535,6 @@ ComponentFactory.prototype.onDestroy = function () {
 'use strict';
 
 var Utils = require('../utils');
-var Selection = require('../selection');
 var Component = require('../component');
 var Paragrarph = require('../paragraph');
 var Loader = require('../loader');
@@ -2533,7 +2556,9 @@ var EmbeddedComponent = function(optParams) {
     url: null,
     provider: null,
     caption: null,
-    sizes: null
+    sizes: {},
+    type: EmbeddedComponent.Types.Rich,
+    serviceName: null
   }, optParams);
 
   Component.call(this, params);
@@ -2551,10 +2576,22 @@ var EmbeddedComponent = function(optParams) {
   this.provider = params.provider;
 
   /**
+   * Embed service name (e.g. twitter).
+   * @type {string}
+   */
+  this.service = params.service;
+
+  /**
+   * Embed type.
+   * @type {string}
+   */
+  this.type = params.type || EmbeddedComponent.Types.Rich;
+
+  /**
    * Sizes of the embedded component in different container sizes.
    * @type {object}
    */
-  this.sizes = params.sizes;
+  this.sizes = params.sizes || {};
 
   /**
    * Placeholder text to show if the EmbeddedComponent is empty.
@@ -2655,7 +2692,55 @@ EmbeddedComponent.OVERLAY_CLASS_NAME = 'embed-overlay';
  * The screen sizes to render the component for.
  * @type {Array.<number>}
  */
-EmbeddedComponent.RENDER_FOR_SCREEN_SIZES = [350, 450, 600];
+EmbeddedComponent.RENDER_FOR_SCREEN_SIZES = [300, 450, 600, 900, 1200];
+
+
+/**
+ * Embed types.
+ * @type {Object.<string>}
+ */
+EmbeddedComponent.Types = {
+  Rich: 'rich',
+  Video: 'video',
+  Link: 'link',
+  Image: 'image'
+};
+
+
+/**
+ * Iframe URL to load third party embeds in (production).
+ * @type {string}
+ */
+EmbeddedComponent.IFRAME_URL = 'https://cdn.carbon.tools/iframe.html';
+
+
+/**
+ * Iframe URL to load third party embeds in (for development).
+ * @type {string}
+ */
+EmbeddedComponent.DEV_IFRAME_URL = (
+    'http://iframe.localhost:8000/dist/iframe.html');
+
+
+/**
+ * Container to render offscreen.
+ * @type {string}
+ */
+EmbeddedComponent.OFFSCREEN_CONTAINER_ID = 'carbon-off-screen';
+
+
+/**
+ * CLass name for temp rendering container.
+ * @type {string}
+ */
+EmbeddedComponent.TEMP_RENDER_CONTAINER_CLASSNAME = 'temp-render';
+
+
+/**
+ * Name of the message to listen to for embed size.
+ * @type {string}
+ */
+EmbeddedComponent.EMBED_SIZE_MESSAGE_TYPE = 'embed-size';
 
 
 /**
@@ -2681,6 +2766,14 @@ EmbeddedComponent.fromJSON = function (json) {
  * @param  {Editor} editor Instance of the editor that installed the module.
  */
 EmbeddedComponent.onInstall = function() {
+  var offScreen = document.getElementById(
+      EmbeddedComponent.OFFSCREEN_CONTAINER_ID);
+  if (!offScreen) {
+    offScreen = document.createElement('div');
+    offScreen.id = EmbeddedComponent.OFFSCREEN_CONTAINER_ID;
+    offScreen.style.width = '3000px';
+    document.body.appendChild(offScreen);
+  }
 };
 
 
@@ -2704,63 +2797,54 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
   }
 
   /**
-   * This is a very ugly hack to fix Facebook embeds width and heights
-   * changing to 0px on re-render and reloading FB SDK.
-   *
-   * This checks all FB embeds and fixes their heights and widths.
-   *
-   * @param  {string} width Width of the container of the embed.
-   * @param  {string} height Height of the container of the embed.
+   * Removes the temp rendering dom from document.
+   * @param  {HTMLElement} embedDom Element to remove.
    */
-  var fixFacebookEmbedSizes_ = function(width, height) {
-    return function () {
-      var fbPostDoms = document.querySelectorAll('.carbon .fb-post');
-      for (var i = 0; i < fbPostDoms.length; i++) {
-        var fbPostDom = fbPostDoms[i];
-
-        var spanEl = fbPostDom.querySelector('span');
-        var spanWidth = spanEl.style.width;
-        if (spanWidth === '0px') {
-          spanEl.style.width = width;
-          spanEl.style.height = height;
-        } else if (spanWidth === '') {
-          setTimeout(fixFacebookEmbedSizes_(width, height), 200);
-          break;
-        }
+  function cleanupRenderingDom_(embedDom) {
+    return function() {
+      try {
+        embedDom.parentNode.removeChild(embedDom);
+      } catch (e) {
+        console.warn(e);
       }
     };
-  };
+  }
 
   // TODO(mkhatib): Provide a lite mode load to allow loading a placeholder
   // and only load the scripts and iframes on click.
   if (oembedData.html) {
-    this.embedDom.innerHTML = oembedData.html;
+
+    // Render the main embedded component.
     var styles = window.getComputedStyle(this.dom);
     var containerWidth = parseInt(styles.width);
-    var screen = this.getClosestSupportedScreenSize_(containerWidth);
-    var fbPostDom = this.embedDom.querySelector('.fb-post');
-    if (fbPostDom) {
-      fbPostDom.setAttribute('data-width', screen);
-    }
-    this.executeScriptsIn_(this.embedDom);
+    var screen = (
+        this.getClosestSupportedScreenSize_(containerWidth) || containerWidth);
+    this.renderForScreen_(screen, this.embedDom);
 
-    // Facebook posts wouldn't render if the SDK have already been loaded
-    // before. So we need to manually trigger parse.
-    if (fbPostDom && window.FB && this.sizes) {
-      FB.XFBML.parse();
-      var height = parseInt(styles.height) + 20;
-      setTimeout(
-          fixFacebookEmbedSizes_(screen + 'px', height + 'px'),
-          500);
-    }
 
-    if (this.editMode && !this.sizes) {
+    // In edit mode. Try to render the component in for different screen sizes
+    // to allow us to pre-calculate the width and height it will take in
+    // that screen size.
+    // Do this only for Rich embeds since they don't maintain a fixed aspect
+    // ratio - unlike video and image embeds.
+    if (this.editMode && this.type === EmbeddedComponent.Types.Rich) {
+      var offScreen = document.getElementById(
+          EmbeddedComponent.OFFSCREEN_CONTAINER_ID);
       var screenSizes = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES;
-      for (var j = 0; j < screenSizes.length; j++) {
-        this.renderForScreen_(screenSizes[j]);
-      }
-    }
 
+      for (var j = 0; j < screenSizes.length; j++) {
+        if (!this.sizes || !this.sizes[screenSizes[j]]) {
+          var embedDom = document.createElement('div');
+          embedDom.className = (
+              EmbeddedComponent.TEMP_RENDER_CONTAINER_CLASSNAME);
+          embedDom.style.width = screenSizes[j] + 'px';
+          offScreen.appendChild(embedDom);
+          this.renderForScreen_(screenSizes[j], embedDom);
+          setTimeout(cleanupRenderingDom_(embedDom), 10000);
+        }
+      }
+
+    }
   } else {
     // TODO(mkhatib): Figure out a way to embed (link, image, embed) types.
     console.error('Embedding non-rich component is not supported yet.');
@@ -2769,89 +2853,51 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
 
 /**
- * Executes scripts included in the passed element.
- * @param  {Element} element
- * @private
- */
-EmbeddedComponent.prototype.executeScriptsIn_ = function(element) {
-  var scripts = element.getElementsByTagName('script');
-  for (var i = 0; i < scripts.length; i++) {
-    /* jshint evil: true */
-    if (!scripts[i].getAttribute('src')) {
-      eval(Utils.getTextFromElement(scripts[i]));
-    } else {
-      var script = document.createElement('script');
-      script.src = scripts[i].getAttribute('src');
-      if (scripts[i].parentNode) {
-        scripts[i].parentNode.replaceChild(script, scripts[i]);
-      } else {
-        document.body.appendChild(script);
-      }
-    }
-  }
-};
-
-
-/**
  * Renders the embedded component for specific screen to store the different
  * sizes for different screents.
  * @param  {number} screen Screen width to render it for.
- * @param  {String} html The HTML to render in that size.
+ * @param  {HTMLElement} embedDom Element to embed in.
  * @private
  */
-EmbeddedComponent.prototype.renderForScreen_ = function(screen) {
-  this.loadEmbed_(function(oembedData) {
-    var html = oembedData.html;
-    var embedDom = document.createElement('div');
-    embedDom.style.position = 'absolute';
-    embedDom.style.top = '-99999px';
-    embedDom.style.left = '-99999px';
-    embedDom.style.width = screen + 'px';
+EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
+  var baseUrl = EmbeddedComponent.IFRAME_URL;
+  // If running on localhost for development?
+  if (document.location.host.match(/localhost/)) {
+    baseUrl = EmbeddedComponent.DEV_IFRAME_URL;
+  }
 
-    embedDom.innerHTML = html;
-    document.body.appendChild(embedDom);
+  // Get oembed URL for the URL.
+  var embedProvider = Loader.load('embedProviders')[this.provider];
+  var oEmbedUrl = embedProvider.getOEmbedEndpointForUrl(this.url, {
+    width: screen
+  });
 
-    // For facebook to render the post for the required size it needs a
-    // data-width attribute present on .fb-post element.
-    var fbPostDom = embedDom.querySelector('.fb-post');
-    if (fbPostDom) {
-      fbPostDom.setAttribute('data-width', screen);
-    }
+  // Add data to the hash of the iframe URL to pass it to the child iframe.
+  var fullUrl = baseUrl + '#' + encodeURIComponent(JSON.stringify({
+    width: screen,
+    oEmbedUrl: oEmbedUrl,
+    origin: document.location.origin
+  }));
 
-    if (fbPostDom && window.FB) {
-      FB.XFBML.parse();
-    } else {
-      this.executeScriptsIn_(embedDom);
-    }
+  var iframe = document.createElement('iframe');
+  iframe.src = fullUrl;
+  iframe.setAttribute('frameborder', 0);
+  iframe.setAttribute('width', '100%');
 
-    this.updateSize_(screen, embedDom);
-    Utils.addResizeListener(
-        embedDom, this.updateSize_.bind(this, screen, embedDom));
+  // Set initial height of 50% of the width for visual improvement. This would
+  // be updated as the iframe renders.
+  iframe.setAttribute('height', (screen/2) + 'px');
 
-    // Cleanup.
-    // TODO(mkhatib): Figure out a better way to do this.
-    setTimeout(function() {
-      Utils.removeResizeListener(
-          embedDom, this.updateSize_.bind(this, screen, embedDom));
-      document.body.removeChild(embedDom);
-    }.bind(this), 10000);
-
-  }.bind(this), { width: screen });
-};
-
-
-/**
- * Polls the element for size changes and update width and height when
- * they stabalize for at least 3 seconds.
- * @private
- */
-EmbeddedComponent.prototype.updateSize_ = function(screen, embedDom) {
-  var styles = window.getComputedStyle(embedDom);
-  this.sizes = this.sizes || {};
-  this.sizes[screen] = {
-    width: parseInt(styles.width),
-    height: parseInt(styles.height)
-  };
+  Utils.listen(iframe, EmbeddedComponent.EMBED_SIZE_MESSAGE_TYPE,
+      function(data) {
+    this.sizes[screen] = {
+      width: parseFloat(data.width),
+      height: parseFloat(data.height)
+    };
+    this.updateSize_();
+    iframe.setAttribute('height', data.height);
+  }.bind(this));
+  embedDom.appendChild(iframe);
 };
 
 
@@ -2861,7 +2907,21 @@ EmbeddedComponent.prototype.updateSize_ = function(screen, embedDom) {
  * @return {number}
  */
 EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
-  var screenSizes = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES;
+  var screenSizes = [];
+  for (var size in this.sizes) {
+    screenSizes.push(parseInt(size));
+  }
+
+  for (var i = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES.length; i > 0; i--) {
+    var standardScreenSize = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES[i];
+    if (standardScreenSize && screenSizes.indexOf(standardScreenSize) === -1) {
+      screenSizes.push(standardScreenSize);
+    }
+  }
+  screenSizes.sort(function (a, b) {
+    return a - b;
+  });
+
   for (var j = screenSizes.length; j > 0; j--) {
     if (screenSizes[j] <= width) {
       return screenSizes[j];
@@ -2879,8 +2939,8 @@ EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
  */
 EmbeddedComponent.prototype.getRatioFor_ = function (width) {
   var screen = this.getClosestSupportedScreenSize_(width);
-
-  return (this.sizes[screen].height/this.sizes[screen].width * 100) + '%';
+  var size = this.sizes[screen];
+  return size && (size.height/size.width * 100) + '%';
 };
 
 
@@ -2920,61 +2980,99 @@ EmbeddedComponent.prototype.rerender = function() {
 
 
 /**
+ * Updates the size of the embed.
+ * @private
+ */
+EmbeddedComponent.prototype.updateSize_ = function() {
+  if (!Utils.isEmpty(this.sizes)) {
+    var styles = window.getComputedStyle(this.dom);
+    var containerWidth = parseInt(styles.width);
+    // Only add the ratio padding-bottom trick for fixed-ratio embeds.
+    if (this.type === EmbeddedComponent.Types.Video ||
+        this.type === EmbeddedComponent.Types.Image) {
+      this.embedDom.classList.add('ratio-container');
+      var ratio = this.getRatioFor_(containerWidth);
+      this.embedDom.style.paddingBottom = ratio;
+      this.embedDom.style.width = 'auto';
+      this.embedDom.style.height = 'auto';
+    } else if (containerWidth) {
+      var screen = this.getClosestSupportedScreenSize_(containerWidth);
+      if (screen && this.sizes[screen]) {
+        this.embedDom.style.paddingBottom = 0;
+        this.embedDom.style.width = this.sizes[screen].width + 'px';
+        this.embedDom.style.height = this.sizes[screen].height + 'px';
+      }
+    }
+  } else {
+    this.embedDom.style.paddingBottom = '56.25%';
+  }
+};
+
+
+/**
  * @override
  */
 EmbeddedComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
+    var styles = window.getComputedStyle(this.dom);
+    var containerWidth = parseInt(styles.width);
 
     this.containerDom = document.createElement(
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
 
-    var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
-
-    // TODO(mkhatib): Render a nice placeholder until the data has been
-    // loaded.
     if (this.url) {
       this.embedDom = document.createElement(
           EmbeddedComponent.EMBED_TAG_NAME);
-
-      if (this.sizes) {
-        var ratio = this.getRatioFor_(containerWidth);
-        this.embedDom.className = 'embed-container';
-        this.embedDom.style.paddingBottom = ratio;
-      }
+      this.embedDom.classList.add('embed-container');
+      this.updateSize_();
       this.containerDom.appendChild(this.embedDom);
       this.dom.appendChild(this.containerDom);
     }
-
-    if (this.editMode) {
-      this.overlayDom = document.createElement(
-          EmbeddedComponent.OVERLAY_TAG_NAME);
-      this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
-      this.containerDom.appendChild(this.overlayDom);
-      this.overlayDom.addEventListener('click', this.select.bind(this));
-
-      this.selectionDom = document.createElement('div');
-      this.selectionDom.innerHTML = '&nbsp;';
-      this.selectionDom.className = 'selection-pointer';
-      this.selectionDom.setAttribute('contenteditable', true);
-      this.selectionDom.addEventListener('focus', this.select.bind(this));
-      this.containerDom.appendChild(this.selectionDom);
-
-      this.captionParagraph.dom.setAttribute('contenteditable', true);
-
-      if (!this.sizes) {
-        this.containerDom.style.width = this.getClosestSupportedScreenSize_(
-            containerWidth) + 'px';
-      }
-    }
-
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
-    this.loadEmbed_(this.oEmbedDataLoaded_.bind(this), {
+    this.loadEmbed_(function (oembedData) {
+      this.type = oembedData.type;
+      /* jshint camelcase: false */
+      this.serviceName = oembedData.provider || oembedData.provider_name;
+      if (this.serviceName) {
+        this.dom.classList.add(this.serviceName);
+      }
+
+      // TODO(mkhatib): Render a nice placeholder until the data has been
+      // loaded.
+      if (this.url) {
+        this.updateSize_();
+      }
+
+      if (this.editMode) {
+        this.overlayDom = document.createElement(
+            EmbeddedComponent.OVERLAY_TAG_NAME);
+        this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
+        this.containerDom.appendChild(this.overlayDom);
+        this.overlayDom.addEventListener('click', this.select.bind(this));
+
+        this.selectionDom = document.createElement('div');
+        this.selectionDom.innerHTML = '&nbsp;';
+        this.selectionDom.className = 'selection-pointer';
+        this.selectionDom.setAttribute('contenteditable', true);
+        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.containerDom.appendChild(this.selectionDom);
+
+        this.captionParagraph.dom.setAttribute('contenteditable', true);
+
+        if (!this.sizes) {
+          this.containerDom.style.width = this.getClosestSupportedScreenSize_(
+              containerWidth) + 'px';
+        }
+      }
+
+      this.oEmbedDataLoaded_(oembedData);
+    }.bind(this), {
       width: this.getClosestSupportedScreenSize_(containerWidth)
     });
+
   }
 };
 
@@ -3000,7 +3098,9 @@ EmbeddedComponent.prototype.getJSONModel = function() {
     url: this.url,
     provider: this.provider,
     sizes: this.sizes,
-    caption: this.captionParagraph.text
+    caption: this.captionParagraph.text,
+    type: this.type,
+    serviceName: this.serviceName
   };
 
   return embed;
@@ -3010,12 +3110,8 @@ EmbeddedComponent.prototype.getJSONModel = function() {
 /**
  * Handles clicking on the embedded component to update the selection.
  */
-EmbeddedComponent.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
+EmbeddedComponent.prototype.select = function (offset) {
+  Component.prototype.select.call(this, offset);
 
   // TODO(mkhatib): Unselect the component when the embed plays to allow the
   // user to select it again and delete it.
@@ -3049,7 +3145,9 @@ EmbeddedComponent.prototype.getDeleteOps = function (
         url: this.url,
         provider: this.provider,
         caption: this.caption,
-        sizes: this.sizes
+        sizes: this.sizes,
+        type: this.type,
+        serviceName: this.serviceName
       }
     }
   }];
@@ -3083,7 +3181,9 @@ EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
         url: this.url,
         provider: this.provider,
         sizes: this.sizes,
-        caption: this.caption
+        caption: this.caption,
+        type: this.type,
+        serviceName: this.serviceName
       }
     },
     undo: {
@@ -3103,7 +3203,7 @@ EmbeddedComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../i18n":20,"../loader":25,"../paragraph":27,"../selection":29,"../utils":33}],10:[function(require,module,exports){
+},{"../component":2,"../i18n":20,"../loader":25,"../paragraph":27,"../utils":33}],10:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -3328,7 +3428,7 @@ module.exports = EmbedlyProvider;
  * Regex string for all URLs embedly provider can handle.
  * @constant
  */
-EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/photos/.*|flic\.kr/.*|.*imgur\.com/.*|.*dribbble\.com/shots/.*|drbl\.in/.*|giphy\.com/gifs/.*|gph\.is/.*|vid\.me/.*|www\.slideshare\.net/.*/.*|www\.slideshare\.net/mobile/.*/.*|.*\.slideshare\.net/.*/.*|slidesha\.re/.*|www\.kickstarter\.com/projects/.*/.*|linkedin\.com/in/.*|linkedin\.com/pub/.*|.*\.linkedin\.com/in/.*|.*\.linkedin\.com/pub/.*|linkedin\.com/in/.*|linkedin\.com/company/.*|.*\.linkedin\.com/company/.*|www\.sliderocket\.com/.*|sliderocket\.com/.*|app\.sliderocket\.com/.*|portal\.sliderocket\.com/.*|beta-sliderocket\.com/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|tumblr\.com/.*|.*\.tumblr\.com/post/.*|pastebin\.com/.*|storify\.com/.*/.*|prezi\.com/.*/.*|www\.wikipedia\.org/wiki/.*|.*\.wikipedia\.org/wiki/.*|www\.behance\.net/gallery/.*|behance\.net/gallery/.*|jsfiddle\.net/.*|www\.gettyimages\.com/detail/photo/.*|gty\.im/.*|jsbin\.com/.*/.*|jsbin\.com/.*|codepen\.io/.*/pen/.*|codepen\.io/.*/pen/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*amazon\..*/gp/product/.*|.*amazon\..*/.*/dp/.*|.*amazon\..*/dp/.*|.*amazon\..*/o/ASIN/.*|.*amazon\..*/gp/offer-listing/.*|.*amazon\..*/.*/ASIN/.*|.*amazon\..*/gp/product/images/.*|.*amazon\..*/gp/aw/d/.*|www\.amzn\.com/.*|amzn\.com/.*|fiverr\.com/.*/.*|www\.fiverr\.com/.*/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/user/.*|.*\.youtube\.com/.*#.*/.*|m\.youtube\.com/watch.*|m\.youtube\.com/index.*|.*\.youtube\.com/profile.*|.*\.youtube\.com/view_play_list.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|.*twitch\.tv/.*|.*twitch\.tv/.*/b/.*|www\.ustream\.tv/recorded/.*|www\.ustream\.tv/channel/.*|www\.ustream\.tv/.*|ustre\.am/.*|.*\.dailymotion\.com/video/.*|.*\.dailymotion\.com/.*/video/.*|www\.livestream\.com/.*|new\.livestream\.com/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|www\.vimeo\.com/groups/.*/videos/.*|www\.vimeo\.com/.*|vimeo\.com/groups/.*/videos/.*|vimeo\.com/.*|vimeo\.com/m/#/.*|player\.vimeo\.com/.*|www\.ted\.com/talks/.*\.html.*|www\.ted\.com/talks/lang/.*/.*\.html.*|www\.ted\.com/index\.php/talks/.*\.html.*|www\.ted\.com/index\.php/talks/lang/.*/.*\.html.*|www\.ted\.com/talks/|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|fb\.com|plus\.google\.com/.*|www\.google\.com/profiles/.*|google\.com/profiles/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*|snd\.sc/.*))|(https://(vidd\.me/.*|vid\.me/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|storify\.com/.*/.*|medium\.com/.*|medium\.com/.*/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|gifs\.com/gif/.*|www\.gifs\.com/gif/.*|gifs\.com/.*|www\.gifs\.com/.*|www\.vimeo\.com/.*|vimeo\.com/.*|player\.vimeo\.com/.*|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/photo\.php.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/photos/.*|www\.facebook\.com/.*/videos/.*|plus\.google\.com/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*)))';
+EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/photos/.*|flic\.kr/.*|.*imgur\.com/.*|.*dribbble\.com/shots/.*|drbl\.in/.*|giphy\.com/gifs/.*|gph\.is/.*|vid\.me/.*|www\.slideshare\.net/.*/.*|www\.slideshare\.net/mobile/.*/.*|.*\.slideshare\.net/.*/.*|slidesha\.re/.*|www\.kickstarter\.com/projects/.*/.*|linkedin\.com/in/.*|linkedin\.com/pub/.*|.*\.linkedin\.com/in/.*|.*\.linkedin\.com/pub/.*|linkedin\.com/in/.*|linkedin\.com/company/.*|.*\.linkedin\.com/company/.*|www\.sliderocket\.com/.*|sliderocket\.com/.*|app\.sliderocket\.com/.*|portal\.sliderocket\.com/.*|beta-sliderocket\.com/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|tumblr\.com/.*|.*\.tumblr\.com/post/.*|pastebin\.com/.*|storify\.com/.*/.*|prezi\.com/.*/.*|www\.wikipedia\.org/wiki/.*|.*\.wikipedia\.org/wiki/.*|www\.behance\.net/gallery/.*|behance\.net/gallery/.*|jsfiddle\.net/.*|www\.gettyimages\.com/detail/photo/.*|gty\.im/.*|jsbin\.com/.*/.*|jsbin\.com/.*|codepen\.io/.*/pen/.*|codepen\.io/.*/pen/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*amazon\..*/gp/product/.*|.*amazon\..*/.*/dp/.*|.*amazon\..*/dp/.*|.*amazon\..*/o/ASIN/.*|.*amazon\..*/gp/offer-listing/.*|.*amazon\..*/.*/ASIN/.*|.*amazon\..*/gp/product/images/.*|.*amazon\..*/gp/aw/d/.*|www\.amzn\.com/.*|amzn\.com/.*|fiverr\.com/.*/.*|www\.fiverr\.com/.*/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/user/.*|.*\.youtube\.com/.*#.*/.*|m\.youtube\.com/watch.*|m\.youtube\.com/index.*|.*\.youtube\.com/profile.*|.*\.youtube\.com/view_play_list.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|.*twitch\.tv/.*|.*twitch\.tv/.*/b/.*|www\.ustream\.tv/recorded/.*|www\.ustream\.tv/channel/.*|www\.ustream\.tv/.*|ustre\.am/.*|.*\.dailymotion\.com/video/.*|.*\.dailymotion\.com/.*/video/.*|www\.livestream\.com/.*|new\.livestream\.com/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|www\.vimeo\.com/groups/.*/videos/.*|www\.vimeo\.com/.*|vimeo\.com/groups/.*/videos/.*|vimeo\.com/.*|vimeo\.com/m/#/.*|player\.vimeo\.com/.*|www\.ted\.com/talks/.*\.html.*|www\.ted\.com/talks/lang/.*/.*\.html.*|www\.ted\.com/index\.php/talks/.*\.html.*|www\.ted\.com/index\.php/talks/lang/.*/.*\.html.*|www\.ted\.com/talks/|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/videos/.*|fb\.com|plus\.google\.com/.*|www\.google\.com/profiles/.*|google\.com/profiles/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*|snd\.sc/.*))|(https://(vidd\.me/.*|vid\.me/.*|maps\.google\.com/maps\?.*|maps\.google\.com/\?.*|maps\.google\.com/maps/ms\?.*|www\.google\..*/maps/.*|google\..*/maps/.*|storify\.com/.*/.*|medium\.com/.*|medium\.com/.*/.*|quora\.com/.*/answer/.*|www\.quora\.com/.*/answer/.*|www\.qzzr\.com/quiz/.*|.*youtube\.com/watch.*|.*\.youtube\.com/v/.*|youtu\.be/.*|.*\.youtube\.com/playlist.*|www\.youtube\.com/embed/.*|youtube\.com/gif.*|www\.youtube\.com/gif.*|www\.youtube\.com/attribution_link.*|youtube\.com/attribution_link.*|youtube\.ca/.*|youtube\.jp/.*|youtube\.com\.br/.*|youtube\.co\.uk/.*|youtube\.nl/.*|youtube\.pl/.*|youtube\.es/.*|youtube\.ie/.*|it\.youtube\.com/.*|youtube\.fr/.*|coub\.com/view/.*|coub\.com/embed/.*|vine\.co/v/.*|www\.vine\.co/v/.*|gifs\.com/gif/.*|www\.gifs\.com/gif/.*|gifs\.com/.*|www\.gifs\.com/.*|www\.vimeo\.com/.*|vimeo\.com/.*|player\.vimeo\.com/.*|khanacademy\.org/.*|www\.khanacademy\.org/.*|www\.facebook\.com/video\.php.*|www\.facebook\.com/.*/posts/.*|fb\.me/.*|www\.facebook\.com/.*/videos/.*|plus\.google\.com/.*|soundcloud\.com/.*|soundcloud\.com/.*/.*|soundcloud\.com/.*/sets/.*|soundcloud\.com/groups/.*)))';
 
 
 /**
@@ -4161,7 +4261,6 @@ Formatting.generateFormatsForNode = function(node) {
 'use strict';
 
 var Utils = require('../utils');
-var Selection = require('../selection');
 var Component = require('../component');
 var Loader = require('../loader');
 var I18n = require('../i18n');
@@ -4390,28 +4489,19 @@ GiphyComponent.prototype.render = function(element, options) {
 
 
 /**
- * Handles clicking on the GiphyComponent component to update the selection.
- */
-GiphyComponent.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
-};
-
-
-/**
  * Returns the operations to execute a deletion of the giphy component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
+ * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
  * @return {Array.<Object>} List of operations needed to be executed.
  */
-GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
+GiphyComponent.prototype.getDeleteOps = function (
+    optIndexOffset, optCursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorAfterOp
     },
     undo: {
       op: 'insertComponent',
@@ -4440,9 +4530,11 @@ GiphyComponent.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a GiphyComponent.
  * @param {number} index Index to insert the GiphyComponent at.
+ * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * this helps undo operations to return the cursor.
  * @return {Array.<Object>} Operations for inserting the GiphyComponent.
  */
-GiphyComponent.prototype.getInsertOps = function (index) {
+GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -4459,7 +4551,8 @@ GiphyComponent.prototype.getInsertOps = function (index) {
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
+      cursor: optCursorBeforeOp
     }
   }];
 };
@@ -4473,7 +4566,7 @@ GiphyComponent.prototype.getLength = function () {
   return 1;
 };
 
-},{"../component":2,"../i18n":20,"../loader":25,"../selection":29,"../utils":33}],14:[function(require,module,exports){
+},{"../component":2,"../i18n":20,"../loader":25,"../utils":33}],14:[function(require,module,exports){
 'use strict';
 
 var Selection = require('../selection');
@@ -5415,7 +5508,6 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
 'use strict';
 
 var Utils = require('./utils');
-var Selection = require('./selection');
 var Component = require('./component');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
@@ -5698,18 +5790,6 @@ Figure.prototype.render = function(element, options) {
 
 
 /**
- * Select the component.
- */
-Figure.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
-};
-
-
-/**
  * Returns the operations to execute a deletion of the image component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
@@ -5821,7 +5901,7 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./i18n":20,"./loader":25,"./paragraph":27,"./selection":29,"./utils":33}],20:[function(require,module,exports){
+},{"./component":2,"./i18n":20,"./loader":25,"./paragraph":27,"./utils":33}],20:[function(require,module,exports){
 'use strict';
 
 var I18n = {};
@@ -6029,7 +6109,7 @@ var Layout = function(optParams) {
   Section.call(this, params);
 
   this.type = params.type;
-
+  this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };
@@ -6754,6 +6834,7 @@ var Paragraph = function(optParams) {
    */
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
+  this.dom.setAttribute('contenteditable', true);
 
   this.setText(params.text);
 
@@ -6852,6 +6933,11 @@ Paragraph.prototype.setText = function(text) {
         .replace(/(\s{2,})/g, function(match) {
           return new Array(match.length + 1).join('\xa0');
         });
+
+    // Remove zero-width whitespace when there are other characters.
+    if (this.text.length > 1) {
+      this.text = this.text.replace('\u200B', '');
+    }
   }
   if (!this.text.replace(/\s/, '').length) {
     this.dom.innerHTML = '&#8203;';
@@ -7621,7 +7707,6 @@ Section.prototype.insertComponentAt = function(component, index) {
         insertBefore: nextComponent.dom,
         editMode: this.editMode
       });
-      // this.dom.insertBefore(component.dom, nextComponent.dom);
     }
     // Set the cursor to the new component.
     Selection.getInstance().setCursor({
@@ -7633,6 +7718,7 @@ Section.prototype.insertComponentAt = function(component, index) {
   this.components.splice(index, 0, component);
   return component;
 };
+
 
 /**
  * Removes a component from a section.
@@ -7783,7 +7869,6 @@ Section.prototype.getComponentByName = function(name) {
 'use strict';
 
 var Utils = require('./utils');
-var Paragraph = require('./paragraph');
 
 
 /**
@@ -8084,9 +8169,9 @@ var Selection = (function() {
       var startNodeOffset = selection.anchorOffset;
       var parentNode = startNode.parentNode;
 
-      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+      if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
           (startNode.nodeName === '#text' &&
-           parentNode.getAttribute('name') &&
+           parentNode.getAttribute('carbon') &&
            parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
@@ -8110,9 +8195,9 @@ var Selection = (function() {
       var startNode = selection.focusNode;
       var startNodeOffset = selection.focusOffset;
       var parentNode = startNode.parentNode;
-      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+      if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
           (startNode.nodeName === '#text' &&
-           parentNode.getAttribute('name') &&
+           parentNode.getAttribute('carbon') &&
            parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
@@ -8173,8 +8258,9 @@ var Selection = (function() {
     Selection.prototype.getStartComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.anchorNode;
-        while (!node.getAttribute ||
-               (!node.getAttribute('name') && node.parentNode)) {
+        while (node &&
+               (!node.getAttribute ||
+                (!node.getAttribute('carbon') && node.parentNode))) {
           node = node.parentNode;
         }
         return node;
@@ -8189,8 +8275,9 @@ var Selection = (function() {
     Selection.prototype.getEndComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.focusNode;
-        while (!node.getAttribute ||
-               (!node.getAttribute('name') && node.parentNode)) {
+        while (node &&
+               (!node.getAttribute ||
+                (!node.getAttribute('carbon') && node.parentNode))) {
           node = node.parentNode;
         }
         return node;
@@ -8211,9 +8298,19 @@ var Selection = (function() {
 
       // Update the selection start point.
       var startNode = this.getStartComponentFromWindowSelection_(selection);
+      var startComponent = Utils.getReference(startNode.getAttribute('name'));
+      var startOffset = this.calculateStartOffsetFromWindowSelection_(
+          selection);
+      if (startComponent.components) {
+        startComponent = startComponent.getFirstComponent();
+        if (startOffset === 0 && startComponent.getPreviousComponent()) {
+          startComponent = startComponent.getPreviousComponent();
+          startOffset = startComponent.getLength();
+        }
+      }
       var start = {
-        component: Utils.getReference(startNode.getAttribute('name')),
-        offset: this.calculateStartOffsetFromWindowSelection_(selection)
+        component: startComponent,
+        offset: startOffset
       };
 
       // Update the selection end point.
@@ -8222,7 +8319,7 @@ var Selection = (function() {
       var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
       if (endComponent.components) {
         endComponent = endComponent.getFirstComponent();
-        if (endOffset === 0) {
+        if (endOffset === 0 && endComponent.getPreviousComponent()) {
           endComponent = endComponent.getPreviousComponent();
           endOffset = endComponent.getLength();
         }
@@ -8264,7 +8361,7 @@ var Selection = (function() {
      * @return {boolean} True if the cursor at the ending of component.
      */
     Selection.prototype.isCursorAtEnding = function() {
-      return (!(this.start.component instanceof Paragraph) ||
+      return (!(this.start.component.text) ||
               this.start.offset === this.start.component.getLength() &&
               this.end.offset === this.end.component.getLength());
     };
@@ -8317,7 +8414,7 @@ var Selection = (function() {
 })();
 module.exports = Selection;
 
-},{"./paragraph":27,"./utils":33}],30:[function(require,module,exports){
+},{"./utils":33}],30:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -9038,6 +9135,30 @@ Utils.extend = function(firstObj, secondObj) {
 
 
 /**
+ * Checks if the object is empty.
+ * @param  {Object} obj
+ * @return {boolean}
+ */
+Utils.isEmpty = function(obj) {
+  if (obj === null || obj.length === 0) {
+    return true;
+  }
+
+  if (obj.length > 0) {
+    return false;
+  }
+
+  for (var key in obj) {
+    if (hasOwnProperty.call(obj, key)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+
+/**
  * Extends first array with second array.
  *
  * Example:
@@ -9253,6 +9374,75 @@ Utils.clone = function(obj) {
   }
 
   throw new Error('Unable to copy object! Its type is not supported.');
+};
+
+
+/**
+ * Makes a jsonp request by inserting a script tag to the document body
+ * and cleans up after the callback has been called.
+ * @param  {string} url The URL to request.
+ * @param  {Function} callback Callback function after the url loads.
+ */
+Utils.jsonp = function(url, callback) {
+  var callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+  window[callbackName] = function(data) {
+    delete window[callbackName];
+    document.body.removeChild(script);
+    callback(data);
+  };
+
+  var script = document.createElement('script');
+  if (url.indexOf('?') >= 0) {
+    script.src = url + '&callback=' + callbackName;
+  } else {
+    script.src = url + '?callback=' + callbackName;
+  }
+  document.body.appendChild(script);
+};
+
+
+/**
+ * Makes an XHR request to the URL.
+ * @param  {string} url to make the request to.
+ * @param {boolean=} optJsonpOnFail Whether to try to make a JSONP request after
+ * the XHR request fails.
+ * @param  {Function} callback Callback function.
+ */
+Utils.ajax = function(url, callback, optJsonpOnFail) {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (xhttp.readyState == 4) {
+      if ( xhttp.status == 200 ) {
+        var json = JSON.parse(xhttp.responseText);
+        callback(json);
+      } else if (optJsonpOnFail) {
+        Utils.jsonp(url, callback);
+      }
+    }
+  };
+  xhttp.open('GET', url, true);
+  xhttp.send();
+};
+
+
+/**
+ * Listens to a message event.
+ * @param {HTMLElement} iframe to listen to.
+ * @param {string} type Message name to listen to.
+ * @param {Function} callback.
+ */
+Utils.listen = function (iframe, type, callback) {
+  window.addEventListener('message', function(event) {
+    if (event.source != iframe.contentWindow) {
+      return;
+    }
+
+    if (event.data.type != type) {
+      return;
+    }
+
+    callback(event.data);
+  }.bind(this));
 };
 
 

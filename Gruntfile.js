@@ -16,6 +16,12 @@ module.exports = function(grunt) {
 
     clean: [ "<%= buildDir %>", "<%= distDir %>" ],
 
+    shell: {
+      deployCDN: {
+        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/*'
+      }
+    },
+
     // Builds one js file from all require('..') statements.
     browserify: {
       // For use in browser. 'carbon' is going to be the name space.
@@ -27,6 +33,17 @@ module.exports = function(grunt) {
         },
         files: {
           '<%= buildDir %>/<%=pkg.name%>.js': '<%= srcDir %>/main.js'
+        }
+      },
+
+      thirdparty: {
+        options: {
+          browserifyOptions: {
+            standalone: 'carbon3p'
+          }
+        },
+        files: {
+          '<%= buildDir %>/<%=pkg.name%>3p.js': '<%= srcDir %>/3rdparty/carbon3p.js'
         }
       },
 
@@ -49,7 +66,6 @@ module.exports = function(grunt) {
       dist: {
         files: {
           '<%= distDir %>/<%= pkg.name %>.js': '<%= buildDir %>/<%= pkg.name %>.js',
-          '<%= demoDir %>/<%= pkg.name %>.js': '<%= buildDir %>/<%= pkg.name %>.js',
         }
       },
       css: {
@@ -61,8 +77,11 @@ module.exports = function(grunt) {
     copy: {
       main: {
         files: [{
-            src: '<%= distDir %>/<%= pkg.name %>.css',
-            dest: '<%= demoDir %>/<%= pkg.name %>.css'
+            src: '<%= srcDir %>/3rdparty/iframe.html',
+            dest: '<%= distDir %>/iframe.html'
+        }, {
+            src: '<%= buildDir %>/<%= pkg.name %>3p.js',
+            dest: '<%= distDir %>/<%= pkg.name %>3p.js'
         }],
       },
     },
@@ -87,6 +106,7 @@ module.exports = function(grunt) {
       dist: {
         files: {
           '<%= distDir %>/<%= pkg.name %>.min.js': '<%= buildDir %>/<%= pkg.name %>.js',
+          '<%= distDir %>/<%= pkg.name %>3p.min.js': '<%= buildDir %>/<%= pkg.name %>3p.js',
         }
       }
     },
@@ -152,13 +172,14 @@ module.exports = function(grunt) {
           livereload: '<%= connect.options.livereload %>'
         },
         files: [
-          '{,*/}*.html',
+          '<%= srcDir %>/{,*/}*.html',
           'styles/{,*/}*.css',
           'images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
         ],
         tasks: [
           'clean',
           'browserify:standalone',
+          'browserify:thirdparty',
           'concat',
           'copy',
         ]
@@ -196,9 +217,9 @@ module.exports = function(grunt) {
       },
       livereload: {
         options: {
-          open: true,
+          open: 'http://localhost:8000',
           base: [
-            'demo/',
+            '.',
             '.tmp',
             '<%= pkg.name %>'
           ]
@@ -255,6 +276,7 @@ module.exports = function(grunt) {
   grunt.registerTask('build', [
     'clean',
     'browserify:standalone',
+    'browserify:thirdparty',
     'concat',
     'copy',
     'uglify',
@@ -265,6 +287,11 @@ module.exports = function(grunt) {
   grunt.registerTask('default', [
     'build',
     'karma:unit'
+  ]);
+
+  grunt.registerTask('deployCDN', [
+    'build',
+    'shell:deployCDN'
   ]);
 
 };

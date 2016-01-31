@@ -62,6 +62,7 @@ var Paragraph = function(optParams) {
    */
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
+  this.dom.setAttribute('contenteditable', true);
 
   this.setText(params.text);
 
@@ -160,6 +161,11 @@ Paragraph.prototype.setText = function(text) {
         .replace(/(\s{2,})/g, function(match) {
           return new Array(match.length + 1).join('\xa0');
         });
+
+    // Remove zero-width whitespace when there are other characters.
+    if (this.text.length > 1) {
+      this.text = this.text.replace('\u200B', '');
+    }
   }
   if (!this.text.replace(/\s/, '').length) {
     this.dom.innerHTML = '&#8203;';

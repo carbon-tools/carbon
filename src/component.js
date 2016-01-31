@@ -3,6 +3,7 @@
 var Utils = require('./utils');
 var Errors = require('./errors');
 var Loader = require('./loader');
+var Selection = require('./selection');
 
 /**
  * Component main.
@@ -75,6 +76,13 @@ var Component = function(optParams) {
    * @type {boolean}
    */
   this.editMode = false;
+
+
+  /**
+   * Used to focus non-focusable elements (e.g. figure);
+   * @type {HTMLElement}
+   */
+  this.selectionDom = null;
 
 };
 module.exports = Component;
@@ -188,6 +196,7 @@ Component.prototype.getIndexInSection = function() {
 Component.prototype.render = function(element, options) {
   this.editMode = !!(options && options.editMode);
   if (!this.isRendered && this.dom) {
+    this.dom.setAttribute('carbon', '1');
     Utils.setReference(this.name, this);
     this.isRendered = true;
     if (options && options.insertBefore) {
@@ -257,6 +266,22 @@ Component.prototype.getUpdateOps = function(
   // jshint unused:false
   throw Errors.NotImplementedError(
       'Component does not Implement getUpdateOps');
+};
+
+
+/**
+ * Selects the component.
+ * @param  {number} offset Selection offset.
+ */
+Component.prototype.select = function(offset) {
+  if (this.selectionDom) {
+    this.selectionDom.focus();
+  }
+  var selection = Selection.getInstance();
+  selection.setCursor({
+    component: this,
+    offset: offset
+  });
 };
 
 

@@ -1,7 +1,6 @@
 'use strict';
 
 var Utils = require('./utils');
-var Selection = require('./selection');
 var Component = require('./component');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
@@ -280,18 +279,6 @@ Figure.prototype.render = function(element, options) {
       }
     }
   }
-};
-
-
-/**
- * Select the component.
- */
-Figure.prototype.select = function () {
-  var selection = Selection.getInstance();
-  selection.setCursor({
-    component: this,
-    offset: 0
-  });
 };
 
 

@@ -459,10 +459,9 @@ Article.prototype.exec = function(operation, action) {
     component.section.removeComponent(component);
 
     if (operation[action].cursor) {
-      selection.setCursor({
-        offset: operation[action].cursor.offset,
-        component: Utils.getReference(operation[action].cursor.component)
-      });
+      var selectedComponent = Utils.getReference(
+          operation[action].cursor.component);
+      selectedComponent.select(operation[action].cursor.offset);
     }
   } else if (op === 'insertComponent') {
     // TODO(mkhatib): Insert components inside a component.

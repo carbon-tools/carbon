@@ -1,7 +1,6 @@
 'use strict';
 
 var Utils = require('./utils');
-var Paragraph = require('./paragraph');
 
 
 /**
@@ -302,9 +301,9 @@ var Selection = (function() {
       var startNodeOffset = selection.anchorOffset;
       var parentNode = startNode.parentNode;
 
-      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+      if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
           (startNode.nodeName === '#text' &&
-           parentNode.getAttribute('name') &&
+           parentNode.getAttribute('carbon') &&
            parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
@@ -328,9 +327,9 @@ var Selection = (function() {
       var startNode = selection.focusNode;
       var startNodeOffset = selection.focusOffset;
       var parentNode = startNode.parentNode;
-      if ((startNode.getAttribute && startNode.getAttribute('name')) ||
+      if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
           (startNode.nodeName === '#text' &&
-           parentNode.getAttribute('name') &&
+           parentNode.getAttribute('carbon') &&
            parentNode.childNodes.length < 2)) {
         return startNodeOffset;
       }
@@ -391,8 +390,9 @@ var Selection = (function() {
     Selection.prototype.getStartComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.anchorNode;
-        while (!node.getAttribute ||
-               (!node.getAttribute('name') && node.parentNode)) {
+        while (node &&
+               (!node.getAttribute ||
+                (!node.getAttribute('carbon') && node.parentNode))) {
           node = node.parentNode;
         }
         return node;
@@ -407,8 +407,9 @@ var Selection = (function() {
     Selection.prototype.getEndComponentFromWindowSelection_ = function (
         selection) {
         var node = selection.focusNode;
-        while (!node.getAttribute ||
-               (!node.getAttribute('name') && node.parentNode)) {
+        while (node &&
+               (!node.getAttribute ||
+                (!node.getAttribute('carbon') && node.parentNode))) {
           node = node.parentNode;
         }
         return node;
@@ -429,9 +430,19 @@ var Selection = (function() {
 
       // Update the selection start point.
       var startNode = this.getStartComponentFromWindowSelection_(selection);
+      var startComponent = Utils.getReference(startNode.getAttribute('name'));
+      var startOffset = this.calculateStartOffsetFromWindowSelection_(
+          selection);
+      if (startComponent.components) {
+        startComponent = startComponent.getFirstComponent();
+        if (startOffset === 0 && startComponent.getPreviousComponent()) {
+          startComponent = startComponent.getPreviousComponent();
+          startOffset = startComponent.getLength();
+        }
+      }
       var start = {
-        component: Utils.getReference(startNode.getAttribute('name')),
-        offset: this.calculateStartOffsetFromWindowSelection_(selection)
+        component: startComponent,
+        offset: startOffset
       };
 
       // Update the selection end point.
@@ -440,7 +451,7 @@ var Selection = (function() {
       var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
       if (endComponent.components) {
         endComponent = endComponent.getFirstComponent();
-        if (endOffset === 0) {
+        if (endOffset === 0 && endComponent.getPreviousComponent()) {
           endComponent = endComponent.getPreviousComponent();
           endOffset = endComponent.getLength();
         }
@@ -482,7 +493,7 @@ var Selection = (function() {
      * @return {boolean} True if the cursor at the ending of component.
      */
     Selection.prototype.isCursorAtEnding = function() {
-      return (!(this.start.component instanceof Paragraph) ||
+      return (!(this.start.component.text) ||
               this.start.offset === this.start.component.getLength() &&
               this.end.offset === this.end.component.getLength());
     };

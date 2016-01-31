@@ -36,6 +36,7 @@
     "grunt-contrib-uglify": "^0.5.1",
     "grunt-contrib-watch": "~0.6.1",
     "grunt-karma": "~0.10.1",
+    "grunt-shell": "^1.1.2",
     "jasmine-core": "~2.2.0",
     "karma": "^0.12.32",
     "karma-chrome-launcher": "^0.1.7",
