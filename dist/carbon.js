@@ -6834,7 +6834,6 @@ var Paragraph = function(optParams) {
    */
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
-  this.dom.setAttribute('contenteditable', true);
 
   this.setText(params.text);
 
@@ -7370,6 +7369,7 @@ Paragraph.prototype.render = function(element, options) {
     Component.prototype.render.call(this, element, options);
 
     if (this.editMode) {
+      this.dom.setAttribute('contenteditable', true);
       if (this.placeholderText) {
         this.dom.setAttribute('placeholder', this.placeholderText);
       } else if (!this.text.length) {
