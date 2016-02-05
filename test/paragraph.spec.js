@@ -1,5 +1,5 @@
-var Paragraph = require('../src/paragraph');
 var Section = require('../src/section');
+var Paragraph = require('../src/paragraph');
 var Selection = require('../src/selection');
 
 describe('Paragraph', function() {
@@ -16,10 +16,14 @@ describe('Paragraph', function() {
 
   it('should expose Paragraph constructor', function() {
     expect(Paragraph).not.toBe(undefined);
+
     var paragraph = new Paragraph({
       placeholderText: 'This is a Placeholder',
       text: 'What is a placeholder?'
     });
+
+    paragraph.render(document.createElement('div'), { editMode: true });
+
     expect(paragraph.dom.getAttribute('placeholder')).
       toBe('This is a Placeholder');
 
@@ -47,11 +51,13 @@ describe('Paragraph', function() {
     var section = new Section();
     var p1 = new Paragraph();
     var p2 = new Paragraph();
-    section.insertParagraphAt(p1, 0);
-    section.insertParagraphAt(p2, 1);
+    section.insertComponentAt(p1, 0);
+    section.insertComponentAt(p2, 1);
 
-    expect(p1.getNextParagraph()).toBe(p2);
-    expect(p2.getNextParagraph()).toBe(undefined);
+    section.render(document.createElement('div'), { editMode: true });
+
+    expect(p1.getNextComponent()).toBe(p2);
+    expect(p2.getNextComponent()).toBe(undefined);
   });
 
   it('should return the json model', function() {
@@ -61,9 +67,11 @@ describe('Paragraph', function() {
     });
 
     expect(paragraph.getJSONModel()).toEqual({
+      component: 'Paragraph',
       name: '1234',
       text: 'hello',
-      paragraphType: 'p'
+      paragraphType: 'p',
+      placeholderText: null
     });
   });
 

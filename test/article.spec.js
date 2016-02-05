@@ -16,35 +16,37 @@ describe('Article', function() {
   });
 
   it('should initialize Article with sections', function() {
-    var section = new Section({
-      paragraphs: [new Paragraph(), new Paragraph()]
-    });
-
-    var article = new Article({
-      sections: [section]
-    });
+    var article = new Article();
 
     expect(article.dom.nodeName).toBe('ARTICLE');
   });
 
   it('should return the json model', function() {
-    var section = new Section({
-      paragraphs: [new Paragraph({
-        name: '12'
-      })]
-    });
+    var paragraphOpts = {
+      name: 'paragraph-name',
+      text: 'paragraph text'
+    };
+
+    var sectionOpts = {
+      name: 'section-name',
+      components: [new Paragraph(paragraphOpts)]
+    };
 
     var article = new Article({
-      sections: [section]
+      sections: [new Section(sectionOpts)]
     });
 
     expect(article.getJSONModel()).toEqual({
       sections: [{
-        paragraphs: [{
-          text: '',
-          name: '12',
-          paragraphType: 'p'
-        }]
+        component: Section.CLASS_NAME,
+        components: [{
+          component: Paragraph.CLASS_NAME,
+          text: paragraphOpts.text,
+          placeholderText: null,
+          paragraphType: Paragraph.Types.Paragraph,
+          name: paragraphOpts.name
+        }],
+        name: sectionOpts.name
       }]
     });
 
@@ -54,7 +56,7 @@ describe('Article', function() {
     var article = new Article();
     article.insertSection(new Section());
     expect(article.sections.length).toBe(1);
-    expect(article.sections[0].paragraphs.length).toBe(1);
+    expect(article.sections[0].components.length).toBe(1);
   });
 
   it('should do a transaction', function() {
@@ -95,63 +97,52 @@ describe('Article', function() {
 
   it('should execute the proper operation', function() {
     var section = new Section({
-      paragraphs: [new Paragraph()]
+      components: [new Paragraph()]
     });
+
     var article = new Article({
       sections: [section]
     });
 
+    article.render(document.createElement('div'), { editMode: true });
+
     var op = {
       do: {
-        op: 'insertParagraph',
+        op: 'insertComponent',
         section: article.sections[0].name,
-        paragraph: '1234',
+        componentClass: Paragraph.CLASS_NAME,
+        component: '1234',
         index: 1
       },
       undo: {
-        op: 'deleteParagraph',
-        paragraph: '1234',
+        op: 'deleteComponent',
+        component: '1234'
       }
     };
 
     article.exec(op, 'do');
-    expect(section.paragraphs.length).toBe(2);
+    expect(section.components.length).toBe(2);
     article.exec(op, 'undo');
-    expect(section.paragraphs.length).toBe(1);
+    expect(section.components.length).toBe(1);
 
     op = {
       do: {
-        op: 'updateParagraph',
-        paragraph: section.paragraphs[0].name,
+        op: 'updateComponent',
+        component: section.components[0].name,
         value: 'Hello World',
         cursorOffset: 11
       },
       undo: {
-        op: 'updateParagraph',
-        paragraph: section.paragraphs[0].name,
+        op: 'updateComponent',
+        component: section.components[0].name,
         value: '',
         cursorOffset: 0
       }
     };
 
     article.exec(op, 'do');
-    expect(section.paragraphs[0].text).toBe('Hello World');
+    expect(section.components[0].text).toBe('Hello World');
     article.exec(op, 'undo');
-    expect(section.paragraphs[0].text).toBe('');
-  });
-
-  it('should get section and paragraph by name', function() {
-    var section = new Section({
-      paragraphs: [new Paragraph()]
-    });
-    var article = new Article({
-      sections: [section]
-    });
-
-    var sec = article.getSectionByName(section.name);
-    expect(sec).toBe(section);
-
-    var paragraph = article.getParagraphByName(section.paragraphs[0].name);
-    expect(paragraph).toBe(section.paragraphs[0]);
+    expect(section.components[0].text).toBe('');
   });
 });

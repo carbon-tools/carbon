@@ -10,6 +10,8 @@
     "bower_components",
     "test"
   ],
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
+    "customevent-polyfill": "~1.0.0"
   }
 }
