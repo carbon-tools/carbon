@@ -23,6 +23,7 @@
     "test": "grunt test"
   },
   "devDependencies": {
+    "browserify": "^12.0.2",
     "connect-modrewrite": "^0.7.11",
     "grunt": "~0.4.2",
     "grunt-browserify": "^3.6.0",
@@ -39,11 +40,13 @@
     "grunt-shell": "^1.1.2",
     "jasmine-core": "~2.2.0",
     "karma": "^0.12.32",
+    "karma-browserify": "^5.0.1",
     "karma-chrome-launcher": "^0.1.7",
     "karma-coverage": "^0.2.7",
     "karma-firefox-launcher": "^0.1.4",
     "karma-jasmine": "~0.3.5",
     "karma-phantomjs-launcher": "~0.1.4",
-    "load-grunt-tasks": "^0.4.0"
+    "load-grunt-tasks": "^0.4.0",
+    "watchify": "^3.7.0"
   }
 }

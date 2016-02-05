@@ -12,12 +12,20 @@ module.exports = function(config) {
     basePath: './',
 
     // testing framework to use (jasmine/mocha/qunit/...)
-    frameworks: ['jasmine'],
+    frameworks: ['browserify', 'jasmine'],
 
     // list of files / patterns to load in the browser
     files: [
-      'build/editor.spec.js'
+      'test/**/*.js'
     ],
+
+    preprocessors: {
+      'test/**/*.js': ['browserify']
+    },
+
+    browserify: {
+      debug: true
+    },
 
     // list of files / patterns to exclude
     exclude: [],
@@ -43,7 +51,8 @@ module.exports = function(config) {
       'karma-firefox-launcher',
       'karma-phantomjs-launcher',
       'karma-jasmine',
-      'karma-coverage'
+      'karma-coverage',
+      'karma-browserify'
     ],
 
     // Continuous Integration mode
