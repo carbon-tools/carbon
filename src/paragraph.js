@@ -163,7 +163,8 @@ Paragraph.prototype.setText = function(text) {
 
     // Remove zero-width whitespace when there are other characters.
     if (this.text.length > 1) {
-      this.text = this.text.replace('\u200B', '');
+      this.text = this.text.replace('\u200B', '').
+          replace(/^\s/, '\xa0');
     }
   }
   if (!this.text.replace(/\s/, '').length) {
