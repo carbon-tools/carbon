@@ -147,7 +147,6 @@ module.exports = function(grunt) {
       dist: {
         files: [
           '<%= srcDir %>/{,*/}*.js',
-          '<%= testDir %>/{,*/}*.spec.js',
           '<%= demoDir %>/{,*/}*.js',
           '<%= demoDir %>/{,*/}*.css',
         ],
@@ -245,7 +244,9 @@ module.exports = function(grunt) {
       'clean',
       'build',
       'connect:livereload:dist',
-      'watch'
+      'watch:dist',
+      'watch:gruntfile',
+      'watch:livereload'
     ]);
   });
 
