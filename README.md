@@ -36,7 +36,7 @@ After that you can create a new Carbon object and pass it the element you want t
 ```html
 <div id="my-editor"></div>
 <script>
-  var editor = new carbon.Editor(document.getElementById(‘my-editor’));
+  var editor = new carbon.Editor(document.getElementById('my-editor'));
   editor.render();
 </script>
 ```
@@ -531,17 +531,17 @@ See [ToolbeltExtension](https://github.com/manshar/carbon/blob/master/src/extens
 You can store and load the article model you can serialize and deserialize the article to and from JSON format using `editor.getJSONModel()` and `editor.loadJSON(json)`. For example, the following example saves the article in localStorage and loads it back.
 
 ```javascript
-var saveBtn = document.getElementById(‘saveBtn’);
-saveBtn.addEventListener(‘click’, function() {
+var saveBtn = document.getElementById('saveBtn');
+saveBtn.addEventListener('click', function() {
   var json = editor.getJSONModel();
-  localStorage.setItem(‘article’, JSON.stringify(json));
+  localStorage.setItem('article', JSON.stringify(json));
 });
 ```
 
 ```javascript
-var loadBtn = document.getElementById(‘loadBtn’);
-loadBtn.addEventListener(‘click’, function() {
-  var jsonStr = localStorage.getItem(‘article’);
+var loadBtn = document.getElementById('loadBtn');
+loadBtn.addEventListener('click', function() {
+  var jsonStr = localStorage.getItem('article');
   editor.loadJSON(JSON.parse(jsonStr));
 });
 ```
@@ -559,7 +559,7 @@ Fired when the editor content changes.
 Fired after an attachment has been added to the editor to allow clients to upload the attachment and update the source. The client can access the attachment object from `event.detail.attachment`. See [Attachment](#attachment) for more details. The following example listens to the event and update the attachment source and caption after uploading to a remote resource.
 
 ```javascript
-editor.addEventListener(‘attachment-added’, function(event) {
+editor.addEventListener('attachment-added', function(event) {
   var attachment = event.detail.attachment;
   ajax.uploadFile(attachment.file, function uploadComplete(data) {
     attachment.updateAttributes({
