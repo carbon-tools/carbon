@@ -45,17 +45,6 @@ module.exports = function(grunt) {
         files: {
           '<%= buildDir %>/<%=pkg.name%>3p.js': '<%= srcDir %>/3rdparty/carbon3p.js'
         }
-      },
-
-      // For running tests.
-      tests: {
-        options: {
-          // Embed source map for tests
-          debug: true
-        },
-        files: {
-          '<%= buildDir %>/<%= pkg.name %>.spec.js': '<%= testDir %>/**/*.spec.js'
-        }
       }
     },
 
@@ -187,8 +176,7 @@ module.exports = function(grunt) {
       test: {
         files: [
           '<%= srcDir %>/**/*.js',
-          '<%= testDir %>/**/*.spec.js',
-          '<%= demoDir %>/**/*.js'
+          '<%= testDir %>/**/*.spec.js'
         ],
         tasks: ['test']
       }
@@ -267,7 +255,6 @@ module.exports = function(grunt) {
   ]);
 
   grunt.registerTask('test', [
-    'browserify:tests',
     'jshint',
     'karma:continous',
     'watch:test'

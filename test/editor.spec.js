@@ -1,5 +1,7 @@
+require('../src/main.js');
 var Editor = require('../src/editor');
 var Selection = require('../src/selection');
+var Paragraph = require('../src/paragraph');
 
 describe('Editor', function() {
   'use strict';
@@ -45,45 +47,48 @@ describe('Editor', function() {
 
       var editor = new Editor(div);
       var section = editor.article.sections[0];
-      var numOfParagraph = section.paragraphs.length;
-      var paragraph = section.paragraphs[numOfParagraph - 1];
+      var layout = section.components[0];
+      var numOfParagraph = layout.components.length;
+      var paragraph = layout.components[0];
+
+      editor.render();
 
       // When at the end of a paragraph, test it'll create and add
       // new paragraph.
       selection.setCursor({
-        paragraph: paragraph,
+        component: paragraph,
         offset: paragraph.text.length
       });
       editor.handleKeyDownEvent(event);
 
-      expect(section.paragraphs.length).toBe(numOfParagraph + 1);
-      expect(selection.getParagraphAtStart()).
-        toBe(section.paragraphs[numOfParagraph]);
+      expect(layout.components.length).toBe(numOfParagraph + 1);
+      expect(selection.getComponentAtStart()).
+        toBe(layout.components[numOfParagraph]);
 
       // When at the middle of a paragraph, test it'll split paragraph
       // into two.
       paragraph.setText('Hello world');
       selection.setCursor({
-        paragraph: paragraph,
+        component: paragraph,
         offset: 5
       });
       editor.handleKeyDownEvent(event);
 
-      expect(section.paragraphs.length).toBe(numOfParagraph + 2);
+      expect(layout.components.length).toBe(numOfParagraph + 2);
       expect(paragraph.text).toBe('Hello');
-      expect(paragraph.getNextParagraph().text).toBe(' world');
-      expect(selection.getParagraphAtStart()).
-        toBe(paragraph.getNextParagraph());
+      expect(paragraph.getNextComponent().text).toBe(' world');
+      expect(selection.getComponentAtStart()).
+        toBe(paragraph.getNextComponent());
       expect(selection.start.offset).toBe(0);
 
-      // Test no paragraphs are created when placeholder is after the
+      // Test no components are created when placeholder is after the
       // current paragraph.
       selection.setCursor({
-        paragraph: section.paragraphs[0],
+        component: section.components[0],
         offset: 0
       });
       editor.handleKeyDownEvent(event);
-      expect(section.paragraphs.length).toBe(numOfParagraph + 2);
+      expect(layout.components.length).toBe(numOfParagraph + 2);
 
       expect(event.preventDefault.calls.count()).toBe(3);
       expect(event.stopPropagation.calls.count()).toBe(3);
@@ -101,31 +106,35 @@ describe('Editor', function() {
 
       var editor = new Editor(div);
       var section = editor.article.sections[0];
-      var numOfParagraph = section.paragraphs.length;
-      var paragraph = section.paragraphs[numOfParagraph - 1];
-      var prevParagraph = paragraph.getPreviousParagraph();
-      paragraph.setText('Hello world');
-      prevParagraph.setText('Goodbye ');
+      var layout = section.components[0];
+      var paragraph = layout.components[0];
+      var secondParagraph = new Paragraph();
+      layout.insertComponentAt(secondParagraph, 1);
+      var numOfParagraph = layout.components.length;
+      editor.render();
+
+      paragraph.setText('Goodbye ');
+      secondParagraph.setText('Hello world');
 
       // When cursor at beginning of paragraph.
       selection.setCursor({
-        paragraph: paragraph,
+        component: secondParagraph,
         offset: 0
       });
       editor.handleKeyDownEvent(event);
 
-      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
-      expect(selection.getParagraphAtStart()).toBe(prevParagraph);
-      expect(prevParagraph.text).toBe('Goodbye Hello world');
+      expect(section.components.length).toBe(numOfParagraph - 1);
+      expect(selection.getComponentAtStart()).toBe(paragraph);
+      expect(paragraph.text).toBe('Goodbye Hello world');
 
       // When cursor not at beginning.
       selection.setCursor({
-        paragraph: prevParagraph,
+        component: paragraph,
         offset: 5
       });
       editor.handleKeyDownEvent(event);
 
-      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
+      expect(section.components.length).toBe(numOfParagraph - 1);
       expect(event.preventDefault.calls.count()).toBe(1);
       expect(event.stopPropagation.calls.count()).toBe(1);
     });
@@ -142,31 +151,35 @@ describe('Editor', function() {
 
       var editor = new Editor(div);
       var section = editor.article.sections[0];
-      var numOfParagraph = section.paragraphs.length;
-      var paragraph = section.paragraphs[numOfParagraph - 1];
-      var prevParagraph = paragraph.getPreviousParagraph();
-      paragraph.setText('Hello world');
-      prevParagraph.setText('Goodbye ');
+      var layout = section.components[0];
+      var paragraph = layout.components[0];
+      var secondParagraph = new Paragraph();
+      layout.insertComponentAt(secondParagraph, 1);
+      var numOfParagraph = layout.components.length;
+      editor.render();
+
+      paragraph.setText('Goodbye ');
+      secondParagraph.setText('Hello world');
 
       // When cursor at end of paragraph.
       selection.setCursor({
-        paragraph: prevParagraph,
-        offset: prevParagraph.text.length
+        component: paragraph,
+        offset: paragraph.text.length
       });
       editor.handleKeyDownEvent(event);
 
-      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
-      expect(selection.getParagraphAtStart()).toBe(prevParagraph);
-      expect(prevParagraph.text).toBe('Goodbye Hello world');
+      expect(section.components.length).toBe(numOfParagraph - 1);
+      expect(selection.getComponentAtStart()).toBe(paragraph);
+      expect(paragraph.text).toBe('Goodbye Hello world');
 
       // When cursor not at end.
       selection.setCursor({
-        paragraph: prevParagraph,
+        component: paragraph,
         offset: 5
       });
       editor.handleKeyDownEvent(event);
 
-      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
+      expect(section.components.length).toBe(numOfParagraph - 1);
       expect(event.preventDefault.calls.count()).toBe(1);
       expect(event.stopPropagation.calls.count()).toBe(1);
     });
@@ -183,24 +196,28 @@ describe('Editor', function() {
 
       var editor = new Editor(div);
       var section = editor.article.sections[0];
-      var numOfParagraph = section.paragraphs.length;
-      var paragraph = section.paragraphs[numOfParagraph - 1];
-      var prevParagraph = paragraph.getPreviousParagraph();
-      prevParagraph.setText('Goodbye ');
-      paragraph.setText('Hello world');
+      var layout = section.components[0];
+      var paragraph = layout.components[0];
+      var secondParagraph = new Paragraph();
+      layout.insertComponentAt(secondParagraph, 1);
+      var numOfParagraph = layout.components.length;
+      editor.render();
+
+      paragraph.setText('Goodbye ');
+      secondParagraph.setText('Hello world');
 
       // When cursor at beginning of paragraph.
       selection.start = {
-        paragraph: prevParagraph,
+        component: paragraph,
         offset: 4
       };
       selection.end = {
-        paragraph: paragraph,
+        component: secondParagraph,
         offset: 5
       };
       editor.handleKeyDownEvent(event);
-      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
-      expect(selection.getParagraphAtStart().text).toBe('Good world');
+      expect(section.components.length).toBe(numOfParagraph - 1);
+      expect(selection.getComponentAtStart().text).toBe('Good world');
       expect(event.preventDefault).toHaveBeenCalled();
       expect(event.stopPropagation).toHaveBeenCalled();
     });
@@ -217,23 +234,27 @@ describe('Editor', function() {
 
       var editor = new Editor(div);
       var section = editor.article.sections[0];
-      var numOfParagraph = section.paragraphs.length;
-      var paragraph = section.paragraphs[numOfParagraph - 1];
-      var prevParagraph = paragraph.getPreviousParagraph();
-      prevParagraph.setText('Goodbye ');
-      paragraph.setText('Hello world');
+      var layout = section.components[0];
+      var paragraph = layout.components[0];
+      var secondParagraph = new Paragraph();
+      layout.insertComponentAt(secondParagraph, 1);
+      var numOfParagraph = layout.components.length;
+      editor.render();
+
+      paragraph.setText('Goodbye ');
+      secondParagraph.setText('Hello world');
 
       // When cursor at beginning of paragraph.
       selection.start = {
-        paragraph: prevParagraph,
+        component: paragraph,
         offset: 4
       };
       selection.end = {
-        paragraph: paragraph,
+        component: secondParagraph,
         offset: 5
       };
       editor.handleKeyDownEvent(event);
-      expect(section.paragraphs.length).toBe(numOfParagraph - 1);
+      expect(section.components.length).toBe(numOfParagraph - 1);
       expect(event.preventDefault).not.toHaveBeenCalled();
       expect(event.stopPropagation).not.toHaveBeenCalled();
     });
@@ -250,24 +271,28 @@ describe('Editor', function() {
 
       var editor = new Editor(div);
       var section = editor.article.sections[0];
-      var numOfParagraph = section.paragraphs.length;
-      var paragraph = section.paragraphs[numOfParagraph - 1];
-      var prevParagraph = paragraph.getPreviousParagraph();
-      prevParagraph.setText('Goodbye ');
-      paragraph.setText('Hello world');
+      var layout = section.components[0];
+      var paragraph = layout.components[0];
+      var secondParagraph = new Paragraph();
+      layout.insertComponentAt(secondParagraph, 1);
+      var numOfParagraph = layout.components.length;
+      editor.render();
+
+      paragraph.setText('Goodbye ');
+      secondParagraph.setText('Hello world');
 
       // When cursor at beginning of paragraph.
       selection.start = {
-        paragraph: prevParagraph,
+        component: paragraph,
         offset: 4
       };
       selection.end = {
-        paragraph: paragraph,
+        component: secondParagraph,
         offset: 5
       };
       editor.handleKeyDownEvent(event);
-      expect(section.paragraphs.length).toBe(numOfParagraph);
-      expect(selection.getParagraphAtStart().text).toBe('Goodbye ');
+      expect(section.components.length).toBe(numOfParagraph - 1);
+      expect(selection.getComponentAtStart().text).toBe('Goodbye ');
       expect(event.preventDefault).not.toHaveBeenCalled();
       expect(event.stopPropagation).not.toHaveBeenCalled();
     });
@@ -275,16 +300,20 @@ describe('Editor', function() {
     it('should undo/redo', function() {
       var div = document.createElement('div');
       var event = document.createEvent('CustomEvent');
-      event.keyCode = 90;
       event.metaKey = true;
 
       spyOn(event, 'preventDefault');
       spyOn(event, 'stopPropagation');
 
       var editor = new Editor(div);
+      editor.render();
+
+      editor.article.selection.updateSelectionFromWindow = function() {};
+
       spyOn(editor.article, 'undo');
       spyOn(editor.article, 'redo');
 
+      event.keyCode = 90;
       editor.handleKeyDownEvent(event);
       expect(editor.article.undo).toHaveBeenCalled();
 
@@ -309,6 +338,7 @@ describe('Editor', function() {
       spyOn(div, 'addEventListener');
 
       var editor = new Editor(div);
+      editor.render();
       spyOn(editor, 'processPastedContent').and.returnValue([]);
 
       var el = document.createElement('div');
@@ -323,13 +353,14 @@ describe('Editor', function() {
     it('should generate single operation for inline content', function() {
       var div = document.createElement('div');
       var editor = new Editor(div);
+      editor.render();
 
       var el = document.createElement('div');
       el.innerHTML = 'Hello World';
       var ops = editor.processPastedContent(el);
 
       expect(ops.length).toBe(1);
-      expect(ops[0].do.op).toBe('updateParagraph');
+      expect(ops[0].do.op).toBe('insertChars');
     });
 
     // TODO(mkhatib): Add more tests to test paste handling like when the cursor
@@ -337,6 +368,7 @@ describe('Editor', function() {
     it('should generate proper operations when pasting multi-line', function() {
       var div = document.createElement('div');
       var editor = new Editor(div);
+      editor.render();
 
       var el = document.createElement('div');
       el.innerHTML = '<p style="color:red;">Hello <b>World</b></p>'+
@@ -344,9 +376,9 @@ describe('Editor', function() {
           '<div><h2>Subheader</h2><p class="hello">Sweet</p></div>';
       var ops = editor.processPastedContent(el);
 
-      expect(ops.length).toBe(8);
-      expect(ops[0].do.op).toBe('insertParagraph');
-      expect(ops[1].do.op).toBe('updateParagraph');
+      expect(ops.length).toBe(4);
+      expect(ops[0].do.op).toBe('insertComponent');
+      expect(ops[1].do.op).toBe('insertComponent');
     });
   });
 });

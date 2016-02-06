@@ -43,7 +43,7 @@ describe('Selection', function() {
 
   it('should return paragraphs and sections at selection', function() {
     var section = new Section({
-      paragraphs: [
+      components: [
         new Paragraph({
           placeholderText: 'Hello',
           paragraphType: Paragraph.Types.MainHeader
@@ -59,8 +59,19 @@ describe('Selection', function() {
     });
 
     var selection = Selection.getInstance();
-    expect(selection.getParagraphAtStart()).toEqual(section.paragraphs[2]);
-    expect(selection.getParagraphAtEnd()).toEqual(section.paragraphs[2]);
+
+    selection.start = {
+      component: section.components[0],
+      offset: 1
+    };
+
+    selection.end = {
+      component: section.components[2],
+      offset: 1
+    };
+
+    expect(selection.getComponentAtStart()).toEqual(section.components[0]);
+    expect(selection.getComponentAtEnd()).toEqual(section.components[2]);
     expect(selection.getSectionAtStart()).toEqual(section);
     expect(selection.getSectionAtEnd()).toEqual(section);
   });
@@ -70,16 +81,16 @@ describe('Selection', function() {
     var paragraph = new Paragraph({
       text: 'Hello World'
     });
-    section.insertParagraphAt(paragraph, 0);
+    section.insertComponentAt(paragraph, 0);
 
     var selection = Selection.getInstance();
     selection.setCursor({
-      paragraph: paragraph,
+      component: paragraph,
       offset: 5
     });
 
-    expect(selection.start.paragraph).toBe(paragraph);
-    expect(selection.end.paragraph).toBe(paragraph);
+    expect(selection.start.component).toBe(paragraph);
+    expect(selection.end.component).toBe(paragraph);
     expect(selection.start.offset).toBe(5);
     expect(selection.end.offset).toBe(5);
   });
@@ -89,11 +100,12 @@ describe('Selection', function() {
     var paragraph = new Paragraph({
       text: 'Hello World'
     });
-    section.insertParagraphAt(paragraph, 0);
+    section.insertComponentAt(paragraph, 0);
 
     var selection = Selection.getInstance();
+
     selection.setCursor({
-      paragraph: paragraph,
+      component: paragraph,
       offset: 5
     });
 
@@ -102,7 +114,7 @@ describe('Selection', function() {
     expect(selection.isRange()).toBe(false);
 
     selection.setCursor({
-      paragraph: paragraph,
+      component: paragraph,
       offset: 11
     });
     expect(selection.isCursorAtBeginning()).toBe(false);
@@ -110,7 +122,7 @@ describe('Selection', function() {
     expect(selection.isRange()).toBe(false);
 
     selection.setCursor({
-      paragraph: paragraph,
+      component: paragraph,
       offset: 0
     });
     expect(selection.isCursorAtBeginning()).toBe(true);
@@ -118,7 +130,7 @@ describe('Selection', function() {
     expect(selection.isRange()).toBe(false);
 
     selection.end = {
-      paragraph: paragraph,
+      component: paragraph,
       offset: 5
     };
     expect(selection.isRange()).toBe(true);
