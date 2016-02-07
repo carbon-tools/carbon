@@ -75,4 +75,19 @@ describe('Paragraph', function() {
     });
   });
 
+  it('should check if component text is blank', function() {
+    var p1 = new Paragraph({ text: ' \n ' });
+    var p2 = new Paragraph({ text: '&nbsp; \n \t \f' });
+    var p3 = new Paragraph({ text: '&#8203;&nbsp;' });
+    var p4 = new Paragraph();
+    var p5 = new Paragraph({ placeholderText: 'place'});
+    var p6 = new Paragraph({ text: '\t &nbsp;  place &#8203; \n &nbsp;'});
+
+    expect(p1.isBlank()).toBeTruthy();
+    expect(p2.isBlank()).toBeTruthy();
+    expect(p3.isBlank()).toBeTruthy();
+    expect(p4.isBlank()).toBeTruthy();
+    expect(p5.isBlank()).toBeFalsy();
+    expect(p6.isBlank()).toBeFalsy();
+  });
 });

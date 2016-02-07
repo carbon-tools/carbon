@@ -2,6 +2,9 @@ var Article = require('../src/article');
 var Selection = require('../src/selection');
 var Paragraph = require('../src/paragraph');
 var Section = require('../src/section');
+var Editor = require('../src/editor');
+var List = require('../src/list');
+var Layout = require('../src/layout');
 
 describe('Article', function() {
   'use strict';
@@ -144,5 +147,76 @@ describe('Article', function() {
     expect(section.components[0].text).toBe('Hello World');
     article.exec(op, 'undo');
     expect(section.components[0].text).toBe('');
+  });
+
+  describe('Article.trim()', function() {
+    var editor, article, section, firstLayout, lastLayout;
+
+    beforeEach(function() {
+      editor = new Editor(document.createElement('div'));
+      article = editor.article;
+      section = article.sections[0];
+      var lastP = new Paragraph();
+
+      section.insertComponentAt(new Layout({ components: lastP }), 1);
+
+      firstLayout = section.components[0];
+      lastLayout = section.components[1];
+
+      lastP.render(document.createElement('div'), { editMode: true });
+      article.render(document.createElement('div'), { editMode: true });
+    });
+
+    it('should trim empty paragraphs', function() {
+      expect(firstLayout.components.length).toBe(1);
+      article.trim();
+      expect(firstLayout.components.length).toBe(0);
+    });
+
+    it('should trim empty paragraphs from start to end', function() {
+      var testText1 = 'testText 1';
+      var testText2 = 'testText 2';
+      var p1 = new Paragraph({ text: '&nbsp;&nbsp;\n' });
+      var p2 = new Paragraph({ text: testText1 });
+      var p3 = new Paragraph({ text: testText2 });
+      var p4 = new Paragraph({ text: '  &nbsp; ' });
+      var p5 = new Paragraph({ text: null });
+      var p6 = new Paragraph({ text: '&#8203; \n', name: 'lastComponent' });
+
+      firstLayout.insertComponentAt(p1, 0);
+      firstLayout.insertComponentAt(p2, 1);
+      firstLayout.insertComponentAt(new List(), 2);
+      lastLayout.insertComponentAt(p3, 0);
+      lastLayout.insertComponentAt(p4, 1);
+      lastLayout.insertComponentAt(p5, 2);
+      lastLayout.insertComponentAt(p6, 3);
+      p1.render(document.createElement('div'), { editMode: true });
+      p2.render(document.createElement('div'), { editMode: true });
+      p3.render(document.createElement('div'), { editMode: true });
+      p4.render(document.createElement('div'), { editMode: true });
+      p5.render(document.createElement('div'), { editMode: true });
+      p6.render(document.createElement('div'), { editMode: true });
+
+      article.trim();
+
+      expect(firstLayout.getFirstComponent().text).toBe(testText1);
+      expect(lastLayout.getLastComponent().text).toBe(testText2);
+    });
+
+    it('should not trim empty non-paragraph components', function() {
+      var listOpt1 = { tagName: 'ol' };
+      var listOpt2 = { tagName: 'ul' };
+
+      firstLayout.insertComponentAt(new List(listOpt1), 0);
+      firstLayout.insertComponentAt(new Paragraph({ text: '' }), 1);
+      firstLayout.insertComponentAt(new Paragraph({ text: null }), 2);
+      firstLayout.insertComponentAt(new Paragraph({ text: '   \n' }), 3);
+      lastLayout.insertComponentAt(new List(listOpt2), 0);
+
+      article.trim();
+
+      expect(firstLayout.getFirstComponent().tagName).toBe(listOpt1.tagName);
+      expect(lastLayout.getLastComponent().tagName).toBe(listOpt2.tagName);
+    });
   });
 });

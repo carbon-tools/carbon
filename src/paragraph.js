@@ -804,3 +804,15 @@ Paragraph.prototype.getUpdateOps = function(
 Paragraph.prototype.getLength = function () {
   return this.text.length;
 };
+
+
+/**
+ * Test component check if text is blank
+ * @return {boolean} if should/not trim.
+ */
+Paragraph.prototype.isBlank = function() {
+  return !this.placeholderText && (
+    !this.text ||
+    !this.text.replace(/\s|&nbsp;|&#8203;/g, '').length
+  );
+};
