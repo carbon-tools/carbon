@@ -456,6 +456,14 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var that = this;
   var cursor = null;
 
+  /*
+   * Map direction arrows between rtl and ltr
+   */
+  var leftKey = 37;
+  var rightKey = 39;
+  var nextArrow = this.rtl ? leftKey : rightKey;
+  var previousArrow = this.rtl ? rightKey : leftKey;
+
   if (Utils.isUndo(event)) {
     this.article.undo();
     selection.updateSelectionFromWindow();
@@ -711,7 +719,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       break;
 
     // Left.
-    case 37:
+    case previousArrow:
       if (prevComponent && !currentIsParagraph) {
         offset = 0;
         if (prevIsParagraph) {
@@ -747,7 +755,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       break;
 
     // Right.
-    case 39:
+    case nextArrow:
       if (selection.isCursorAtEnding() && nextComponent) {
         selection.setCursor({
           component: nextComponent,
