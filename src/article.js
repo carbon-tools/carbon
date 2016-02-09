@@ -487,3 +487,43 @@ Article.prototype.handleResize_ = function() {
     this.sections[i].rerender();
   }
 };
+
+/**
+ * Removes blank paragraphs components from direction start/end
+ * @param {object} `component` specifiy the start from component.
+ * @param {boolean} `end` detrimines if direction is end.
+ * @private
+ */
+Article.prototype.trimDirection_ = function _trimDirection(component, end) {
+  var recursionComponent;
+
+  if (component instanceof Paragraph && component.isBlank()) {
+    if (end) {
+      recursionComponent = component.getPreviousComponent();
+    } else {
+      recursionComponent = component.getNextComponent();
+    }
+
+    component.section.removeComponent(component);
+
+    if (recursionComponent) {
+      _trimDirection(recursionComponent, end);
+    }
+  }
+};
+
+/**
+ * Removes blank paragraphs components at the start and the end of the article
+ */
+Article.prototype.trim = function() {
+  var firstLayout = this.getFirstComponent();
+  var lastLayout = this.getLastComponent();
+  var firstComponent = firstLayout.getFirstComponent();
+  var lastComponent =  lastLayout.getLastComponent();
+
+  this.trimDirection_(firstComponent);
+
+  if (firstComponent !== lastComponent) {
+    this.trimDirection_(lastComponent, true);
+  }
+};
