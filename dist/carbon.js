@@ -489,6 +489,46 @@ Article.prototype.handleResize_ = function() {
   }
 };
 
+/**
+ * Removes blank paragraphs components from direction start/end
+ * @param {object} `component` specifiy the start from component.
+ * @param {boolean} `end` detrimines if direction is end.
+ * @private
+ */
+Article.prototype.trimDirection_ = function _trimDirection(component, end) {
+  var recursionComponent;
+
+  if (component instanceof Paragraph && component.isBlank()) {
+    if (end) {
+      recursionComponent = component.getPreviousComponent();
+    } else {
+      recursionComponent = component.getNextComponent();
+    }
+
+    component.section.removeComponent(component);
+
+    if (recursionComponent) {
+      _trimDirection(recursionComponent, end);
+    }
+  }
+};
+
+/**
+ * Removes blank paragraphs components at the start and the end of the article
+ */
+Article.prototype.trim = function() {
+  var firstLayout = this.getFirstComponent();
+  var lastLayout = this.getLastComponent();
+  var firstComponent = firstLayout.getFirstComponent();
+  var lastComponent =  lastLayout.getLastComponent();
+
+  this.trimDirection_(firstComponent);
+
+  if (firstComponent !== lastComponent) {
+    this.trimDirection_(lastComponent, true);
+  }
+};
+
 },{"./extensions/embeddedComponent":9,"./figure":19,"./layout":23,"./loader":25,"./paragraph":27,"./section":28,"./selection":29,"./utils":33}],2:[function(require,module,exports){
 'use strict';
 
@@ -1016,7 +1056,9 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
-  this.element.addEventListener('input', this.handleInputEvent.bind(this));
+
+  this.element.addEventListener('input', Utils.debounce(
+      this.handleInputEvent.bind(this), 200).bind(this));
 
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
@@ -1201,49 +1243,34 @@ Editor.prototype.handleInputEvent = function() {
     return;
   }
 
-  var currentLength = this.selection.start.component.getLength();
-  var self = this;
-  var offset = this.selection.start.offset;
+  var diffText;
+  var cursorOffset = this.selection.start.offset;
+  var component = this.selection.start.component;
+  var modelText = component.text;
+  var modelLength = component.getLength();
 
-  // HACK: A very ugly hack to allow us to update the entire
-  // paragraph after the event happens. Because we can't preventDefault
-  // the composition event to avoid duplicates and because of another bug
-  // that changes selections sometimes to the previous component we have to
-  // set the cursor to select the correct component again.
-  var cursor = {
-    component: this.selection.start.component,
-    offset: this.selection.start.offset
-  };
-  self.selection.setCursor(cursor);
-  setTimeout(function() {
-    var component = self.selection.start.component;
-    var newLength = Utils.getTextFromElement(component.dom).length;
-    var direction = newLength - currentLength;
-    var ops = component.getUpdateOps(
-        {}, offset + direction, undefined,
-        Utils.getTextFromElement(component.dom),
-        offset);
-    self.article.transaction(ops);
-    self.dispatchEvent(new Event('change'));
-  }, 2);
+  var domText = Utils.getTextFromElement(component.dom);
+  var domLength = domText.length;
 
-  // Another way to do this is to use the following in compositionupdate event.
-  // Though found this to be slightly buggier from the above.
-  // The nice thing about this is it doesn't require updating the whole model,
-  // instead it only update the touched word.
-  // var ops = this.selection.start.component.getUpdateWordOps(
-  //     event.data, this.selection.end.offset);
-  // var self = this;
-  // var cursor = {
-  //   component: this.selection.start.component,
-  //   offset: this.selection.start.offset
-  // };
-  // setTimeout(function() {
-  //   self.selection.setCursor(cursor);
-  //   setTimeout(function() {
-  //     self.article.transaction(ops);
-  //   }, 2);
-  // }, 1);
+  var diffLength = domLength - modelLength;
+
+  var ops = [];
+
+  if (diffLength < 0) {
+    // Delete removed text.
+    diffText = modelText.substring(cursorOffset, cursorOffset - diffLength);
+    Utils.arrays.extend(ops, component.getRemoveCharsOps(
+        diffText, cursorOffset));
+  } else if (diffLength > 0) {
+    // Insert new text.
+    diffText = domText.substring(cursorOffset - diffLength, cursorOffset);
+    Utils.arrays.extend(ops, component.getInsertCharsOps(
+        diffText, Math.max(cursorOffset - diffLength, 0)));
+  }
+
+  this.article.transaction(ops);
+  this.dispatchEvent(new Event('change'));
+
 };
 
 
@@ -1252,6 +1279,8 @@ Editor.prototype.handleInputEvent = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
+  var INPUT_INSERTING = 'insert-chars';
+  var INPUT_REMOVING = 'remove-chars';
   var selection = this.article.selection, newP;
   var article = this.article;
   var preventDefault = false;
@@ -1260,6 +1289,38 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var offset, currentOffset;
   var that = this;
   var cursor = null;
+
+  /*
+   * Map direction arrows between rtl and ltr
+   */
+  var leftKey = 37;
+  var rightKey = 39;
+  var nextArrow = this.rtl ? leftKey : rightKey;
+  var previousArrow = this.rtl ? rightKey : leftKey;
+
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  if (event.keyCode === 13) {
+    this.handleInputEvent();
+  }
+
+  // When switching the current input operation that is being done,
+  // from deleting to inserting or the other way, make sure to execute
+  // any debounced input handler right away to apply any unupdated content
+  // before moving to other operations. This restriction simplifies the way
+  // we handle input changes instead of worrying about replacing characters
+  // and having to deal with calculating more complicated string differences.
+  if (event.keyCode === 8 || event.keyCode === 46) {
+    if (this.currentOperation_ === INPUT_INSERTING) {
+      this.handleInputEvent();
+    }
+    this.currentOperation_ = INPUT_REMOVING;
+  } else {
+    if (this.currentOperation_ === INPUT_REMOVING) {
+      this.handleInputEvent();
+    }
+    this.currentOperation_ = INPUT_INSERTING;
+  }
 
   if (Utils.isUndo(event)) {
     this.article.undo();
@@ -1516,7 +1577,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       break;
 
     // Left.
-    case 37:
+    case previousArrow:
       if (prevComponent && !currentIsParagraph) {
         offset = 0;
         if (prevIsParagraph) {
@@ -1552,7 +1613,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       break;
 
     // Right.
-    case 39:
+    case nextArrow:
       if (selection.isCursorAtEnding() && nextComponent) {
         selection.setCursor({
           component: nextComponent,
@@ -1768,6 +1829,10 @@ Editor.prototype.getMergeParagraphsOps = function(
  * @param  {Event} event Paste Event.
  */
 Editor.prototype.handlePaste = function(event) {
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  this.handleInputEvent();
+
   var startComponent = this.selection.getComponentAtEnd();
   var pastedContent;
   if (window.clipboardData && window.clipboardData.getData) { // IE
@@ -2093,6 +2158,10 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
  * Handles cut event for the editor.
  */
 Editor.prototype.handleCut = function() {
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  this.handleInputEvent();
+
   this.disableInputHandler = true;
   var ops = this.getDeleteSelectionOps();
   var article = this.article;
@@ -6935,7 +7004,8 @@ Paragraph.prototype.setText = function(text) {
 
     // Remove zero-width whitespace when there are other characters.
     if (this.text.length > 1) {
-      this.text = this.text.replace('\u200B', '');
+      this.text = this.text.replace('\u200B', '').
+          replace(/^\s/, '\xa0');
     }
   }
   if (!this.text.replace(/\s/, '').length) {
@@ -7575,6 +7645,18 @@ Paragraph.prototype.getUpdateOps = function(
  */
 Paragraph.prototype.getLength = function () {
   return this.text.length;
+};
+
+
+/**
+ * Test component check if text is blank
+ * @return {boolean} if should/not trim.
+ */
+Paragraph.prototype.isBlank = function() {
+  return !this.placeholderText && (
+    !this.text ||
+    !this.text.replace(/\s|&nbsp;|&#8203;/g, '').length
+  );
 };
 
 },{"./component":2,"./loader":25,"./utils":33}],28:[function(require,module,exports){
@@ -9212,6 +9294,58 @@ Utils.getUID = function(optLength) {
   }
 
   return chars.join('');
+};
+
+
+/**
+ * Returns a function, that, as long as it continues to be invoked, will not
+ * be triggered. The function will be called after it stops being called for
+ * N milliseconds. If `immediate` is passed, trigger the function on the
+ * leading edge, instead of the trailing.
+ *
+ * Ref: http://stackoverflow.com/a/24004942/646979
+ */
+Utils.debounce = function(func, wait, immediate) {
+  // The returned function will be able to reference this due to closure.
+  // Each call to the returned function will share this common timer.
+  var timeout;
+
+  // Calling debounce returns a new anonymous function.
+  return function() {
+    // Reference the context and args for the setTimeout function.
+    var context = this,
+        args = arguments;
+
+    // Should the function be called now? If immediate is true
+    // and not already in a timeout then the answer is: Yes.
+    var callNow = immediate && !timeout;
+
+    // This is the basic debounce behaviour where you can call this
+    // function several times, but it will only execute once
+    // [before or after imposing a delay].
+    // Each time the returned function is called, the timer starts over.
+    clearTimeout(timeout);
+
+    // Set the new timeout.
+    timeout = setTimeout(function() {
+      // Inside the timeout function, clear the timeout variable
+      // which will let the next execution run when in 'immediate' mode.
+      timeout = null;
+
+      // Check if the function already ran with the immediate flag.
+      if (!immediate) {
+       // Call the original function with apply
+       // apply lets you define the 'this' object as well as the arguments.
+       // (both captured before setTimeout).
+       func.apply(context, args);
+      }
+    }, wait);
+
+    // Immediate mode and no wait timer? Execute the function.
+    if (callNow) {
+      func.apply(context, args);
+    }
+  };
 };
 
 

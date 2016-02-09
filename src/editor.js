@@ -211,7 +211,9 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
-  this.element.addEventListener('input', this.handleInputEvent.bind(this));
+
+  this.element.addEventListener('input', Utils.debounce(
+      this.handleInputEvent.bind(this), 200).bind(this));
 
   this.element.addEventListener('cut', this.handleCut.bind(this));
   this.element.addEventListener('paste', this.handlePaste.bind(this));
@@ -396,49 +398,34 @@ Editor.prototype.handleInputEvent = function() {
     return;
   }
 
-  var currentLength = this.selection.start.component.getLength();
-  var self = this;
-  var offset = this.selection.start.offset;
+  var diffText;
+  var cursorOffset = this.selection.start.offset;
+  var component = this.selection.start.component;
+  var modelText = component.text;
+  var modelLength = component.getLength();
 
-  // HACK: A very ugly hack to allow us to update the entire
-  // paragraph after the event happens. Because we can't preventDefault
-  // the composition event to avoid duplicates and because of another bug
-  // that changes selections sometimes to the previous component we have to
-  // set the cursor to select the correct component again.
-  var cursor = {
-    component: this.selection.start.component,
-    offset: this.selection.start.offset
-  };
-  self.selection.setCursor(cursor);
-  setTimeout(function() {
-    var component = self.selection.start.component;
-    var newLength = Utils.getTextFromElement(component.dom).length;
-    var direction = newLength - currentLength;
-    var ops = component.getUpdateOps(
-        {}, offset + direction, undefined,
-        Utils.getTextFromElement(component.dom),
-        offset);
-    self.article.transaction(ops);
-    self.dispatchEvent(new Event('change'));
-  }, 2);
+  var domText = Utils.getTextFromElement(component.dom);
+  var domLength = domText.length;
 
-  // Another way to do this is to use the following in compositionupdate event.
-  // Though found this to be slightly buggier from the above.
-  // The nice thing about this is it doesn't require updating the whole model,
-  // instead it only update the touched word.
-  // var ops = this.selection.start.component.getUpdateWordOps(
-  //     event.data, this.selection.end.offset);
-  // var self = this;
-  // var cursor = {
-  //   component: this.selection.start.component,
-  //   offset: this.selection.start.offset
-  // };
-  // setTimeout(function() {
-  //   self.selection.setCursor(cursor);
-  //   setTimeout(function() {
-  //     self.article.transaction(ops);
-  //   }, 2);
-  // }, 1);
+  var diffLength = domLength - modelLength;
+
+  var ops = [];
+
+  if (diffLength < 0) {
+    // Delete removed text.
+    diffText = modelText.substring(cursorOffset, cursorOffset - diffLength);
+    Utils.arrays.extend(ops, component.getRemoveCharsOps(
+        diffText, cursorOffset));
+  } else if (diffLength > 0) {
+    // Insert new text.
+    diffText = domText.substring(cursorOffset - diffLength, cursorOffset);
+    Utils.arrays.extend(ops, component.getInsertCharsOps(
+        diffText, Math.max(cursorOffset - diffLength, 0)));
+  }
+
+  this.article.transaction(ops);
+  this.dispatchEvent(new Event('change'));
+
 };
 
 
@@ -447,6 +434,8 @@ Editor.prototype.handleInputEvent = function() {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
+  var INPUT_INSERTING = 'insert-chars';
+  var INPUT_REMOVING = 'remove-chars';
   var selection = this.article.selection, newP;
   var article = this.article;
   var preventDefault = false;
@@ -463,6 +452,30 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var rightKey = 39;
   var nextArrow = this.rtl ? leftKey : rightKey;
   var previousArrow = this.rtl ? rightKey : leftKey;
+
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  if (event.keyCode === 13) {
+    this.handleInputEvent();
+  }
+
+  // When switching the current input operation that is being done,
+  // from deleting to inserting or the other way, make sure to execute
+  // any debounced input handler right away to apply any unupdated content
+  // before moving to other operations. This restriction simplifies the way
+  // we handle input changes instead of worrying about replacing characters
+  // and having to deal with calculating more complicated string differences.
+  if (event.keyCode === 8 || event.keyCode === 46) {
+    if (this.currentOperation_ === INPUT_INSERTING) {
+      this.handleInputEvent();
+    }
+    this.currentOperation_ = INPUT_REMOVING;
+  } else {
+    if (this.currentOperation_ === INPUT_REMOVING) {
+      this.handleInputEvent();
+    }
+    this.currentOperation_ = INPUT_INSERTING;
+  }
 
   if (Utils.isUndo(event)) {
     this.article.undo();
@@ -971,6 +984,10 @@ Editor.prototype.getMergeParagraphsOps = function(
  * @param  {Event} event Paste Event.
  */
 Editor.prototype.handlePaste = function(event) {
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  this.handleInputEvent();
+
   var startComponent = this.selection.getComponentAtEnd();
   var pastedContent;
   if (window.clipboardData && window.clipboardData.getData) { // IE
@@ -1296,6 +1313,10 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
  * Handles cut event for the editor.
  */
 Editor.prototype.handleCut = function() {
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  this.handleInputEvent();
+
   this.disableInputHandler = true;
   var ops = this.getDeleteSelectionOps();
   var article = this.article;
