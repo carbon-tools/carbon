@@ -35,63 +35,89 @@ describe('Editor', function() {
   });
 
   describe('Editor.handleKeyDownEvent', function() {
-    it('should handle Enter key', function() {
-      var selection = Selection.getInstance();
-      var div = document.createElement('div');
-      var event = document.createEvent('CustomEvent');
-      event.keyCode = 13;
-      spyOn(event, 'preventDefault');
-      spyOn(event, 'stopPropagation');
-      spyOn(selection, 'initSelectionListener');
-      spyOn(div, 'addEventListener');
 
-      var editor = new Editor(div);
-      var section = editor.article.sections[0];
-      var layout = section.components[0];
-      var numOfParagraph = layout.components.length;
-      var paragraph = layout.components[0];
+    describe('Enter', function() {
+      it('should handle Enter key', function() {
+        var selection = Selection.getInstance();
+        var div = document.createElement('div');
+        var event = document.createEvent('CustomEvent');
+        event.keyCode = 13;
+        spyOn(event, 'preventDefault');
+        spyOn(event, 'stopPropagation');
+        spyOn(selection, 'initSelectionListener');
+        spyOn(div, 'addEventListener');
 
-      editor.render();
+        var editor = new Editor(div);
+        var section = editor.article.sections[0];
+        var layout = section.components[0];
+        var numOfParagraph = layout.components.length;
+        var paragraph = layout.components[0];
 
-      // When at the end of a paragraph, test it'll create and add
-      // new paragraph.
-      selection.setCursor({
-        component: paragraph,
-        offset: paragraph.text.length
+        editor.render();
+
+        // When at the end of a paragraph, test it'll create and add
+        // new paragraph.
+        selection.setCursor({
+          component: paragraph,
+          offset: paragraph.text.length
+        });
+        editor.handleKeyDownEvent(event);
+
+        expect(layout.components.length).toBe(numOfParagraph + 1);
+        expect(selection.getComponentAtStart()).
+          toBe(layout.components[numOfParagraph]);
+
+        // When at the middle of a paragraph, test it'll split paragraph
+        // into two.
+        paragraph.setText('Hello world');
+        selection.setCursor({
+          component: paragraph,
+          offset: 5
+        });
+        editor.handleKeyDownEvent(event);
+
+        expect(layout.components.length).toBe(numOfParagraph + 2);
+        expect(paragraph.text).toBe('Hello');
+        expect(paragraph.getNextComponent().text).toBe(' world');
+        expect(selection.getComponentAtStart()).
+          toBe(paragraph.getNextComponent());
+        expect(selection.start.offset).toBe(0);
       });
-      editor.handleKeyDownEvent(event);
 
-      expect(layout.components.length).toBe(numOfParagraph + 1);
-      expect(selection.getComponentAtStart()).
-        toBe(layout.components[numOfParagraph]);
+      it('should not create components if next is placeholder', function() {
+        var selection = Selection.getInstance();
+        var div = document.createElement('div');
+        var event = document.createEvent('CustomEvent');
+        event.keyCode = 13;
+        spyOn(event, 'preventDefault');
+        spyOn(event, 'stopPropagation');
+        spyOn(selection, 'initSelectionListener');
+        spyOn(div, 'addEventListener');
 
-      // When at the middle of a paragraph, test it'll split paragraph
-      // into two.
-      paragraph.setText('Hello world');
-      selection.setCursor({
-        component: paragraph,
-        offset: 5
+        var placeholderP = new Paragraph({
+          placeholderText: 'Placeholder text'
+        });
+        var editor = new Editor(div);
+        var section = editor.article.sections[0];
+        var layout = section.components[0];
+        section.insertComponentAt(placeholderP, 1);
+        var numOfParagraph = layout.components.length;
+        var paragraph = layout.components[0];
+
+        editor.render();
+
+        selection.setCursor({
+          component: paragraph,
+          offset: 0
+        });
+        editor.handleKeyDownEvent(event);
+        expect(layout.components.length).toBe(numOfParagraph);
+        expect(selection.start.offset).toBe(0);
+        expect(selection.start.component).toBe(placeholderP);
+
+        expect(event.preventDefault.calls.count()).toBe(1);
+        expect(event.stopPropagation.calls.count()).toBe(1);
       });
-      editor.handleKeyDownEvent(event);
-
-      expect(layout.components.length).toBe(numOfParagraph + 2);
-      expect(paragraph.text).toBe('Hello');
-      expect(paragraph.getNextComponent().text).toBe(' world');
-      expect(selection.getComponentAtStart()).
-        toBe(paragraph.getNextComponent());
-      expect(selection.start.offset).toBe(0);
-
-      // Test no components are created when placeholder is after the
-      // current paragraph.
-      selection.setCursor({
-        component: section.components[0],
-        offset: 0
-      });
-      editor.handleKeyDownEvent(event);
-      expect(layout.components.length).toBe(numOfParagraph + 2);
-
-      expect(event.preventDefault.calls.count()).toBe(3);
-      expect(event.stopPropagation.calls.count()).toBe(3);
     });
 
     it('should handle backspace key', function() {

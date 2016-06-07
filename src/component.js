@@ -295,6 +295,20 @@ Component.prototype.getLength = function () {
 
 
 /**
+ * Returns the length of the component content in the DOM instead in the model.
+ * This is useful in cases where the model hasn't been updated yet to reflect
+ * pending changes that has already been made to the DOM. For example, applying
+ * input changes after a user keep their finger on a keyboard to insert/delete
+ * multiple characters.
+ *
+ * @return {number} Length of the component content in the DOM.
+ */
+Component.prototype.getDomLength = function () {
+  return this.getLength();
+};
+
+
+/**
  * Whether the component should re-render itself or not.
  * @return {boolean}
  */

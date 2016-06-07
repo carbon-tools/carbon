@@ -808,6 +808,15 @@ Paragraph.prototype.getLength = function () {
 
 
 /**
+ * Returns the length of the paragraph content.
+ * @return {number} Length of the paragraph content.
+ */
+Paragraph.prototype.getDomLength = function () {
+  return this.dom.innerText.length;
+};
+
+
+/**
  * Test component check if text is blank
  * @return {boolean} if should/not trim.
  */

@@ -494,8 +494,8 @@ var Selection = (function() {
      */
     Selection.prototype.isCursorAtEnding = function() {
       return (!(this.start.component.text) ||
-              this.start.offset === this.start.component.getLength() &&
-              this.end.offset === this.end.component.getLength());
+              this.start.offset === this.start.component.getDomLength() &&
+              this.end.offset === this.end.component.getDomLength());
     };
 
 

@@ -827,6 +827,20 @@ Component.prototype.getLength = function () {
 
 
 /**
+ * Returns the length of the component content in the DOM instead in the model.
+ * This is useful in cases where the model hasn't been updated yet to reflect
+ * pending changes that has already been made to the DOM. For example, applying
+ * input changes after a user keep their finger on a keyboard to insert/delete
+ * multiple characters.
+ *
+ * @return {number} Length of the component content in the DOM.
+ */
+Component.prototype.getDomLength = function () {
+  return this.getLength();
+};
+
+
+/**
  * Whether the component should re-render itself or not.
  * @return {boolean}
  */
@@ -1056,6 +1070,7 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('keyup', this.handleKeyUpEvent.bind(this));
 
   this.element.addEventListener('input', Utils.debounce(
       this.handleInputEvent.bind(this), 200).bind(this));
@@ -1275,10 +1290,30 @@ Editor.prototype.handleInputEvent = function() {
 
 
 /**
+ * Forces handling any pending input changes.
+ * @private
+ */
+Editor.prototype.handlePendingInputIfAny_ = function() {
+  this.disableInputHandler = false;
+  this.handleInputEvent();
+};
+
+
+/**
+ * Handels `keyup` events.
+ */
+Editor.prototype.handleKeyUpEvent = function() {
+  // User removed his finger from the key re-enable input handler.
+  this.disableInputHandler = false;
+};
+
+
+/**
  * Handels `keydown` events.
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
+  this.disableInputHandler = true;
   var INPUT_INSERTING = 'insert-chars';
   var INPUT_REMOVING = 'remove-chars';
   var selection = this.article.selection, newP;
@@ -1301,7 +1336,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
   if (event.keyCode === 13) {
-    this.handleInputEvent();
+    this.handlePendingInputIfAny_();
   }
 
   // When switching the current input operation that is being done,
@@ -1312,12 +1347,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   // and having to deal with calculating more complicated string differences.
   if (event.keyCode === 8 || event.keyCode === 46) {
     if (this.currentOperation_ === INPUT_INSERTING) {
-      this.handleInputEvent();
+      this.handlePendingInputIfAny_();
     }
     this.currentOperation_ = INPUT_REMOVING;
   } else {
     if (this.currentOperation_ === INPUT_REMOVING) {
-      this.handleInputEvent();
+      this.handlePendingInputIfAny_();
     }
     this.currentOperation_ = INPUT_INSERTING;
   }
@@ -1474,6 +1509,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Backspace.
     case 8:
       if (!currentIsParagraph || !currentComponent.getLength()) {
+        // Paragraph is empty or a non-text component. Delete it.
+        this.handlePendingInputIfAny_();
         cursor = null;
         if (prevComponent) {
           cursor = { offset: 0 };
@@ -1502,6 +1539,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         this.article.transaction(ops);
         preventDefault = true;
       } else if (selection.isCursorAtBeginning() && prevComponent) {
+        this.handlePendingInputIfAny_();
         offsetAfterOperation = 0;
         // If the cursor at the beginning of paragraph. Merge Paragraphs if the
         // previous component is a paragraph.
@@ -1520,6 +1558,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
         preventDefault = true;
       } else if (selection.isCursorAtBeginning() && !prevComponent) {
+        this.handlePendingInputIfAny_();
+        // If first paragraph and cursor at the beginning of it - do nothing.
         preventDefault = true;
       }
       break;
@@ -1527,6 +1567,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     // Delete.
     case 46:
       if (!currentIsParagraph) {
+        this.handlePendingInputIfAny_();
         cursor = null;
         if (prevComponent) {
           cursor = {
@@ -1552,6 +1593,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         this.article.transaction(ops);
         preventDefault = true;
       } else if (selection.isCursorAtEnding() && nextComponent) {
+        this.handlePendingInputIfAny_();
         // If cursor at the end of the paragraph. Merge Paragraphs if the
         // next component is a paragraph.
         if (nextIsParagraph) {
@@ -1567,6 +1609,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             offset: offsetAfterOperation
           });
         } else {
+          this.handlePendingInputIfAny_();
           selection.setCursor({
             component: nextComponent,
             offset: 0
@@ -1831,7 +1874,7 @@ Editor.prototype.getMergeParagraphsOps = function(
 Editor.prototype.handlePaste = function(event) {
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
-  this.handleInputEvent();
+  this.handlePendingInputIfAny_();
 
   var startComponent = this.selection.getComponentAtEnd();
   var pastedContent;
@@ -2160,7 +2203,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
 Editor.prototype.handleCut = function() {
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
-  this.handleInputEvent();
+  this.handlePendingInputIfAny_();
 
   this.disableInputHandler = true;
   var ops = this.getDeleteSelectionOps();
@@ -7649,6 +7692,15 @@ Paragraph.prototype.getLength = function () {
 
 
 /**
+ * Returns the length of the paragraph content.
+ * @return {number} Length of the paragraph content.
+ */
+Paragraph.prototype.getDomLength = function () {
+  return this.dom.innerText.length;
+};
+
+
+/**
  * Test component check if text is blank
  * @return {boolean} if should/not trim.
  */
@@ -8444,8 +8496,8 @@ var Selection = (function() {
      */
     Selection.prototype.isCursorAtEnding = function() {
       return (!(this.start.component.text) ||
-              this.start.offset === this.start.component.getLength() &&
-              this.end.offset === this.end.component.getLength());
+              this.start.offset === this.start.component.getDomLength() &&
+              this.end.offset === this.end.component.getDomLength());
     };
 
 
