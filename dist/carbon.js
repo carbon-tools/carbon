@@ -1264,6 +1264,10 @@ Editor.prototype.handleInputEvent = function() {
   var modelText = component.text;
   var modelLength = component.getLength();
 
+  if (!(component instanceof Paragraph)) {
+    return;
+  }
+
   var domText = Utils.getTextFromElement(component.dom);
   var domLength = domText.length;
 
