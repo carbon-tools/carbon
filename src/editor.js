@@ -466,17 +466,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var preventDefault = false;
   var ops = [];
   var inBetweenComponents = [];
-  var offset, currentOffset;
   var that = this;
   var cursor = null;
-
-  /*
-   * Map direction arrows between rtl and ltr
-   */
-  var leftKey = 37;
-  var rightKey = 39;
-  var nextArrow = this.rtl ? leftKey : rightKey;
-  var previousArrow = this.rtl ? rightKey : leftKey;
 
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
@@ -760,68 +751,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             offset: 0
           });
         }
-        preventDefault = true;
-      }
-      break;
-
-    // Left.
-    case previousArrow:
-      if (prevComponent && !currentIsParagraph) {
-        offset = 0;
-        if (prevIsParagraph) {
-          offset = prevComponent.getLength();
-        }
-
-        selection.setCursor({
-          component: prevComponent,
-          offset: offset
-        });
-        preventDefault = true;
-      }
-      break;
-
-    // Up.
-    case 38:
-      if (prevComponent) {
-        offset = 0;
-        if (prevIsParagraph && !currentIsParagraph) {
-          if (currentIsParagraph) {
-            currentOffset = selection.start.offset;
-            offset = Math.min(prevComponent.getLength(), currentOffset);
-          } else {
-            offset = prevComponent.getLength();
-          }
-          selection.setCursor({
-            component: prevComponent,
-            offset: offset
-          });
-          preventDefault = true;
-        }
-      }
-      break;
-
-    // Right.
-    case nextArrow:
-      if (selection.isCursorAtEnding() && nextComponent) {
-        selection.setCursor({
-          component: nextComponent,
-          offset: 0
-        });
-        preventDefault = true;
-      }
-      break;
-
-    // Down.
-    case 40:
-      if (nextComponent) {
-        if (nextIsParagraph && !currentIsParagraph) {
-          currentOffset = selection.end.offset;
-        }
-        offset = Math.min(nextComponent.getLength(), currentOffset);
-        selection.setCursor({
-          component: nextComponent,
-          offset: offset
-        });
         preventDefault = true;
       }
       break;

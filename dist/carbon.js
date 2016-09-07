@@ -1325,17 +1325,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var preventDefault = false;
   var ops = [];
   var inBetweenComponents = [];
-  var offset, currentOffset;
   var that = this;
   var cursor = null;
-
-  /*
-   * Map direction arrows between rtl and ltr
-   */
-  var leftKey = 37;
-  var rightKey = 39;
-  var nextArrow = this.rtl ? leftKey : rightKey;
-  var previousArrow = this.rtl ? rightKey : leftKey;
 
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
@@ -1619,68 +1610,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             offset: 0
           });
         }
-        preventDefault = true;
-      }
-      break;
-
-    // Left.
-    case previousArrow:
-      if (prevComponent && !currentIsParagraph) {
-        offset = 0;
-        if (prevIsParagraph) {
-          offset = prevComponent.getLength();
-        }
-
-        selection.setCursor({
-          component: prevComponent,
-          offset: offset
-        });
-        preventDefault = true;
-      }
-      break;
-
-    // Up.
-    case 38:
-      if (prevComponent) {
-        offset = 0;
-        if (prevIsParagraph && !currentIsParagraph) {
-          if (currentIsParagraph) {
-            currentOffset = selection.start.offset;
-            offset = Math.min(prevComponent.getLength(), currentOffset);
-          } else {
-            offset = prevComponent.getLength();
-          }
-          selection.setCursor({
-            component: prevComponent,
-            offset: offset
-          });
-          preventDefault = true;
-        }
-      }
-      break;
-
-    // Right.
-    case nextArrow:
-      if (selection.isCursorAtEnding() && nextComponent) {
-        selection.setCursor({
-          component: nextComponent,
-          offset: 0
-        });
-        preventDefault = true;
-      }
-      break;
-
-    // Down.
-    case 40:
-      if (nextComponent) {
-        if (nextIsParagraph && !currentIsParagraph) {
-          currentOffset = selection.end.offset;
-        }
-        offset = Math.min(nextComponent.getLength(), currentOffset);
-        selection.setCursor({
-          component: nextComponent,
-          offset: offset
-        });
         preventDefault = true;
       }
       break;
@@ -2732,7 +2661,6 @@ var EmbeddedComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
   this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
@@ -3137,6 +3065,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
     this.containerDom = document.createElement(
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
+    this.containerDom.setAttribute('contenteditable', false);
 
     if (this.url) {
       this.embedDom = document.createElement(
@@ -3172,11 +3101,8 @@ EmbeddedComponent.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.containerDom.appendChild(this.selectionDom);
-
-        this.captionParagraph.dom.setAttribute('contenteditable', true);
 
         if (!this.sizes) {
           this.containerDom.style.width = this.getClosestSupportedScreenSize_(
@@ -4422,7 +4348,6 @@ var GiphyComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 
 };
@@ -4582,6 +4507,7 @@ GiphyComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
     this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+    this.imgDom.setAttribute('contenteditable', false);
 
     if (this.src) {
       this.imgDom.setAttribute('src', this.src);
@@ -4596,7 +4522,6 @@ GiphyComponent.prototype.render = function(element, options) {
       this.selectionDom = document.createElement('div');
       this.selectionDom.innerHTML = '&nbsp;';
       this.selectionDom.className = 'selection-pointer';
-      this.selectionDom.setAttribute('contenteditable', true);
       this.selectionDom.addEventListener('focus', this.select.bind(this));
       this.dom.appendChild(this.selectionDom);
     }
@@ -5707,7 +5632,6 @@ var Figure = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 };
 Figure.prototype = Object.create(Component.prototype);
@@ -5872,6 +5796,7 @@ Figure.prototype.render = function(element, options) {
         this.imgContainerDom.style.paddingBottom = (
             (parseInt(this.height)/parseInt(this.width) * 100) + '%');
       }
+      this.imgContainerDom.setAttribute('contenteditable', false);
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
     }
@@ -5884,12 +5809,9 @@ Figure.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.dom.appendChild(this.selectionDom);
       }
-
-      this.captionParagraph.dom.setAttribute('contenteditable', true);
 
       if (this.imgDom && (!this.width || !this.height)) {
         this.imgDom.addEventListener('load', function () {
@@ -6225,7 +6147,6 @@ var Layout = function(optParams) {
   Section.call(this, params);
 
   this.type = params.type;
-  this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };
@@ -7486,7 +7407,6 @@ Paragraph.prototype.render = function(element, options) {
     Component.prototype.render.call(this, element, options);
 
     if (this.editMode) {
-      this.dom.setAttribute('contenteditable', true);
       if (this.placeholderText) {
         this.dom.setAttribute('placeholder', this.placeholderText);
       } else if (!this.text.length) {

@@ -46,7 +46,6 @@ var GiphyComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 
 };
@@ -206,6 +205,7 @@ GiphyComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
     this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+    this.imgDom.setAttribute('contenteditable', false);
 
     if (this.src) {
       this.imgDom.setAttribute('src', this.src);
@@ -220,7 +220,6 @@ GiphyComponent.prototype.render = function(element, options) {
       this.selectionDom = document.createElement('div');
       this.selectionDom.innerHTML = '&nbsp;';
       this.selectionDom.className = 'selection-pointer';
-      this.selectionDom.setAttribute('contenteditable', true);
       this.selectionDom.addEventListener('focus', this.select.bind(this));
       this.dom.appendChild(this.selectionDom);
     }

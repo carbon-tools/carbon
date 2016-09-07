@@ -82,7 +82,6 @@ var EmbeddedComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
   this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
@@ -487,6 +486,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
     this.containerDom = document.createElement(
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
+    this.containerDom.setAttribute('contenteditable', false);
 
     if (this.url) {
       this.embedDom = document.createElement(
@@ -522,11 +522,8 @@ EmbeddedComponent.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.containerDom.appendChild(this.selectionDom);
-
-        this.captionParagraph.dom.setAttribute('contenteditable', true);
 
         if (!this.sizes) {
           this.containerDom.style.width = this.getClosestSupportedScreenSize_(

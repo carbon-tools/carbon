@@ -84,7 +84,6 @@ var Figure = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 };
 Figure.prototype = Object.create(Component.prototype);
@@ -249,6 +248,7 @@ Figure.prototype.render = function(element, options) {
         this.imgContainerDom.style.paddingBottom = (
             (parseInt(this.height)/parseInt(this.width) * 100) + '%');
       }
+      this.imgContainerDom.setAttribute('contenteditable', false);
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
     }
@@ -261,12 +261,9 @@ Figure.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.dom.appendChild(this.selectionDom);
       }
-
-      this.captionParagraph.dom.setAttribute('contenteditable', true);
 
       if (this.imgDom && (!this.width || !this.height)) {
         this.imgDom.addEventListener('load', function () {
