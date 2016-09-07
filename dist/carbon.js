@@ -2732,7 +2732,6 @@ var EmbeddedComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
   this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
@@ -3137,6 +3136,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
     this.containerDom = document.createElement(
         EmbeddedComponent.CONTAINER_TAG_NAME);
     this.containerDom.className = EmbeddedComponent.CONTAINER_CLASS_NAME;
+    this.containerDom.setAttribute('contenteditable', false);
 
     if (this.url) {
       this.embedDom = document.createElement(
@@ -3172,11 +3172,8 @@ EmbeddedComponent.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.containerDom.appendChild(this.selectionDom);
-
-        this.captionParagraph.dom.setAttribute('contenteditable', true);
 
         if (!this.sizes) {
           this.containerDom.style.width = this.getClosestSupportedScreenSize_(
@@ -4422,7 +4419,6 @@ var GiphyComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 
 };
@@ -4582,6 +4578,7 @@ GiphyComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
     this.imgDom = document.createElement(GiphyComponent.IMAGE_TAG_NAME);
+    this.imgDom.setAttribute('contenteditable', false);
 
     if (this.src) {
       this.imgDom.setAttribute('src', this.src);
@@ -4596,7 +4593,6 @@ GiphyComponent.prototype.render = function(element, options) {
       this.selectionDom = document.createElement('div');
       this.selectionDom.innerHTML = '&nbsp;';
       this.selectionDom.className = 'selection-pointer';
-      this.selectionDom.setAttribute('contenteditable', true);
       this.selectionDom.addEventListener('focus', this.select.bind(this));
       this.dom.appendChild(this.selectionDom);
     }
@@ -5707,7 +5703,6 @@ var Figure = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 };
 Figure.prototype = Object.create(Component.prototype);
@@ -5872,6 +5867,7 @@ Figure.prototype.render = function(element, options) {
         this.imgContainerDom.style.paddingBottom = (
             (parseInt(this.height)/parseInt(this.width) * 100) + '%');
       }
+      this.imgContainerDom.setAttribute('contenteditable', false);
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
     }
@@ -5884,12 +5880,9 @@ Figure.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.dom.appendChild(this.selectionDom);
       }
-
-      this.captionParagraph.dom.setAttribute('contenteditable', true);
 
       if (this.imgDom && (!this.width || !this.height)) {
         this.imgDom.addEventListener('load', function () {
@@ -6225,7 +6218,6 @@ var Layout = function(optParams) {
   Section.call(this, params);
 
   this.type = params.type;
-  this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };
@@ -7486,7 +7478,6 @@ Paragraph.prototype.render = function(element, options) {
     Component.prototype.render.call(this, element, options);
 
     if (this.editMode) {
-      this.dom.setAttribute('contenteditable', true);
       if (this.placeholderText) {
         this.dom.setAttribute('placeholder', this.placeholderText);
       } else if (!this.text.length) {
