@@ -51,7 +51,6 @@ var IFrameComponent = function(optParams) {
    * @type {HTMLElement}
    */
   this.dom = document.createElement(IFrameComponent.TAG_NAME);
-  this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 
   /**
@@ -182,6 +181,7 @@ IFrameComponent.prototype.render = function(element, options) {
     if (this.src) {
       this.containerDom = document.createElement(
           IFrameComponent.CONTAINER_TAG_NAME);
+      this.containerDom.setAttribute('contenteditable', false);
       this.containerDom.className = IFrameComponent.CONTAINER_CLASS_NAME;
       this.iframeDom = document.createElement(IFrameComponent.IFRAME_TAG_NAME);
       this.containerDom.appendChild(this.iframeDom);
@@ -199,8 +199,6 @@ IFrameComponent.prototype.render = function(element, options) {
       this.dom.appendChild(this.containerDom);
 
       this.captionParagraph.render(this.dom);
-      this.captionParagraph.dom.setAttribute('contenteditable', true);
-
 
       if (this.editMode) {
         this.overlayDom = document.createElement(
@@ -212,7 +210,6 @@ IFrameComponent.prototype.render = function(element, options) {
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
-        this.selectionDom.setAttribute('contenteditable', true);
         this.selectionDom.addEventListener('focus', this.select.bind(this));
         this.containerDom.appendChild(this.selectionDom);
       }
