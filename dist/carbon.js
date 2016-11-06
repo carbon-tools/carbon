@@ -1070,6 +1070,7 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('keypress', this.handleKeyPressEvent.bind(this));
   this.element.addEventListener('keyup', this.handleKeyUpEvent.bind(this));
 
   this.element.addEventListener('input', Utils.debounce(
@@ -1305,10 +1306,53 @@ Editor.prototype.handlePendingInputIfAny_ = function() {
 
 /**
  * Handels `keyup` events.
+ * @param {Event} event
  */
-Editor.prototype.handleKeyUpEvent = function() {
+Editor.prototype.handleKeyUpEvent = function(event) {
+  // Record accent in `keyup` because of cases where keyCode == 229 in `keydown`
+  // doesn't tell us what is the carret.
+  if (this.accentOpInProgress && Utils.willTypeOrMoveCursor(event)) {
+    this.accentInProgress = Utils.getAccent(event);
+  }
   // User removed his finger from the key re-enable input handler.
   this.disableInputHandler = false;
+};
+
+
+/**
+ * Handles `keypress` events.
+ *
+ * The only current use of keypress event is to handle accented characters.
+ * The reason we need keypress event, is it's the only KeyboardEvent
+ * that will tell us the true form of the typed character whether
+ * it's capital case or small case through the keyCode.
+ *
+ * @param  {Event} event
+ */
+Editor.prototype.handleKeyPressEvent = function(event) {
+  if (!Utils.isMac() || !this.accentInProgress) {
+    return;
+  }
+
+  var selection = this.article.selection;
+  var currentComponent = selection.getComponentAtEnd();
+
+  var accentedChar = Utils.getAccentedCharacter(
+        this.accentInProgress, String.fromCharCode(event.keyCode));
+  if (accentedChar) {
+    var ops = [];
+    Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+        this.accentInProgress, selection.start.offset - 1, -1));
+    Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
+        accentedChar, selection.start.offset));
+    this.article.transaction(ops);
+    event.preventDefault();
+  }
+
+  if (Utils.willTypeOrMoveCursor(event)) {
+    this.accentInProgress = null;
+    this.accentOpInProgress = false;
+  }
 };
 
 
@@ -1412,6 +1456,20 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var currentIsParagraph = currentComponent instanceof Paragraph;
   var nextIsParagraph = nextComponent instanceof Paragraph;
   var prevIsParagraph = prevComponent instanceof Paragraph;
+
+  // On Macs we need to handle accented characters ourselves.
+  // On windows, it seems this seem to work out of the box.
+  // TODO(mkhatib): Test on platforms and browsers to apply this to
+  // required platforms.
+  if (Utils.isMac()) {
+    if (this.accentInProgress) {
+      // This is handled in keypress event for an accurate keycode.
+      return;
+    } else if (Utils.isAccent(event) || event.keyCode === 229) {
+      // Is alt and e pressed - mark that there's an accent typing in process.
+      this.accentOpInProgress = true; //Utils.getAccent(event);
+    }
+  }
 
   switch (event.keyCode) {
     // Enter.
@@ -9234,6 +9292,98 @@ Toolbar.prototype.resetFields = function () {
 },{"../utils":33}],33:[function(require,module,exports){
 'use strict';
 
+
+/**
+ * A List of keycodes that types an accent with alt.
+ * TODO(mkhatib): Make sure these are all the possible accents.
+ * @type {Array<number>}
+ */
+var KEYCODE_ACCENT_MAP = {
+  /* ALT + E = ´*/
+  /*E*/ '69': '´',
+  /*e*/ '101': '´',
+
+  /* ALT + I = ˆ */
+  /*I*/ '73': 'ˆ',
+  /*i*/ '105': 'ˆ',
+
+  /* ALT + U = ¨ */
+  /*U*/ '85': '¨',
+  /*u*/ '117': '¨',
+
+  /* ALT + N = ˜ */
+  /*N*/ '78': '˜',
+  /*n*/ '110': '˜',
+
+  /* ALT + ` = ` */
+  /*`*/ '192': '`',
+};
+
+
+/**
+ * Maps accents and followed characters with their accented character.
+ * @type {Object<string, Object<string, string>>}
+ */
+var ACCENTS_CHARACTERS_MAP = {
+  '`': {
+    'a': 'à',
+    'A': 'À',
+    'e': 'è',
+    'E': 'È',
+    'i': 'ì',
+    'I': 'Ì',
+    'o': 'ò',
+    'O': 'Ò',
+    'u': 'ù',
+    'U': 'Ò',
+  },
+  '´': {
+    'a': 'á',
+    'A': 'Á',
+    'e': 'é',
+    'E': 'É',
+    'i': 'í',
+    'I': 'Í',
+    'o': 'ó',
+    'O': 'Ó',
+    'u': 'ú',
+    'U': 'Ú',
+  },
+  '¨': {
+    'a': 'ä',
+    'A': 'Ä',
+    'e': 'ë',
+    'E': 'Ë',
+    'i': 'ï',
+    'I': 'Ï',
+    'o': 'ö',
+    'O': 'Ö',
+    'u': 'ü',
+    'U': 'Ü',
+  },
+  'ˆ': {
+    'a': 'â',
+    'A': 'Â',
+    'e': 'ê',
+    'E': 'Ê',
+    'i': 'î',
+    'I': 'Î',
+    'o': 'ô',
+    'O': 'Ô',
+    'u': 'û',
+    'U': 'Û',
+  },
+  '˜': {
+    'a': 'ã',
+    'A': 'Ã',
+    'o': 'õ',
+    'O': 'Õ',
+    'n': 'ñ',
+    'N': 'Ñ',
+  },
+};
+
+
 var Utils = {};
 Utils.arrays = {};
 module.exports = Utils;
@@ -9405,6 +9555,28 @@ Utils.debounce = function(func, wait, immediate) {
 };
 
 
+
+/**
+ * Whether an event will produce a character or move the cursor.
+ * @param  {Event} event Keypress event.
+ * @return {boolean}
+ */
+Utils.willTypeOrMoveCursor = function(event) {
+  var NO_CHANGE_KEYS = [
+    // Command keys.
+    16, 17, 18, 19, 20, 27,
+    // Other keys.
+    45, 91, 92, 93,
+    // Funcion Keys F1-F12
+    112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
+    // Locks
+    144, 145
+  ];
+
+  return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
+};
+
+
 /**
  * Whether an event will produce a character or not.
  * @param  {Event} event Keypress event.
@@ -9437,7 +9609,7 @@ Utils.willTypeCharacter = function(event) {
  * @return {boolean} True if it is undo.
  */
 Utils.isUndo = function(event) {
-  return !!((event.ctrlKey || event.metaKey) &&
+  return !!((event.ctrlKey || (Utils.isMac() && event.metaKey)) &&
           event.keyCode === 90 && !event.shiftKey);
 };
 
@@ -9448,7 +9620,7 @@ Utils.isUndo = function(event) {
  * @return {boolean} True if it is redo.
  */
 Utils.isRedo = function(event) {
-  return !!((event.ctrlKey || event.metaKey) &&
+  return !!((event.ctrlKey || (Utils.isMac() && event.metaKey)) &&
           (event.keyCode === 89 ||
            (event.shiftKey && event.keyCode === 90)));
 };
@@ -9460,8 +9632,46 @@ Utils.isRedo = function(event) {
  * @return {boolean} True if it is select all.
  */
 Utils.isSelectAll = function(event) {
-  return !!((event.ctrlKey || event.metaKey) &&
+  return !!((event.ctrlKey || (Utils.isMac() && event.metaKey)) &&
           event.keyCode === 65 && !event.shiftKey);
+};
+
+
+/**
+ * Checks if the event is to type an accent.
+ * @param  {Event} event
+ * @return {boolean}
+ */
+Utils.isAccent = function(event) {
+  var accentsKeycodes = Object.keys(KEYCODE_ACCENT_MAP);
+  return !!(event.altKey &&
+    accentsKeycodes.indexOf(event.keyCode.toString()) !== -1);
+};
+
+
+/**
+ * Returns the accent from the event keycode.
+ * @param  {Event} event
+ * @return {string}
+ */
+Utils.getAccent = function(event) {
+  return KEYCODE_ACCENT_MAP[event.keyCode.toString()];
+};
+
+
+/**
+ * Returns the accented character for the given accent and character.
+ *   For example: getAccentedCharacter('`', 'a') => á
+ * @param  {string} accent
+ * @param  {string} char
+ * @return {string}
+ */
+Utils.getAccentedCharacter = function(accent, char) {
+  try {
+    return ACCENTS_CHARACTERS_MAP[accent][char];
+  } catch (unusedE) {
+    return null;
+  }
 };
 
 
@@ -9481,6 +9691,15 @@ Utils.isMobile = function () {
  */
 Utils.isFirefox = function () {
   return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+};
+
+
+/**
+ * Returns true if the user is on a mac device.
+ * @return {boolean}
+ */
+Utils.isMac = function () {
+  return !!(/Mac/i.test(navigator.platform));
 };
 
 
