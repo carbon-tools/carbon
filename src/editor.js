@@ -211,6 +211,7 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
+  this.element.addEventListener('keypress', this.handleKeyPressEvent.bind(this));
   this.element.addEventListener('keyup', this.handleKeyUpEvent.bind(this));
 
   this.element.addEventListener('input', Utils.debounce(
@@ -446,10 +447,53 @@ Editor.prototype.handlePendingInputIfAny_ = function() {
 
 /**
  * Handels `keyup` events.
+ * @param {Event} event
  */
-Editor.prototype.handleKeyUpEvent = function() {
+Editor.prototype.handleKeyUpEvent = function(event) {
+  // Record accent in `keyup` because of cases where keyCode == 229 in `keydown`
+  // doesn't tell us what is the carret.
+  if (this.accentOpInProgress && Utils.willTypeOrMoveCursor(event)) {
+    this.accentInProgress = Utils.getAccent(event);
+  }
   // User removed his finger from the key re-enable input handler.
   this.disableInputHandler = false;
+};
+
+
+/**
+ * Handles `keypress` events.
+ *
+ * The only current use of keypress event is to handle accented characters.
+ * The reason we need keypress event, is it's the only KeyboardEvent
+ * that will tell us the true form of the typed character whether
+ * it's capital case or small case through the keyCode.
+ *
+ * @param  {Event} event
+ */
+Editor.prototype.handleKeyPressEvent = function(event) {
+  if (!Utils.isMac() || !this.accentInProgress) {
+    return;
+  }
+
+  var selection = this.article.selection;
+  var currentComponent = selection.getComponentAtEnd();
+
+  var accentedChar = Utils.getAccentedCharacter(
+        this.accentInProgress, String.fromCharCode(event.keyCode));
+  if (accentedChar) {
+    var ops = [];
+    Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+        this.accentInProgress, selection.start.offset - 1, -1));
+    Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
+        accentedChar, selection.start.offset));
+    this.article.transaction(ops);
+    event.preventDefault();
+  }
+
+  if (Utils.willTypeOrMoveCursor(event)) {
+    this.accentInProgress = null;
+    this.accentOpInProgress = false;
+  }
 };
 
 
@@ -553,6 +597,20 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var currentIsParagraph = currentComponent instanceof Paragraph;
   var nextIsParagraph = nextComponent instanceof Paragraph;
   var prevIsParagraph = prevComponent instanceof Paragraph;
+
+  // On Macs we need to handle accented characters ourselves.
+  // On windows, it seems this seem to work out of the box.
+  // TODO(mkhatib): Test on platforms and browsers to apply this to
+  // required platforms.
+  if (Utils.isMac()) {
+    if (this.accentInProgress) {
+      // This is handled in keypress event for an accurate keycode.
+      return;
+    } else if (Utils.isAccent(event) || event.keyCode === 229) {
+      // Is alt and e pressed - mark that there's an accent typing in process.
+      this.accentOpInProgress = true; //Utils.getAccent(event);
+    }
+  }
 
   switch (event.keyCode) {
     // Enter.
