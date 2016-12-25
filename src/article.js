@@ -12,42 +12,43 @@ var EmbeddedComponent = require('./extensions/embeddedComponent');
 
 /**
  * Article main.
- * @param {Object} optParams Optional params to initialize the Article object.
+ * @param {Object=} opt_params Optional params to initialize the Article object.
  * Default:
  *   {
  *     sections: []
  *   }
+ * @constructor
  */
-var Article = function(optParams) {
+var Article = function(opt_params) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The sections that is in this article.
     sections: [],
-    editor: null
-  }, optParams);
+    editor: null,
+  }, opt_params);
 
   /**
    * Editor that contains this article.
-   * @type {Editor}
+   * @type {./editor}
    */
   this.editor = params.editor;
 
   /**
    * Selection object.
-   * @type {Selection}
+   * @type {./selection}
    */
   this.selection = Selection.getInstance();
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Article.TAG_NAME);
   this.dom.className = Article.ELEMENT_CLASS_NAME;
 
   /**
    * The article sections.
-   * @type {Array.<Section>}
+   * @type {Array<./section>}
    */
   this.sections = [];
   for (var i = 0; i < params.sections.length; i++) {
@@ -56,7 +57,7 @@ var Article = function(optParams) {
 
   /**
    * Operations history on the article.
-   * @type {Array.<Object>}
+   * @type {Array<Object>}
    */
   this.history = [];
 
@@ -101,14 +102,14 @@ Article.ELEMENT_CLASS_NAME = 'carbon';
  * @param  {Object} json JSON representation of the article.
  * @return {Article} Article object representing the JSON data.
  */
-Article.fromJSON = function (json) {
+Article.fromJSON = function(json) {
   var sections = [];
   for (var i = 0; i < json.sections.length; i++) {
     sections.push(Section.fromJSON(json.sections[i]));
   }
 
   return new Article({
-    sections: sections
+    sections: sections,
   });
 };
 
@@ -151,32 +152,30 @@ Article.prototype.updateSection = function(section) {
 
 
 /**
- * Inserts a new component in article.
- * @param  {Component} component Component object.
- * @return {Component} The inserted component.
+ * Inserts a new section in article.
+ * @param  {./section} section Component object.
+ * @return {./section} The inserted section.
  */
-Article.prototype.insertComponent = function(component) {
-  var section = this.selection.getSectionAtEnd().
-      insertComponent(component);
+Article.prototype.insertComponent = function(section) {
+  return this.selection.getSectionAtEnd().insertComponent(section);
+};
+
+
+/**
+ * Removes a section from article.
+ * @param  {./section} section Component to remove.
+ * @return {./section} Removed section.
+ */
+Article.prototype.removeComponent = function(section) {
+  var index = this.sections.indexOf(section);
+  this.sections.splice(index, 1);
   return section;
 };
 
 
 /**
- * Removes a component from article.
- * @param  {Component} component Component to remove.
- * @return {Component} Removed component.
- */
-Article.prototype.removeComponent = function(component) {
-  var index = this.sections.indexOf(component);
-  this.components.splice(index, 1);
-  return component;
-};
-
-
-/**
- * Returns first component in the section.
- * @return {Component} Returns first component.
+ * Returns first section in the article.
+ * @return {./layout} Returns first layout.
  */
 Article.prototype.getFirstComponent = function() {
   return this.sections[0].getFirstComponent();
@@ -184,8 +183,8 @@ Article.prototype.getFirstComponent = function() {
 
 
 /**
- * Returns last component in the section.
- * @return {Component} Returns last component.
+ * Returns last section in the article.
+ * @return {./layout} Returns last layout.
  */
 Article.prototype.getLastComponent = function() {
   return this.sections[this.sections.length - 1].getLastComponent();
@@ -204,11 +203,12 @@ Article.prototype.hasCover = function() {
     layout = layout.getNextComponent();
   }
   if (layout instanceof Layout) {
-    var firstComponent = layout.getFirstComponent();
+    var firstComponent = /** @type {./layout} */ (layout).getFirstComponent();
     return ((firstComponent instanceof Figure ||
              firstComponent instanceof EmbeddedComponent) &&
             coverLayouts.indexOf(layout.type) !== -1);
   }
+  return false;
 };
 
 
@@ -240,7 +240,7 @@ Article.prototype.render = function(element, options) {
  */
 Article.prototype.getJSONModel = function() {
   var article = {
-    sections: []
+    sections: [],
   };
 
   for (var i = 0; i < this.sections.length; i++) {
@@ -267,11 +267,12 @@ Article.prototype.getLength = function() {
 
 /**
  * Returns first paragraph component if it is a header.
- * @return {string} First header of the article.
+ * @return {./paragraph|null} First Paragraph of the article.
  */
 Article.prototype.getFirstTextComponent = function() {
   var firstLayout = this.sections[0].components[0];
-  var firstComponent = firstLayout.getFirstComponent();
+  var firstComponent = /** @type {./layout} */ (
+      firstLayout).getFirstComponent();
   var next = firstComponent;
   while (next && !(next instanceof Paragraph)) {
     next = next.getNextComponent();
@@ -280,6 +281,8 @@ Article.prototype.getFirstTextComponent = function() {
   if (next) {
     return next;
   }
+
+  return null;
 };
 
 
@@ -288,10 +291,11 @@ Article.prototype.getFirstTextComponent = function() {
  * @return {string}
  */
 Article.prototype.getTitle = function() {
-  var component = this.getFirstTextComponent();
-  if (component && component.isHeader()) {
-    return component.text;
+  var paragraph = this.getFirstTextComponent();
+  if (paragraph && paragraph.isHeader()) {
+    return paragraph.text;
   }
+  return '';
 };
 
 
@@ -330,12 +334,14 @@ Article.prototype.getSnippet = function(optWordCount) {
   if (words && words.length) {
     return words.join(' ') + '...';
   }
+
+  return '';
 };
 
 
 /**
  * Apply list of operations to the article model.
- * @param  {Array.<Object>} ops List of operations to apply.
+ * @param  {Array<./defs.OperationDef>} ops List of operations to apply.
  */
 Article.prototype.transaction = function(ops) {
   if (this.historyAt < this.history.length) {
@@ -385,7 +391,7 @@ Article.prototype.undo = function() {
 
 /**
  * Executes an operation with the passed action.
- * @param  {Object} operation An operation object to execute.
+ * @param  {./defs.OperationDef} operation An operation object to execute.
  * @param  {string} action Can be 'do' or 'undo'.
  */
 Article.prototype.exec = function(operation, action) {
@@ -403,7 +409,7 @@ Article.prototype.exec = function(operation, action) {
     if (operation[action].cursorOffset) {
       selection.setCursor({
         component: component,
-        offset: operation[action].cursorOffset
+        offset: operation[action].cursorOffset,
       });
     }
   } else if (op === 'removeChars') {
@@ -416,7 +422,7 @@ Article.prototype.exec = function(operation, action) {
     if (operation[action].cursorOffset) {
       selection.setCursor({
         component: component,
-        offset: operation[action].cursorOffset
+        offset: operation[action].cursorOffset,
       });
     }
   } else if (op === 'updateComponent') {
@@ -442,15 +448,16 @@ Article.prototype.exec = function(operation, action) {
       if (!operation[action].selectRange) {
         selection.setCursor({
           component: component,
-          offset: operation[action].cursorOffset
+          offset: operation[action].cursorOffset,
         });
       } else {
         selection.select({
           component: component,
-          offset: operation[action].cursorOffset
+          offset: operation[action].cursorOffset,
         }, {
           component: component,
-          offset: operation[action].cursorOffset + operation[action].selectRange
+          offset: (operation[action].cursorOffset +
+              operation[action].selectRange),
         });
       }
     }
@@ -488,13 +495,31 @@ Article.prototype.handleResize_ = function() {
   }
 };
 
+
+/**
+ * Removes blank paragraphs components at the start and the end of the article
+ */
+Article.prototype.trim = function() {
+  var firstLayout = this.getFirstComponent();
+  var lastLayout = this.getLastComponent();
+  var firstComponent = firstLayout.getFirstComponent();
+  var lastComponent = lastLayout.getLastComponent();
+
+  trimDirection_(firstComponent, false);
+
+  if (firstComponent !== lastComponent) {
+    trimDirection_(lastComponent, true);
+  }
+};
+
+
 /**
  * Removes blank paragraphs components from direction start/end
- * @param {object} `component` specifiy the start from component.
- * @param {boolean} `end` detrimines if direction is end.
+ * @param {./component} component specifiy the start from component.
+ * @param {boolean} end detrimines if direction is end.
  * @private
  */
-Article.prototype.trimDirection_ = function _trimDirection(component, end) {
+var trimDirection_ = function(component, end) {
   var recursionComponent;
 
   if (component instanceof Paragraph && component.isBlank()) {
@@ -507,23 +532,7 @@ Article.prototype.trimDirection_ = function _trimDirection(component, end) {
     component.section.removeComponent(component);
 
     if (recursionComponent) {
-      _trimDirection(recursionComponent, end);
+      trimDirection_(recursionComponent, end);
     }
-  }
-};
-
-/**
- * Removes blank paragraphs components at the start and the end of the article
- */
-Article.prototype.trim = function() {
-  var firstLayout = this.getFirstComponent();
-  var lastLayout = this.getLastComponent();
-  var firstComponent = firstLayout.getFirstComponent();
-  var lastComponent =  lastLayout.getLastComponent();
-
-  this.trimDirection_(firstComponent);
-
-  if (firstComponent !== lastComponent) {
-    this.trimDirection_(lastComponent, true);
   }
 };

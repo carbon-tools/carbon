@@ -59,28 +59,28 @@ describe('Editor', function() {
         // new paragraph.
         selection.setCursor({
           component: paragraph,
-          offset: paragraph.text.length
+          offset: paragraph.text.length,
         });
         editor.handleKeyDownEvent(event);
 
         expect(layout.components.length).toBe(numOfParagraph + 1);
-        expect(selection.getComponentAtStart()).
-          toBe(layout.components[numOfParagraph]);
+        expect(selection.getComponentAtStart())
+            .toBe(layout.components[numOfParagraph]);
 
         // When at the middle of a paragraph, test it'll split paragraph
         // into two.
         paragraph.setText('Hello world');
         selection.setCursor({
           component: paragraph,
-          offset: 5
+          offset: 5,
         });
         editor.handleKeyDownEvent(event);
 
         expect(layout.components.length).toBe(numOfParagraph + 2);
         expect(paragraph.text).toBe('Hello');
         expect(paragraph.getNextComponent().text).toBe(' world');
-        expect(selection.getComponentAtStart()).
-          toBe(paragraph.getNextComponent());
+        expect(selection.getComponentAtStart())
+            .toBe(paragraph.getNextComponent());
         expect(selection.start.offset).toBe(0);
       });
 
@@ -95,7 +95,7 @@ describe('Editor', function() {
         spyOn(div, 'addEventListener');
 
         var placeholderP = new Paragraph({
-          placeholderText: 'Placeholder text'
+          placeholderText: 'Placeholder text',
         });
         var editor = new Editor(div);
         var section = editor.article.sections[0];
@@ -108,7 +108,7 @@ describe('Editor', function() {
 
         selection.setCursor({
           component: paragraph,
-          offset: 0
+          offset: 0,
         });
         editor.handleKeyDownEvent(event);
         expect(layout.components.length).toBe(numOfParagraph);
@@ -145,7 +145,7 @@ describe('Editor', function() {
       // When cursor at beginning of paragraph.
       selection.setCursor({
         component: secondParagraph,
-        offset: 0
+        offset: 0,
       });
       editor.handleKeyDownEvent(event);
 
@@ -156,7 +156,7 @@ describe('Editor', function() {
       // When cursor not at beginning.
       selection.setCursor({
         component: paragraph,
-        offset: 5
+        offset: 5,
       });
       editor.handleKeyDownEvent(event);
 
@@ -190,7 +190,7 @@ describe('Editor', function() {
       // When cursor at end of paragraph.
       selection.setCursor({
         component: paragraph,
-        offset: paragraph.text.length
+        offset: paragraph.text.length,
       });
       editor.handleKeyDownEvent(event);
 
@@ -201,7 +201,7 @@ describe('Editor', function() {
       // When cursor not at end.
       selection.setCursor({
         component: paragraph,
-        offset: 5
+        offset: 5,
       });
       editor.handleKeyDownEvent(event);
 
@@ -235,11 +235,11 @@ describe('Editor', function() {
       // When cursor at beginning of paragraph.
       selection.start = {
         component: paragraph,
-        offset: 4
+        offset: 4,
       };
       selection.end = {
         component: secondParagraph,
-        offset: 5
+        offset: 5,
       };
       editor.handleKeyDownEvent(event);
       expect(section.components.length).toBe(numOfParagraph - 1);
@@ -273,11 +273,11 @@ describe('Editor', function() {
       // When cursor at beginning of paragraph.
       selection.start = {
         component: paragraph,
-        offset: 4
+        offset: 4,
       };
       selection.end = {
         component: secondParagraph,
-        offset: 5
+        offset: 5,
       };
       editor.handleKeyDownEvent(event);
       expect(section.components.length).toBe(numOfParagraph - 1);
@@ -310,11 +310,11 @@ describe('Editor', function() {
       // When cursor at beginning of paragraph.
       selection.start = {
         component: paragraph,
-        offset: 4
+        offset: 4,
       };
       selection.end = {
         component: secondParagraph,
-        offset: 5
+        offset: 5,
       };
       editor.handleKeyDownEvent(event);
       expect(section.components.length).toBe(numOfParagraph - 1);
@@ -353,10 +353,10 @@ describe('Editor', function() {
     it('should call processPastedContent', function() {
       var div = document.createElement('div');
       var event = {
-        preventDefault: function(){},
+        preventDefault: function() {},
         clipboardData: {
-          getData: function(){}
-        }
+          getData: function() {},
+        },
       };
 
       spyOn(event.clipboardData, 'getData').and.returnValue('Hello World');
@@ -397,8 +397,8 @@ describe('Editor', function() {
       editor.render();
 
       var el = document.createElement('div');
-      el.innerHTML = '<p style="color:red;">Hello <b>World</b></p>'+
-          '<h4 class="header">Why are we here?</h4>'+
+      el.innerHTML = '<p style="color:red;">Hello <b>World</b></p>' +
+          '<h4 class="header">Why are we here?</h4>' +
           '<div><h2>Subheader</h2><p class="hello">Sweet</p></div>';
       var ops = editor.processPastedContent(el);
 

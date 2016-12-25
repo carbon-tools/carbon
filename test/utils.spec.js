@@ -23,7 +23,7 @@ describe('Utils methods', function() {
   it('should return a UID', function() {
     expect(Utils.getUID(5).length).toBe(5);
     expect(Utils.getUID(7).length).toBe(7);
-    expect(typeof(Utils.getUID(3))).toBe('string');
+    expect(typeof (Utils.getUID(3))).toBe('string');
   });
 
 });

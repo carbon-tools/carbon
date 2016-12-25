@@ -7,8 +7,26 @@ var I18n = require('../i18n');
 
 
 /**
+ * @typedef {{
+ *   src: string,
+ *   caption: (?string|undefined),
+ *   width: (?string|undefined),
+ * }} */
+var GiphyComponentParamsDef;
+
+
+/**
+ * @typedef {{
+ *   data: {
+ *     image_original_url: string,
+ *   }
+ * }}
+ */
+var GiphyJsonResponseDef;
+
+/**
  * GiphyComponent main.
- * @param {Object} optParams Optional params to initialize the GiphyComponent object.
+ * @param {GiphyComponentParamsDef=} opt_params Optional params to initialize the GiphyComponent object.
  * Default:
  *   {
  *     src: '',
@@ -16,14 +34,16 @@ var I18n = require('../i18n');
  *     width: '100%'
  *     name: Utils.getUID()
  *   }
+ * @extends {../component}
+ * @constructor
  */
-var GiphyComponent = function(optParams) {
+var GiphyComponent = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {GiphyComponentParamsDef} */ (Utils.extend({
     src: '',
     caption: null,
     width: '100%',
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -33,17 +53,18 @@ var GiphyComponent = function(optParams) {
    */
   this.src = params.src;
 
-  this.width = params.width;
+  /** @type {string} */
+  this.width = params.width || '';
 
   /**
    * Placeholder text to show if the GiphyComponent is empty.
    * @type {string}
    */
-  this.caption = params.caption;
+  this.caption = params.caption || '';
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
@@ -85,7 +106,7 @@ GiphyComponent.CAPTION_TAG_NAME = 'figcaption';
 
 /**
  * Regex strings list that for matching Giphy search terms.
- * @type {Array.<string>}
+ * @type {string}
  */
 GiphyComponent.GIPHY_SEARCH_REGEX = '^\\+giphy\\s(.+[a-zA-Z])$';
 
@@ -93,7 +114,7 @@ GiphyComponent.GIPHY_SEARCH_REGEX = '^\\+giphy\\s(.+[a-zA-Z])$';
 /**
  * Giphy endpoint for random search.
  * Ref: https://github.com/Giphy/GiphyAPI
- * @type {String.<string>}
+ * @type {string}
  */
 GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
       'api_key=dc6zaTOxFJmzC&' +
@@ -102,17 +123,17 @@ GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
 
 /**
  * Create and initiate a giphy object from JSON.
- * @param  {Object} json JSON representation of the giphy.
+ * @param  {GiphyComponentParamsDef} json JSON representation of the giphy.
  * @return {GiphyComponent} GiphyComponent object representing the JSON data.
  */
-GiphyComponent.fromJSON = function (json) {
+GiphyComponent.fromJSON = function(json) {
   return new GiphyComponent(json);
 };
 
 
 /**
  * Handles onInstall when the GiphyComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {../editor} editor Instance of the editor that installed the module.
  */
 GiphyComponent.onInstall = function(editor) {
   GiphyComponent.registerRegexes_(editor);
@@ -123,7 +144,7 @@ GiphyComponent.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create giphy component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
+ * @param  {../editor} editor The editor to register regexes with.
  * @private
  */
 GiphyComponent.registerRegexes_ = function(editor) {
@@ -135,10 +156,10 @@ GiphyComponent.registerRegexes_ = function(editor) {
 
 /**
  * Creates a figure component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+GiphyComponent.handleMatchedRegex = function(matchedComponent, opsCallback) {
   var giphyQuery = matchedComponent.text.split(/\s/).slice(1).join('+');
 
   var atIndex = matchedComponent.getIndexInSection();
@@ -151,10 +172,12 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
       var src;
       /* jshint ignore:start */
       // Get the image url from the random search response.
-      src = JSON.parse(xhttp.responseText)['data']['image_original_url'];
+      var json = /** @type {GiphyJsonResponseDef} */ (
+          JSON.parse(xhttp.responseText));
+      src = json['data']['image_original_url'];
       /* jshint ignore:end */
       // If result is found for the query, create a component.
-      if  (src) {
+      if (src) {
         var figure = new GiphyComponent({src: src});
         figure.section = matchedComponent.section;
 
@@ -192,7 +215,7 @@ GiphyComponent.prototype.getJSONModel = function() {
     name: this.name,
     src: this.src,
     width: this.width,
-    caption: this.caption
+    caption: this.caption,
   };
 
   return image;
@@ -216,12 +239,13 @@ GiphyComponent.prototype.render = function(element, options) {
     }
 
     if (this.editMode) {
-      this.dom.addEventListener('click', this.select.bind(this));
+      this.dom.addEventListener('click', this.handleClick.bind(this), false);
       this.selectionDom = document.createElement('div');
       this.selectionDom.innerHTML = '&nbsp;';
       this.selectionDom.className = 'selection-pointer';
       this.selectionDom.setAttribute('contenteditable', true);
-      this.selectionDom.addEventListener('focus', this.select.bind(this));
+      this.selectionDom.addEventListener(
+          'focus', this.handleClick.bind(this), false);
       this.dom.appendChild(this.selectionDom);
     }
   }
@@ -229,32 +253,41 @@ GiphyComponent.prototype.render = function(element, options) {
 
 
 /**
- * Returns the operations to execute a deletion of the giphy component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * Handle a click on the component.
+ * @param  {Event} unusedEvent
  */
-GiphyComponent.prototype.getDeleteOps = function (
-    optIndexOffset, optCursorAfterOp) {
+GiphyComponent.prototype.handleClick = function(unusedEvent) {
+  this.select(0);
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the giphy component.
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<../defs.OperationDef>} List of operations needed to be executed.
+ */
+GiphyComponent.prototype.getDeleteOps = function(
+    opt_indexOffset, opt_cursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'GiphyComponent',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         src: this.src,
         caption: this.caption,
-        width: this.width
-      }
-    }
+        width: this.width,
+      },
+    },
   }];
 
   // If this is the only child of the layout delete the layout as well
@@ -270,11 +303,11 @@ GiphyComponent.prototype.getDeleteOps = function (
 /**
  * Returns the operations to execute inserting a GiphyComponent.
  * @param {number} index Index to insert the GiphyComponent at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the GiphyComponent.
+ * @return {Array<../defs.OperationDef>} Operations for inserting the GiphyComponent.
  */
-GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+GiphyComponent.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -286,14 +319,14 @@ GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
       attrs: {
         src: this.src,
         width: this.width,
-        caption: this.caption
-      }
+        caption: this.caption,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -302,6 +335,6 @@ GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
  * Returns the length of the GiphyComponent content.
  * @return {number} Length of the GiphyComponent content.
  */
-GiphyComponent.prototype.getLength = function () {
+GiphyComponent.prototype.getLength = function() {
   return 1;
 };

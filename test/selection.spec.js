@@ -46,28 +46,28 @@ describe('Selection', function() {
       components: [
         new Paragraph({
           placeholderText: 'Hello',
-          paragraphType: Paragraph.Types.MainHeader
+          paragraphType: Paragraph.Types.MainHeader,
         }),
         new Paragraph({
           placeholderText: 'World',
-          paragraphType: Paragraph.Types.ThirdHeader
+          paragraphType: Paragraph.Types.ThirdHeader,
         }),
         new Paragraph({
-          placeholderText: '!'
-        })
-      ]
+          placeholderText: '!',
+        }),
+      ],
     });
 
     var selection = Selection.getInstance();
 
     selection.start = {
       component: section.components[0],
-      offset: 1
+      offset: 1,
     };
 
     selection.end = {
       component: section.components[2],
-      offset: 1
+      offset: 1,
     };
 
     expect(selection.getComponentAtStart()).toEqual(section.components[0]);
@@ -79,14 +79,14 @@ describe('Selection', function() {
   it('should update the start and end and window selection', function() {
     var section = new Section();
     var paragraph = new Paragraph({
-      text: 'Hello World'
+      text: 'Hello World',
     });
     section.insertComponentAt(paragraph, 0);
 
     var selection = Selection.getInstance();
     selection.setCursor({
       component: paragraph,
-      offset: 5
+      offset: 5,
     });
 
     expect(selection.start.component).toBe(paragraph);
@@ -98,7 +98,7 @@ describe('Selection', function() {
   it('should check if cursor at beginning or end', function() {
     var section = new Section();
     var paragraph = new Paragraph({
-      text: 'Hello World'
+      text: 'Hello World',
     });
     section.insertComponentAt(paragraph, 0);
 
@@ -106,7 +106,7 @@ describe('Selection', function() {
 
     selection.setCursor({
       component: paragraph,
-      offset: 5
+      offset: 5,
     });
 
     expect(selection.isCursorAtBeginning()).toBe(false);
@@ -115,7 +115,7 @@ describe('Selection', function() {
 
     selection.setCursor({
       component: paragraph,
-      offset: 11
+      offset: 11,
     });
     expect(selection.isCursorAtBeginning()).toBe(false);
     expect(selection.isCursorAtEnding()).toBe(true);
@@ -123,7 +123,7 @@ describe('Selection', function() {
 
     selection.setCursor({
       component: paragraph,
-      offset: 0
+      offset: 0,
     });
     expect(selection.isCursorAtBeginning()).toBe(true);
     expect(selection.isCursorAtEnding()).toBe(false);
@@ -131,7 +131,7 @@ describe('Selection', function() {
 
     selection.end = {
       component: paragraph,
-      offset: 5
+      offset: 5,
     };
     expect(selection.isRange()).toBe(true);
   });

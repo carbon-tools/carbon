@@ -5,29 +5,44 @@ var Section = require('./section');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
 
+
+/**
+ * @typedef {{
+ *  tagName: (string|undefined),
+ *  type: (string|undefined),
+ *  components: (Array<!./component>|undefined),
+ * }}
+ */
+var LayoutParamsDef;
+
+
 /**
  * Layout main.
- * @param {Object} optParams Optional params to initialize the Layout object.
+ * @param {LayoutParamsDef=} opt_params Optional params to initialize the Layout object.
  * Default:
  *   {
  *     components: [Paragraph],
  *     tagName: 'div',
  *     type: 'layout-single-column'
  *   }
+ * @extends {./section}
+ * @constructor
  */
-var Layout = function(optParams) {
+var Layout = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {LayoutParamsDef} */ (Utils.extend({
     tagName: Layout.LAYOUT_TAG_NAME,
     type: Layout.Types.SingleColumn,
     components: [new Paragrarph({
-      paragraphType: Paragrarph.Types.Paragraph
-    })]
-  }, optParams);
+      paragraphType: Paragrarph.Types.Paragraph,
+    })],
+  }, opt_params));
 
   Section.call(this, params);
 
-  this.type = params.type;
+  /** @type {string} */
+  this.type = params.type || '';
+
   this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
@@ -39,6 +54,7 @@ module.exports = Layout;
 /**
  * String name for the component class.
  * @type {string}
+ * @const
  */
 Layout.CLASS_NAME = 'Layout';
 Loader.register(Layout.CLASS_NAME, Layout);
@@ -47,29 +63,30 @@ Loader.register(Layout.CLASS_NAME, Layout);
 /**
  * Unordered Layout component container element tag name.
  * @type {string}
+ * @const
  */
 Layout.LAYOUT_TAG_NAME = 'div';
 
 
 /**
  * Layout types.
- * @type {Object}
+ * @enum {string}
  */
 Layout.Types = {
   SingleColumn: 'layout-single-column',
   Bleed: 'layout-bleed',
   Staged: 'layout-staged',
   FloatLeft: 'layout-float-left',
-  FloatRight: 'layout-float-right'
+  FloatRight: 'layout-float-right',
 };
 
 
 /**
  * Create and initiate a list object from JSON.
- * @param  {Object} json JSON representation of the list.
+ * @param {./defs.LayoutJsonDef} json JSON representation of the list.
  * @return {Layout} Layout object representing the JSON data.
  */
-Layout.fromJSON = function (json) {
+Layout.fromJSON = function(json) {
   var components = [];
   for (var i = 0; i < json.components.length; i++) {
     var className = json.components[i].component;
@@ -81,7 +98,7 @@ Layout.fromJSON = function (json) {
     tagName: json.tagName,
     name: json.name,
     type: json.type,
-    components: components
+    components: components,
   });
 };
 
@@ -104,16 +121,37 @@ Layout.prototype.getComponentClassName = function() {
 
 
 /**
+ * Returns first component in the section.
+ * @return {./component} Returns first component.
+ * @override
+ */
+Layout.prototype.getFirstComponent = function() {
+  return this.components[0];
+};
+
+
+/**
+ * Returns last component in the section.
+ * @return {./component} Returns last component.
+ * @override
+ */
+Layout.prototype.getLastComponent = function() {
+  return this.components[this.components.length - 1];
+};
+
+
+
+/**
  * Returns the operations to execute a deletion of list component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
- * @return {Array.<Object>} Layout of operations needed to be executed.
+ * @return {Array<./defs.OperationDef>} Layout of operations needed to be executed.
  */
-Layout.prototype.getDeleteOps = function (optIndexOffset) {
+Layout.prototype.getDeleteOps = function(optIndexOffset) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
     },
     undo: {
       op: 'insertComponent',
@@ -124,15 +162,15 @@ Layout.prototype.getDeleteOps = function (optIndexOffset) {
       attrs: {
         components: this.components,
         tagName: this.tagName,
-        type: this.type
-      }
-    }
+        type: this.type,
+      },
+    },
   }];
 
   if (this.section.getLength() < 2) {
     var newLayout = new Layout({
       name: this.name,
-      components: []
+      components: [],
     });
     newLayout.section = this.section;
     Utils.arrays.extend(ops, newLayout.getInsertOps(0));
@@ -145,9 +183,9 @@ Layout.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a list.
  * @param {number} index Index to insert the list at.
- * @return {Array.<Object>} Operations for inserting the list.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the list.
  */
-Layout.prototype.getInsertOps = function (index) {
+Layout.prototype.getInsertOps = function(index) {
   return [{
     do: {
       op: 'insertComponent',
@@ -159,13 +197,13 @@ Layout.prototype.getInsertOps = function (index) {
       attrs: {
         components: this.components,
         tagName: this.tagName,
-        type: this.type
-      }
+        type: this.type,
+      },
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
-    }
+      component: this.name,
+    },
   }];
 };
 
@@ -173,9 +211,9 @@ Layout.prototype.getInsertOps = function (index) {
 /**
  * Returns the operations to execute splitting a list.
  * @param {number} atIndex Index to split the list at.
- * @return {Array.<Object>} Operations for splitting the list.
+ * @return {Array<./defs.OperationDef>} Operations for splitting the list.
  */
-Layout.prototype.getSplitOps = function (atIndex) {
+Layout.prototype.getSplitOps = function(atIndex) {
   var ops = [];
   var i = atIndex;
   var indexOffset = 0;
@@ -186,7 +224,7 @@ Layout.prototype.getSplitOps = function (atIndex) {
   var newLayout = new Layout({
     tagName: this.tagName,
     section: this.section,
-    components: []
+    components: [],
   });
   Utils.arrays.extend(ops, newLayout.getInsertOps(
       this.getIndexInSection() + 1));
@@ -214,8 +252,8 @@ Layout.prototype.getUpdateOps = function(
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
       attrs: {
-        type: attrs.type
-      }
+        type: attrs.type,
+      },
     },
     undo: {
       op: 'updateComponent',
@@ -223,9 +261,9 @@ Layout.prototype.getUpdateOps = function(
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
       attrs: {
-        type: this.type
-      }
-    }
+        type: this.type,
+      },
+    },
   }];
 };
 
@@ -257,7 +295,7 @@ Layout.prototype.updateAttributes = function(attrs) {
  * Returns the length of the list content.
  * @return {number} Length of the list content.
  */
-Layout.prototype.getLength = function () {
+Layout.prototype.getLength = function() {
   return this.components.length;
 };
 
@@ -272,7 +310,7 @@ Layout.prototype.getJSONModel = function() {
     tagName: this.tagName,
     type: this.type,
     component: Layout.CLASS_NAME,
-    components: []
+    components: [],
   };
 
   for (var i = 0; i < this.components.length; i++) {

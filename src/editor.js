@@ -15,18 +15,21 @@ var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
 var I18n = require('./i18n');
 var Layout = require('./layout');
+var CustomEventTarget = require('./customEventTarget');
 
 
 /**
  * Editor main.
- * @param {HTMLElement} element Editor element to decorate.
- * @param {Object} optParams Optional params to initialize the editor.
+ * @param {!Element} element Editor element to decorate.
+ * @param {Object=} opt_params Optional params to initialize the editor.
  * Default:
  *   {
  *     extensions: [new FormattingExtension()]
  *   }
+ * @extends {./customEventTarget};
+ * @constructor
  */
-var Editor = function (element, optParams) {
+var Editor = function(element, opt_params) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
@@ -37,12 +40,12 @@ var Editor = function (element, optParams) {
       sections: [new Section({
         components: [new Layout({
           components: [new Paragraph({
-            placeholder: 'Editor'
-          })]
-        })]
-      })]
+            placeholder: 'Editor',
+          })],
+        })],
+      })],
     }),
-  }, optParams);
+  }, opt_params);
 
   I18n.setCurrentLocale(params.locale);
 
@@ -66,7 +69,7 @@ var Editor = function (element, optParams) {
 
   /**
    * Element to decorate the editor on.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.element = element;
 
@@ -85,7 +88,7 @@ var Editor = function (element, optParams) {
 
   /**
    * This editor's toolbars.
-   * @type {Object.<String: Toolbar>}
+   * @type {Object<string, ./toolbars/toolbar>}
    */
   this.toolbars = {};
 
@@ -107,7 +110,7 @@ var Editor = function (element, optParams) {
   var inlineToolbar = new Toolbar({
     name: Editor.INLINE_TOOLBAR_NAME,
     classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME],
-    rtl: this.rtl
+    rtl: this.rtl,
   });
   this.registerToolbar(Editor.INLINE_TOOLBAR_NAME, inlineToolbar);
 
@@ -118,7 +121,7 @@ var Editor = function (element, optParams) {
   var blockToolbar = new Toolbar({
     name: Editor.BLOCK_TOOLBAR_NAME,
     classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME],
-    rtl: this.rtl
+    rtl: this.rtl,
   });
   this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
 
@@ -149,26 +152,28 @@ var Editor = function (element, optParams) {
     component: null,
     start: null,
     update: null,
-    end: null
+    end: null,
   };
 
   this.init();
   this.setArticle(this.article);
 };
-Editor.prototype = new Utils.CustomEventTarget();
+Editor.prototype = new CustomEventTarget();
 module.exports = Editor;
 
 
 /**
  * Class name for the inline toolbar.
- * @type {String}
+ * @type {string}
+ * @const
  */
 Editor.INLINE_TOOLBAR_CLASS_NAME = 'editor-inline-toolbar';
 
 
 /**
  * Class name for the inline toolbar.
- * @type {String}
+ * @type {string}
+ * @const
  */
 Editor.BLOCK_TOOLBAR_CLASS_NAME = 'editor-block-toolbar';
 
@@ -176,6 +181,7 @@ Editor.BLOCK_TOOLBAR_CLASS_NAME = 'editor-block-toolbar';
 /**
  * Name of the block toolbar.
  * @type {string}
+ * @const
  */
 Editor.BLOCK_TOOLBAR_NAME = 'block-toolbar';
 
@@ -198,7 +204,7 @@ Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
  * Loads Article model from JSON.
  * @param  {Object} json JSON representation of the article.
  */
-Editor.prototype.loadJSON = function (json) {
+Editor.prototype.loadJSON = function(json) {
   var article = Article.fromJSON(json);
   this.setArticle(article);
 };
@@ -211,7 +217,8 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
-  this.element.addEventListener('keypress', this.handleKeyPressEvent.bind(this));
+  this.element.addEventListener(
+      'keypress', this.handleKeyPressEvent.bind(this));
   this.element.addEventListener('keyup', this.handleKeyUpEvent.bind(this));
 
   this.element.addEventListener('input', Utils.debounce(
@@ -223,7 +230,7 @@ Editor.prototype.init = function() {
   this.element.setAttribute('contenteditable', true);
 
   this.selection.addEventListener(
-      Selection.Events.SELECTON_CHANGED,
+      Selection.Events.SELECTION_CHANGED,
       this.handleSelectionChanged.bind(this));
 };
 
@@ -231,7 +238,7 @@ Editor.prototype.init = function() {
 /**
  * Call to destroy the editor instance and cleanup dom and event listeners.
  */
-Editor.prototype.destroy = function () {
+Editor.prototype.destroy = function() {
   var name;
   for (name in this.toolbars) {
     if (this.toolbars[name].onDestroy) {
@@ -271,9 +278,11 @@ Editor.prototype.render = function() {
     this.element.removeChild(this.element.firstChild);
   }
   this.article.render(this.element, {editMode: true});
+  var firstLayout = /** @type {./layout} */ (this.article.sections[0]);
+  var firstSection = /** @type {./section} */ (firstLayout.getFirstComponent());
   this.selection.setCursor({
-    component: this.article.sections[0].getFirstComponent().getFirstComponent(),
-    offset: 0
+    component: firstSection.getFirstComponent(),
+    offset: 0,
   });
   this.dispatchEvent(new Event('change'));
 };
@@ -339,7 +348,7 @@ Editor.prototype.getSnippet = function(optWordCount) {
  * @param  {string} name Name of the toolbar.
  * @param  {Toolbar} toolbar Toolbar object.
  */
-Editor.prototype.registerToolbar = function (name, toolbar) {
+Editor.prototype.registerToolbar = function(name, toolbar) {
   this.toolbars[name] = toolbar;
 };
 
@@ -349,7 +358,7 @@ Editor.prototype.registerToolbar = function (name, toolbar) {
  * @param  {string} name Name of the toolbar.
  * @return {Toolbar} Toolbar object.
  */
-Editor.prototype.getToolbar = function (name) {
+Editor.prototype.getToolbar = function(name) {
   return this.toolbars[name];
 };
 
@@ -359,7 +368,7 @@ Editor.prototype.getToolbar = function (name) {
  * @param  {string} name Name of the function.
  * @return {Function} Class function for the component.
  */
-Editor.prototype.getModule = function (name) {
+Editor.prototype.getModule = function(name) {
   return this.installedModules[name];
 };
 
@@ -367,11 +376,11 @@ Editor.prototype.getModule = function (name) {
 /**
  * Registers a regex with the factory.
  * @param  {string} regex String regular expression to register for.
- * @param  {Function} factoryMethod Callback factory method for handling match.
+ * @param  {./defs.ComponentFactoryMethodDef} factoryMethod Callback factory method for handling match.
  * @param  {boolean=} optForce Forcing registering even when its already
  * registered.
  */
-Editor.prototype.registerRegex = function (regex, factoryMethod, optForce) {
+Editor.prototype.registerRegex = function(regex, factoryMethod, optForce) {
   this.componentFactory.registerRegex(regex, factoryMethod, optForce);
 };
 
@@ -559,10 +568,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     var lastLayout = article.getLastComponent();
     selection.select({
       component: firstLayout.getFirstComponent(),
-      offset: 0
+      offset: 0,
     }, {
       component: lastLayout.getLastComponent(),
-      offset: lastLayout.getLastComponent().getLength()
+      offset: lastLayout.getLastComponent().getLength(),
     });
     preventDefault = true;
   }
@@ -571,7 +580,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   // i.e. Enter, characters, space, backspace...etc
   else if (selection.isRange() && Utils.willTypeCharacter(event)) {
     var section = selection.getSectionAtStart();
-    if(section) {
+    if (section) {
       inBetweenComponents = section.getComponentsBetween(
           selection.getComponentAtStart(), selection.getComponentAtEnd());
     }
@@ -641,7 +650,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           // and don't insert a new paragraph.
           selection.setCursor({
             component: nextComponent,
-            offset: 0
+            offset: 0,
           });
         } else {
           var insertType = currentComponent.paragraphType;
@@ -649,7 +658,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           var atIndex = currentIndex - inBetweenComponents.length + 1;
           cursor = {
             component: currentComponent.name,
-            offset: selection.end.offset
+            offset: selection.end.offset,
           };
           if (insertType === Paragraph.Types.ListItem) {
             if (currentComponent.getLength() === 0) {
@@ -685,11 +694,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             // If next layout is not single-column create one and insert the new
             // paragraph into.
             if (!insertInSection ||
-                insertInSection.type !== Layout.Types.SingleColumn) {
+                (insertInSection instanceof Layout &&
+                 insertInSection.type !== Layout.Types.SingleColumn)) {
               insertInSection = new Layout({
                 type: Layout.Types.SingleColumn,
                 section: currentComponent.section.section,
-                components: []
+                components: [],
               });
               Utils.arrays.extend(
                   ops, insertInSection.getInsertOps(
@@ -699,7 +709,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
           newP = new Paragraph({
             section: insertInSection,
-            paragraphType: insertType
+            paragraphType: insertType,
           });
           Utils.arrays.extend(ops, newP.getInsertOps(atIndex, cursor));
         }
@@ -714,9 +724,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (!currentIsParagraph || !currentComponent.getLength()) {
         // Paragraph is empty or a non-text component. Delete it.
         this.handlePendingInputIfAny_();
-        cursor = null;
+        cursor = undefined;
         if (prevComponent) {
-          cursor = { offset: 0 };
+          cursor = {offset: 0};
           if (prevIsParagraph) {
             cursor.offset = prevComponent.getLength();
           }
@@ -724,7 +734,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         } else if (nextComponent) {
           cursor = {
             offset: 0,
-            component: nextComponent.name
+            component: nextComponent.name,
           };
         }
 
@@ -756,7 +766,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
         selection.setCursor({
           component: prevComponent,
-          offset: offsetAfterOperation
+          offset: offsetAfterOperation,
         });
 
         preventDefault = true;
@@ -771,16 +781,16 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     case 46:
       if (!currentIsParagraph) {
         this.handlePendingInputIfAny_();
-        cursor = null;
+        cursor = undefined;
         if (prevComponent) {
           cursor = {
             component: prevComponent.name,
-            offset: prevComponent.getLength()
+            offset: prevComponent.getLength(),
           };
         } else if (nextComponent) {
           cursor = {
             component: nextComponent.name,
-            offset: 0
+            offset: 0,
           };
         }
 
@@ -809,13 +819,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
           selection.setCursor({
             component: currentComponent,
-            offset: offsetAfterOperation
+            offset: offsetAfterOperation,
           });
         } else {
           this.handlePendingInputIfAny_();
           selection.setCursor({
             component: nextComponent,
-            offset: 0
+            offset: 0,
           });
         }
         preventDefault = true;
@@ -832,7 +842,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
         selection.setCursor({
           component: prevComponent,
-          offset: offset
+          offset: offset,
         });
         preventDefault = true;
       }
@@ -851,7 +861,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           }
           selection.setCursor({
             component: prevComponent,
-            offset: offset
+            offset: offset,
           });
           preventDefault = true;
         }
@@ -863,7 +873,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (selection.isCursorAtEnding() && nextComponent) {
         selection.setCursor({
           component: nextComponent,
-          offset: 0
+          offset: 0,
         });
         preventDefault = true;
       }
@@ -878,7 +888,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         offset = Math.min(nextComponent.getLength(), currentOffset);
         selection.setCursor({
           component: nextComponent,
-          offset: offset
+          offset: offset,
         });
         preventDefault = true;
       }
@@ -907,7 +917,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
 /**
  * Generates the operations needed to delete current selection.
- * @return {Array.<Object>} List of operations to delete selection.
+ * @return {Array<./defs.OperationDef>} List of operations to delete selection.
  */
 Editor.prototype.getDeleteSelectionOps = function() {
   var ops = [];
@@ -915,7 +925,7 @@ Editor.prototype.getDeleteSelectionOps = function() {
   var selection = this.article.selection;
   var section = selection.getSectionAtStart();
   var inBetweenComponents = [];
-  if(section) {
+  if (section) {
     inBetweenComponents = section.getComponentsBetween(
       selection.getComponentAtStart(), selection.getComponentAtEnd());
   }
@@ -948,7 +958,7 @@ Editor.prototype.getDeleteSelectionOps = function() {
       if ((startParagraphFormats && startParagraphFormats.length) ||
           selectRange) {
         Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-          formats: startParagraphFormats
+          formats: startParagraphFormats,
         }, selection.start.offset, selectRange));
       }
 
@@ -970,7 +980,7 @@ Editor.prototype.getDeleteSelectionOps = function() {
       }
 
       Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-        formats: endParagraphFormatting
+        formats: endParagraphFormatting,
       }, firstParagraphOldText.length - firstParagraphText.length));
     }
   } else {
@@ -982,7 +992,7 @@ Editor.prototype.getDeleteSelectionOps = function() {
         selection.start.offset, selection.end.offset);
 
     Utils.arrays.extend(ops, currentComponent.getUpdateOps({
-      formats: currentComponentFormats
+      formats: currentComponentFormats,
     }, selection.start.offset, count));
 
     Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
@@ -996,7 +1006,7 @@ Editor.prototype.getDeleteSelectionOps = function() {
 /**
  * Generates the operations needed to split a paragraph into two at the cursor.
  * @param  {number} indexOffset Offset to add to paragraphs index.
- * @return {Array.<Object>} List of operations to split the paragraph.
+ * @return {Array<./defs.OperationDef>} List of operations to split the paragraph.
  */
 Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   var ops = [];
@@ -1010,7 +1020,7 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
       selection.start.offset, currentComponent.text.length);
 
   Utils.arrays.extend(ops, currentComponent.getUpdateOps({
-    formats: afterCursorFormats
+    formats: afterCursorFormats,
   }, selection.start.offset));
 
   Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
@@ -1024,10 +1034,11 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
   }
 
   var newP = new Paragraph({
-      section: selection.getSectionAtEnd(),
-      text: afterCursorText,
-      formats: afterCursorShiftedFormats,
-      paragraphType: currentComponent.paragraphType
+    section: /** @type {./section} */ (selection.getSectionAtEnd()),
+    text: /** @type {string} */ (afterCursorText),
+    formats: /** @type {Array<./defs.FormattingActionDef>} */ (
+        afterCursorShiftedFormats),
+    paragraphType: /** @type {string} */ (currentComponent.paragraphType),
   });
   Utils.arrays.extend(
       ops, newP.getInsertOps(currentIndex + indexOffset + 1));
@@ -1043,7 +1054,7 @@ Editor.prototype.getSplitParagraphOps = function(indexOffset) {
  * @param  {Paragraph} firstP First Paragraph.
  * @param  {Paragraph} secondP Second Paragraph.
  * @param  {number} indexOffset Offset to add to paragraphs index.
- * @return {Array.<Object>} List of operations to merge the paragraphs.
+ * @return {Array<./defs.OperationDef>} List of operations to merge the paragraphs.
  */
 Editor.prototype.getMergeParagraphsOps = function(
     firstP, secondP, indexOffset) {
@@ -1063,7 +1074,7 @@ Editor.prototype.getMergeParagraphsOps = function(
   }
 
   Utils.arrays.extend(ops, firstP.getUpdateOps({
-    formats: secondPFormatting
+    formats: secondPFormatting,
   }, offsetAfterOperation));
 
   return ops;
@@ -1097,7 +1108,7 @@ Editor.prototype.handlePaste = function(event) {
   }
 
   var tempEl = document.createElement('div');
-  tempEl.innerHTML = pastedContent;
+  tempEl.innerHTML = pastedContent || '';
 
   if (startComponent.getPreviousComponent()) {
     startComponent = startComponent.getPreviousComponent();
@@ -1168,11 +1179,12 @@ Editor.prototype.getHTML = function() {
  * make it easier for people to customize or override this with
  * their own sanitizer.
  *
- * @param  {HTMLElement} element HTML Element to sanitize and create ops for.
- * @return {Array.<Object>} List of operations objects that represents the
+ * @param  {!Element} element HTML Element to sanitize and create ops for.
+ * @param {number=} opt_indexOffset
+ * @return {Array<./defs.OperationDef>} List of operations objects that represents the
  * the pasted content.
  */
-Editor.prototype.processPastedContent = function(element, indexOffset) {
+Editor.prototype.processPastedContent = function(element, opt_indexOffset) {
   var ops = [];
   var text, paragraphType, appendOperations, newP;
   var textPasted = Utils.getTextFromElement(element);
@@ -1182,15 +1194,16 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
   var currentComponent = selection.getComponentAtStart();
   var section = selection.getSectionAtStart();
   var startParagraphIndex = currentComponent.getIndexInSection();
-  var currentIndex = indexOffset || startParagraphIndex;
+  var currentIndex = /** @type {number} */ (
+      opt_indexOffset || startParagraphIndex);
   var cursor = {
     component: currentComponent.name,
-    offset: selection.end.offset
+    offset: selection.end.offset,
   };
 
   var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
-      'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
-      '#text', 'META'];
+    'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
+    '#text', 'META'];
 
   function hasOnlyInlineChildNodes(elem) {
     var children = elem.childNodes;
@@ -1200,7 +1213,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       } else if (children[i].childNodes) {
         var subChilds = children[i].childNodes;
         for (var k = 0; k < subChilds.length; k++) {
-          if (!isInlinePaste(subChilds) || !hasOnlyInlineChildNodes(subChilds[k])) {
+          if (!isInlinePaste(subChilds) ||
+              !hasOnlyInlineChildNodes(subChilds[k])) {
             return false;
           }
         }
@@ -1229,7 +1243,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     var lines = textPasted.split('\n');
     if (lines.length < 2) {
       // Text before and after pasting.
-      var textStart = currentComponent.text.substring(0, selection.start.offset);
+      var textStart = currentComponent.text.substring(
+          0, selection.start.offset);
 
       // Calculate cursor offset before pasting.
       var offsetBeforeOperation = textStart.length;
@@ -1242,8 +1257,8 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       for (var lineNum = 0; lineNum < lines.length; lineNum++) {
         if (lines[lineNum].trim().length > 0) {
           newP = new Paragraph({
-              section: section,
-              text: lines[lineNum]
+            section: section,
+            text: lines[lineNum],
           });
           Utils.arrays.extend(
               ops, newP.getInsertOps(currentIndex++, cursor));
@@ -1254,9 +1269,9 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
     text = Utils.getTextFromElement(element);
 
     newP = new Paragraph({
-        section: section,
-        text: text,
-        formats: FormattingExtension.generateFormatsForNode(element)
+      section: section,
+      text: text,
+      formats: FormattingExtension.generateFormatsForNode(element),
     });
     Utils.arrays.extend(
         ops, newP.getInsertOps(currentIndex++, cursor));
@@ -1268,11 +1283,11 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
       currentIndex++;
     }
     for (var i = 0; i < children.length; i++) {
-      var el = children[i];
+      var el = /** @type {Element} */ (children[i]);
       var tag = el.nodeName && el.nodeName.toLowerCase();
       switch (tag) {
         // These tags are currently unsupported for paste and are stripped out.
-        case undefined:
+        case 'undefined':
         case 'meta':
         case 'script':
         case 'style':
@@ -1287,17 +1302,17 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           }
           for (var j = 0; j < allImgs.length; j++) {
             component = new Figure({
-              src: allImgs[j].getAttribute('src')
+              src: allImgs[j].getAttribute('src'),
             });
             component.section = selection.getSectionAtEnd();
             Utils.arrays.extend(
-                ops, component.getInsertOps(currentIndex++), cursor);
+                ops, component.getInsertOps(currentIndex++, cursor));
           }
           paragraphType = null;
           break;
         case 'img':
           component = new Figure({
-            src: el.getAttribute('src')
+            src: el.getAttribute('src'),
           });
           component.section = selection.getSectionAtEnd();
           Utils.arrays.extend(
@@ -1316,7 +1331,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           }
           component = new List({
             tagName: tagName,
-            components: []
+            components: [],
           });
           component.section = selection.getSectionAtEnd();
           Utils.arrays.extend(
@@ -1324,7 +1339,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           for (j = 0; j < lis.length; j++) {
             newP = new Paragraph({
               paragraphType: Paragraph.Types.ListItem,
-              text: Utils.getTextFromElement(lis[j])
+              text: Utils.getTextFromElement(lis[j]),
             });
             newP.section = component;
             Utils.arrays.extend(
@@ -1356,7 +1371,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
           break;
         default:
           // To preserve inline styling.
-          if (hasOnlyInlineChildNodes(children[i])) {
+          if (hasOnlyInlineChildNodes(el)) {
             // TODO(mkhatib): This is here to preserve inline styling, which
             // is currently unsupported by the editor. Once this is added
             // change this to reflect that. Currently just add a non-styled
@@ -1369,8 +1384,7 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
             // TODO(mkhatib): This is very clumsy and not very readable, move
             // the recursive process to its own helper method and make it more
             // readable.
-            appendOperations = this.processPastedContent(
-                children[i], currentIndex);
+            appendOperations = this.processPastedContent(el, currentIndex);
 
             // Increase the currentIndex by the amount of paragraphs we've added
             // which is the amount of operations.
@@ -1386,10 +1400,10 @@ Editor.prototype.processPastedContent = function(element, indexOffset) {
         text = Utils.getTextFromElement(el);
 
         newP = new Paragraph({
-            section: section,
-            text: text,
-            paragraphType: paragraphType,
-            formats: FormattingExtension.generateFormatsForNode(el)
+          section: section,
+          text: text,
+          paragraphType: paragraphType,
+          formats: FormattingExtension.generateFormatsForNode(el),
         });
         Utils.arrays.extend(
             ops, newP.getInsertOps(currentIndex++, cursor));

@@ -4,13 +4,14 @@
 /**
  * Shortcut manager that manages the registeration and delivery of shortcuts
  * events triggered on the editor.
- * @param {Editor} editor The editor to manage the shortcuts for.
+ * @param {../editor} editor The editor to manage the shortcuts for.
+ * @constructor
  */
 var ShortcutsManager = function(editor) {
 
   /**
    * The editor to manage the shortcuts for.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = editor;
 
@@ -36,13 +37,13 @@ ShortcutsManager.META_KEYS = [16, 17, 91];
 /**
  * Generates a shortcut ID string for the keyboard event.
  * @param  {Event} event Keyboard event.
- * @return {string} Generated shortcut ID (e.g. cmd+shift+a).
+ * @return {string|null} Generated shortcut ID (e.g. cmd+shift+a).
  */
 ShortcutsManager.prototype.getShortcutId = function(event) {
   var keys = [];
   var keyCode = event.keyCode || event.which;
   if (ShortcutsManager.META_KEYS.indexOf(keyCode) !== -1) {
-    return false;
+    return null;
   }
 
   if (event.metaKey) {
@@ -78,7 +79,7 @@ ShortcutsManager.prototype.getShortcutId = function(event) {
  */
 ShortcutsManager.prototype.isShortcutEvent = function(event) {
   var keyCode = event.keyCode || event.which;
-  return ((event.metaKey || event.ctrlKey) && keyCode &&
+  return !!((event.metaKey || event.ctrlKey) && keyCode &&
           (ShortcutsManager.META_KEYS.indexOf(keyCode) === -1));
 };
 
@@ -122,7 +123,8 @@ ShortcutsManager.prototype.handleKeyDownEvent = function(event) {
 ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
   // If the shortcut already registered throw an error.
   if (this.registery[shortcutId] && !optForce) {
-    throw '"' + shortcutId + '" shortcut has already been registered.';
+    throw new Error(
+      '"' + shortcutId + '" shortcut has already been registered.');
   }
 
   this.registery[shortcutId] = handler;

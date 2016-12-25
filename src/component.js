@@ -5,15 +5,18 @@ var Errors = require('./errors');
 var Loader = require('./loader');
 var Selection = require('./selection');
 
+
 /**
  * Component main.
- * @param {Object} optParams Optional params to initialize the Component object.
+ * @param {Object=} opt_params Optional params to initialize the Component object.
  * Default:
  *   {
  *     name: Utils.getUID()
  *   }
+ * @constructor
+ * @abstract
  */
-var Component = function(optParams) {
+var Component = function(opt_params) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The editor this component belongs to.
@@ -25,12 +28,12 @@ var Component = function(optParams) {
     // Indicates if this component is an inline component.
     inline: false,
     // Points to the parent component if this component is encompased within it.
-    parentComponent: null
-  }, optParams);
+    parentComponent: null,
+  }, opt_params);
 
   /**
    * Editor this component is added it.
-   * @type {Editor}
+   * @type {./editor}
    */
   this.editor = params.editor;
 
@@ -43,7 +46,7 @@ var Component = function(optParams) {
 
   /**
    * If the component is contained within another this will point to the parent.
-   * @type {Component}
+   * @type {./component}
    */
   this.parentComponent = params.parentComponent;
 
@@ -55,13 +58,13 @@ var Component = function(optParams) {
 
   /**
    * Section this Component belongs to.
-   * @type {Section}
+   * @type {./section}
    */
   this.section = params.section;
 
   /**
    * Component DOM.
-   * @type {HTMLElement}
+   * @type {?Element}
    */
   this.dom = null;
 
@@ -80,7 +83,7 @@ var Component = function(optParams) {
 
   /**
    * Used to focus non-focusable elements (e.g. figure);
-   * @type {HTMLElement}
+   * @type {?Element}
    */
   this.selectionDom = null;
 
@@ -98,16 +101,24 @@ Loader.register(Component.CLASS_NAME, Component);
 
 /**
  * Called when the module is installed on in an editor.
- * @param  {Editor} editor Editor instance which installed the module.
+ * @param  {./editor} unusedEditor Editor instance which installed the module.
  */
-Component.onInstall = function (editor) {
-  // jshint unused: false
+Component.onInstall = function(unusedEditor) {
+};
+
+
+/**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Component.prototype.getComponentClassName = function() {
+  return Component.CLASS_NAME;
 };
 
 
 /**
  * Get the next Component if any.
- * @return {Component} Next sibling Component.
+ * @return {?Component} Next sibling Component.
  */
 Component.prototype.getNextComponent = function() {
   // If this is an inline component and it is included in another one.
@@ -124,17 +135,19 @@ Component.prototype.getNextComponent = function() {
       // the new component after this section.
       component = this.section.getNextComponent();
       if (component && component.components) {
-        return component.getFirstComponent();
+        return /** @type {./section} */ (component).getFirstComponent();
       }
     }
     return component;
   }
+
+  return null;
 };
 
 
 /**
  * Get the previous Component if any.
- * @return {Component} Previous sibling Component.
+ * @return {?Component} Previous sibling Component.
  */
 Component.prototype.getPreviousComponent = function() {
   if (this.section) {
@@ -143,11 +156,12 @@ Component.prototype.getPreviousComponent = function() {
     if (!component) {
       component = this.section.getPreviousComponent();
       if (component && component.components) {
-        return component.getLastComponent();
+        return /** @type {./section} */ (component).getLastComponent();
       }
     }
     return component;
   }
+  return null;
 };
 
 
@@ -183,24 +197,24 @@ Component.prototype.getIndexInSection = function() {
       return 0;
     }
   }
-  return null;
+  throw Error('Component is not in a section.');
 };
 
 
 /**
  * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
+ * @param  {!Element} element Element to render component in.
+ * @param  {Object=} opt_options Options for rendering.
  *   options.insertBefore - To render the component before another element.
  */
-Component.prototype.render = function(element, options) {
-  this.editMode = !!(options && options.editMode);
+Component.prototype.render = function(element, opt_options) {
+  this.editMode = !!(opt_options && opt_options.editMode);
   if (!this.isRendered && this.dom) {
     this.dom.setAttribute('carbon', '1');
     Utils.setReference(this.name, this);
     this.isRendered = true;
-    if (options && options.insertBefore) {
-      element.insertBefore(this.dom, options.insertBefore);
+    if (opt_options && opt_options.insertBefore) {
+      element.insertBefore(this.dom, opt_options.insertBefore);
     } else {
       element.appendChild(this.dom);
     }
@@ -210,77 +224,74 @@ Component.prototype.render = function(element, options) {
 
 /**
  * Returns the operations to execute a deletion of the component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
  * component for insertion point.
  */
-Component.prototype.getDeleteOps = function(optIndexOffset) {
-  // jshint unused:false
-  throw Errors.NotImplementedError('Component Must Implement getDeleteOps');
+Component.prototype.getDeleteOps = function(opt_indexOffset) {
+  throw new Errors.NotImplementedError('Component Must Implement getDeleteOps');
 };
 
 
 /**
  * Returns the operations to execute inserting a component.
- * @param {number} index Index to insert the component at.
+ * @param {number} unusedIndex Index to insert the component at.
  * on undoing operation for re-inserting.
  */
-Component.prototype.getInsertOps = function (index) {
-  // jshint unused:false
-  throw Errors.NotImplementedError('Component Must Implement getDeleteOps');
+Component.prototype.getInsertOps = function(unusedIndex) {
+  throw new Errors.NotImplementedError('Component Must Implement getDeleteOps');
 };
 
 
 /**
  * Returns the operations to execute inserting characters in a component.
- * @param {string} chars The characters to insert in a component.
- * @param  {number=} index Index to insert the characters at.
+ * @param {string} unusedChars The characters to insert in a paragraph.
+ * @param {number} unusedIndex Index to insert the characters at.
+ * @return {Array<./defs.OperationDef>} Operations for inserting characters in paragraph.
  */
-Component.prototype.getInsertCharsOps = function(chars, index) {
-  // jshint unused:false
-  throw Errors.NotImplementedError(
+Component.prototype.getInsertCharsOps = function(unusedChars, unusedIndex) {
+  throw new Errors.NotImplementedError(
       'Component Must Implement getInsertCharsOps');
 };
 
 
 /**
  * Returns the operations to execute removing characters in a component.
- * @param {string} chars The characters to remove in a component.
- * @param {number} index Index to remove the characters starting at.
- * @param {number=} optDirection The directions to remove chars at.
+ * @param {string} unusedChars The characters to remove in a component.
+ * @param {number} unusedIndex Index to remove the characters starting at.
+ * @param {number=} opt_direction The directions to remove chars at.
  */
-Component.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
-  // jshint unused:false
-  throw Errors.NotImplementedError(
+Component.prototype.getRemoveCharsOps = function(
+    unusedChars, unusedIndex, opt_direction) {
+  throw new Errors.NotImplementedError(
       'Component Must Implement getRemoveCharsOps');
 };
 
 
 /**
  * Returns the operations to execute updating a component attributes.
- * @param  {Object} attrs Attributes to update for the component.
- * @param  {number=} optCursorOffset Optional cursor offset.
- * @param  {number=} optSelectRange Optional selecting range.
+ * @param  {Object} unusedAttrs Attributes to update for the component.
+ * @param  {number=} opt_cursorOffset Optional cursor offset.
+ * @param  {number=} opt_selectRange Optional selecting range.
  */
 Component.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange) {
-  // jshint unused:false
-  throw Errors.NotImplementedError(
+    unusedAttrs, opt_cursorOffset, opt_selectRange) {
+  throw new Errors.NotImplementedError(
       'Component does not Implement getUpdateOps');
 };
 
 
 /**
  * Selects the component.
- * @param  {number} offset Selection offset.
+ * @param  {number=} opt_offset Selection offset.
  */
-Component.prototype.select = function(offset) {
+Component.prototype.select = function(opt_offset) {
   if (this.selectionDom) {
     this.selectionDom.focus();
   }
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,
-    offset: offset
+    offset: opt_offset || 0,
   });
 };
 
@@ -289,7 +300,7 @@ Component.prototype.select = function(offset) {
  * Returns the length of the component content.
  * @return {number} Length of the component content.
  */
-Component.prototype.getLength = function () {
+Component.prototype.getLength = function() {
   return 1;
 };
 
@@ -303,7 +314,7 @@ Component.prototype.getLength = function () {
  *
  * @return {number} Length of the component content in the DOM.
  */
-Component.prototype.getDomLength = function () {
+Component.prototype.getDomLength = function() {
   return this.getLength();
 };
 
@@ -312,7 +323,7 @@ Component.prototype.getDomLength = function () {
  * Whether the component should re-render itself or not.
  * @return {boolean}
  */
-Component.prototype.shouldRerender = function () {
+Component.prototype.shouldRerender = function() {
   return false;
 };
 
@@ -320,6 +331,6 @@ Component.prototype.shouldRerender = function () {
 /**
  * Ask the component to rerender itself.
  */
-Component.prototype.rerender = function () {
+Component.prototype.rerender = function() {
   // pass.
 };

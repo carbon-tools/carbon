@@ -8,35 +8,36 @@ var Button = require('../toolbars/button');
 /**
  * Toolbelt extension for the editor.
  *   Adds an extendable toolbar for components to add buttons to.
+ * @constructor
  */
-var Toolbelt = function () {
+var Toolbelt = function() {
 
   /**
    * The editor this toolbelt belongs to.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = null;
 
   /**
    * The toolbelt toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbar = null;
 
   /**
    * The editor's block toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.blockToolbar = null;
 
   /**
    * The insert button to show the toolbelt when clicked.
-   * @type {Toolbar}
+   * @type {!../toolbars/button}
    */
-  this.insertButton = new Button({ label: '+' });
+  this.insertButton = new Button({label: '+'});
   this.insertButton.setVisible(false);
   this.insertButton.addEventListener(
-      'click', this.handleInsertClick.bind(this));
+      'click', this.handleInsertClick.bind(this), false);
 };
 module.exports = Toolbelt;
 
@@ -50,7 +51,7 @@ Toolbelt.CLASS_NAME = 'Toolbelt';
 
 /**
  * Initializes the toolbelt extensions.
- * @param  {Editor} editor Editor instance this installed on.
+ * @param  {../editor} editor Editor instance this installed on.
  */
 Toolbelt.onInstall = function(editor) {
   var toolbeltExtension = new Toolbelt();
@@ -68,7 +69,7 @@ Toolbelt.onDestroy = function() {
 
 /**
  * Initiates the toolbelt extension.
- * @param  {Editor} editor The editor to initialize the extension for.
+ * @param  {../editor} editor The editor to initialize the extension for.
  */
 Toolbelt.prototype.init = function(editor) {
   this.editor = editor;
@@ -79,10 +80,10 @@ Toolbelt.prototype.init = function(editor) {
   this.toolbar = new Toolbar({
     name: Toolbelt.TOOLBELT_TOOLBAR_NAME,
     classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME],
-    rtl: this.editor.rtl
+    rtl: this.editor.rtl,
   });
   this.toolbar.addEventListener(
-      'button-added', this.handleButtonAdded.bind(this));
+      'button-added', this.handleButtonAdded.bind(this), false);
 
   // Register the toolbelt toolbar with the editor.
   this.editor.registerToolbar(Toolbelt.TOOLBELT_TOOLBAR_NAME, this.toolbar);
@@ -90,7 +91,7 @@ Toolbelt.prototype.init = function(editor) {
   // Listen to selection changes.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this));
+      this.handleSelectionChangedEvent.bind(this), false);
 };
 
 
@@ -135,6 +136,6 @@ Toolbelt.prototype.handleSelectionChangedEvent = function() {
 /**
  * Handles new button added to toolbelt to show the insert button.
  */
-Toolbelt.prototype.handleButtonAdded = function () {
+Toolbelt.prototype.handleButtonAdded = function() {
   this.insertButton.setVisible(true);
 };

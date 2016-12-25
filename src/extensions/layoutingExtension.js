@@ -15,18 +15,19 @@ var GiphyComponent = require('./giphyComponent');
 /**
  * LayoutingExtension extension for the editor.
  *   Adds an extendable toolbar for components to add buttons to.
+ * @constructor
  */
-var LayoutingExtension = function () {
+var LayoutingExtension = function() {
 
   /**
    * The editor this toolbelt belongs to.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = null;
 
   /**
    * The layouting toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbar = null;
 
@@ -43,7 +44,7 @@ LayoutingExtension.CLASS_NAME = 'LayoutingExtension';
 
 /**
  * Initializes the toolbelt extensions.
- * @param  {Editor} editor Editor instance this installed on.
+ * @param  {../editor} editor Editor instance this installed on.
  */
 LayoutingExtension.onInstall = function(editor) {
   var toolbeltExtension = new LayoutingExtension();
@@ -55,13 +56,13 @@ LayoutingExtension.onInstall = function(editor) {
  * Call to destroy instance and cleanup dom and event listeners.
  */
 LayoutingExtension.onDestroy = function() {
-  // pass
+  // pass.
 };
 
 
 /**
  * Initiates the toolbelt extension.
- * @param  {Editor} editor The editor to initialize the extension for.
+ * @param  {../editor} editor The editor to initialize the extension for.
  */
 LayoutingExtension.prototype.init = function(editor) {
   this.editor = editor;
@@ -70,7 +71,7 @@ LayoutingExtension.prototype.init = function(editor) {
   this.toolbar = new Toolbar({
     name: LayoutingExtension.TOOLBAR_NAME,
     classNames: [LayoutingExtension.TOOLBAR_CLASS_NAME],
-    rtl: this.editor.rtl
+    rtl: this.editor.rtl,
   });
 
   // TODO(mkhatib): Use Icons for buttons here.
@@ -78,23 +79,23 @@ LayoutingExtension.prototype.init = function(editor) {
   var buttons = [{
     label: I18n.get('button.layout.single'),
     icon: I18n.get('button.layout.icon.single'),
-    name: 'layout-single-column'
+    name: 'layout-single-column',
   }, {
     label: I18n.get('button.layout.bleed'),
     icon: I18n.get('button.layout.icon.bleed'),
-    name: 'layout-bleed'
+    name: 'layout-bleed',
   }, {
     label: I18n.get('button.layout.staged'),
     icon: I18n.get('button.layout.icon.staged'),
-    name: 'layout-staged'
+    name: 'layout-staged',
   }, {
     label: I18n.get('button.layout.left'),
     icon: I18n.get('button.layout.icon.left'),
-    name: 'layout-float-left'
+    name: 'layout-float-left',
   }, {
     label: I18n.get('button.layout.right'),
     icon: I18n.get('button.layout.icon.right'),
-    name: 'layout-float-right'
+    name: 'layout-float-right',
   }];
 
   for (var i = 0; i < buttons.length; i++) {
@@ -102,10 +103,12 @@ LayoutingExtension.prototype.init = function(editor) {
       label: buttons[i].label,
       name: buttons[i].name,
       icon: buttons[i].icon,
-      data: { name: buttons[i].name }
+      data: {
+        name: buttons[i].name,
+      },
     });
     button.addEventListener(
-        'click', this.handleLayoutButtonClick.bind(this));
+        'click', this.handleLayoutButtonClick.bind(this), false);
     this.toolbar.addButton(button);
   }
 
@@ -115,7 +118,7 @@ LayoutingExtension.prototype.init = function(editor) {
   // Listen to selection changes.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this));
+      this.handleSelectionChangedEvent.bind(this), false);
 };
 
 
@@ -149,7 +152,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
     this.toolbar.setActiveButton(e.detail.target);
-    var currentLayout = selectedComponent.section;
+    var currentLayout = /** @type {../layout} */ (selectedComponent.section);
     var clickedLayout = e.detail.target.name;
     var componentIndexInLayout = selectedComponent.getIndexInSection();
     var isComponentAtStartOfLayout = componentIndexInLayout === 0;
@@ -160,7 +163,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
       // the layout type.
       if (currentLayout.getLength() === 1) {
         Utils.arrays.extend(ops, currentLayout.getUpdateOps({
-          type: clickedLayout
+          type: clickedLayout,
         }));
       }
 
@@ -175,7 +178,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
         newLayout = new Layout({
           type: clickedLayout,
           section: currentLayout.section,
-          components: []
+          components: [],
         });
         Utils.arrays.extend(ops, newLayout.getInsertOps(insertLayoutAtIndex));
         Utils.arrays.extend(ops, selectedComponent.getDeleteOps());
@@ -192,7 +195,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
         newLayout = new Layout({
           type: clickedLayout,
           section: currentLayout.section,
-          components: []
+          components: [],
         });
 
         Utils.arrays.extend(
@@ -222,21 +225,16 @@ LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
-    var activeLayout = selectedComponent.section.type;
+    var activeLayout = /** @type {../layout} */ (
+        selectedComponent.section).type;
     var activeLayoutButton = this.toolbar.getButtonByName(activeLayout);
-    this.toolbar.setActiveButton(activeLayoutButton);
+    if (activeLayoutButton) {
+      this.toolbar.setActiveButton(activeLayoutButton);
+    }
 
     this.toolbar.setPositionToTopOf(selectedComponent.dom);
     this.toolbar.setVisible(true);
   } else {
     this.toolbar.setVisible(false);
   }
-};
-
-
-/**
- * Handles new button added to toolbelt to show the insert button.
- */
-LayoutingExtension.prototype.handleButtonAdded = function () {
-  this.insertButton.setVisible(true);
 };

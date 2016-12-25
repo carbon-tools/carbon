@@ -7,24 +7,33 @@ var Loader = require('./loader');
 
 
 /**
+ * @typedef {{
+ *   tagName: (string|undefined),
+ *   components: (Array<!./component>|undefined),
+ * }}
+ */
+var SectionParamsDef;
+
+
+/**
  * Section main.
- * @param {Object} optParams Optional params to initialize the Section object.
+ * @param {SectionParamsDef=} opt_params Optional params to initialize the Section object.
  * Default:
  *   {
  *     components: [],
  *     backgorund: {},
  *     name: Utils.getUID()
  *   }
+ * @extends {./component}
+ * @constructor
  */
-var Section = function(optParams) {
+var Section = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {SectionParamsDef} */ (Utils.extend({
     tagName: Section.TAG_NAME,
     // The components that is in this section.
     components: [],
-    // The background of this section.
-    background: {}
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -32,27 +41,21 @@ var Section = function(optParams) {
    * Tag to use for the dom element for the section.
    * @type {string}
    */
-  this.tagName = params.tagName;
-
-  /**
-   * Background settings
-   * @type {Object}
-   */
-  this.background = params.background;
+  this.tagName = /** @type {string} */ (params.tagName);
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(this.tagName);
   this.dom.setAttribute('name', this.name);
 
   /**
    * The section components.
-   * @type {Array.<Component>}
+   * @type {Array<Component>}
    */
   this.components = [];
-  for (var i = 0; i < params.components.length; i++) {
+  for (var i = 0; i < (params.components || []).length; i++) {
     this.insertComponentAt(params.components[i], i);
   }
 };
@@ -62,7 +65,8 @@ module.exports = Section;
 
 /**
  * Element Tag name when creating the associated DOM element.
- * @type {String}
+ * @type {string}
+ * @const
  */
 Section.TAG_NAME = 'section';
 
@@ -70,6 +74,7 @@ Section.TAG_NAME = 'section';
 /**
  * String name for the component class.
  * @type {string}
+ * @const
  */
 Section.CLASS_NAME = 'Section';
 Loader.register(Section.CLASS_NAME, Section);
@@ -77,10 +82,10 @@ Loader.register(Section.CLASS_NAME, Section);
 
 /**
  * Create and initiate an Article object from JSON.
- * @param  {Object} json JSON representation of the article.
+ * @param  {./defs.ArticleJsonDef} json JSON representation of the article.
  * @return {Section} Section object representing the JSON data.
  */
-Section.fromJSON = function (json) {
+Section.fromJSON = function(json) {
   var components = [];
   for (var i = 0; i < json.components.length; i++) {
     var className = json.components[i].component;
@@ -90,7 +95,7 @@ Section.fromJSON = function (json) {
 
   return new Section({
     name: json.name,
-    components: components
+    components: components,
   });
 };
 
@@ -106,9 +111,9 @@ Section.prototype.getComponentClassName = function() {
 
 /**
  * Inserts a component in the section.
- * @param  {Component} component Component to insert.
+ * @param  {./component} component Component to insert.
  * @param  {number} index Where to insert the component.
- * @return {Component} The inserted component.
+ * @return {./component} The inserted component.
  */
 Section.prototype.insertComponentAt = function(component, index) {
   // Update component section reference to point to this section.
@@ -125,13 +130,13 @@ Section.prototype.insertComponentAt = function(component, index) {
       // Otherwise insert it before the next component.
       component.render(this.dom, {
         insertBefore: nextComponent.dom,
-        editMode: this.editMode
+        editMode: this.editMode,
       });
     }
     // Set the cursor to the new component.
     Selection.getInstance().setCursor({
       component: component,
-      offset: 0
+      offset: 0,
     });
   }
 
@@ -142,12 +147,13 @@ Section.prototype.insertComponentAt = function(component, index) {
 
 /**
  * Removes a component from a section.
- * @param  {Component} component To remove from section.
- * @return {Component} Removed component.
+ * @param  {!./component} component To remove from section.
+ * @return {!./component} Removed component.
  */
 Section.prototype.removeComponent = function(component) {
   var index = this.components.indexOf(component);
-  var removedComponent = this.components.splice(index, 1)[0];
+  var removedComponent = /** @type {./component} */ (
+      this.components.splice(index, 1)[0]);
   try {
     this.dom.removeChild(removedComponent.dom);
   } catch (e) {
@@ -163,27 +169,30 @@ Section.prototype.removeComponent = function(component) {
 
 
 /**
- * Returns first component in the section.
- * @return {Component} Returns first component.
+ * Returns first layout in the section.
+ * @return {./layout} Returns first layout.
  */
 Section.prototype.getFirstComponent = function() {
-  return this.components[0];
+  // TODO(mkhatib): This probably needs refactoring and we shouldn't hardcode
+  // the fact that sections need layouts inside of them. Maybe. Think some more
+  // about this.
+  return /** @type {./layout} */ (this.components[0]);
 };
 
 
 /**
- * Returns last component in the section.
- * @return {Component} Returns last component.
+ * Returns last layout in the section.
+ * @return {./layout} Returns last layout.
  */
 Section.prototype.getLastComponent = function() {
-  return this.components[this.components.length - 1];
+  return /** @type {./layout} */ (this.components[this.components.length - 1]);
 };
 
 
 /**
  * Returns components from a section between two components (exclusive).
- * @param  {Component} startComponent Starting component.
- * @param  {Component} endComponent Ending component.
+ * @param  {./component} startComponent Starting component.
+ * @param  {./component} endComponent Ending component.
  */
 Section.prototype.getComponentsBetween = function(
     startComponent, endComponent) {
@@ -239,7 +248,7 @@ Section.prototype.getJSONModel = function() {
   var section = {
     name: this.name,
     component: Section.CLASS_NAME,
-    components: []
+    components: [],
   };
 
   for (var i = 0; i < this.components.length; i++) {
@@ -265,9 +274,9 @@ Section.prototype.getLength = function() {
 
 /**
  * Called when the module is installed on in an editor.
- * @param  {Editor} editor Editor instance which installed the module.
+ * @param  {./editor} unusedEditor Editor instance which installed the module.
  */
-Section.onInstall = function (editor) {
+Section.onInstall = function(unusedEditor) {
   // jshint unused: false
 };
 
@@ -275,7 +284,7 @@ Section.onInstall = function (editor) {
 /**
  * Gets the component with the passed name.
  * @param  {string} name Name of the component.
- * @return {Component}
+ * @return {?Component}
  */
 Section.prototype.getComponentByName = function(name) {
   for (var i = 0; i < this.components.length; i++) {
@@ -283,4 +292,5 @@ Section.prototype.getComponentByName = function(name) {
       return this.components[i];
     }
   }
+  return null;
 };
