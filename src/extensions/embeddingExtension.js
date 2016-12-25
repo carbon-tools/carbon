@@ -10,19 +10,19 @@ var I18n = require('../i18n');
 /**
  * EmbeddingExtension allows embedding different kind of components using
  * different providers.
- * @param {Object} optParams Config params.
+ * @param {Object=} opt_params Config params.
  * @constructor
  */
-var EmbeddingExtension = function (optParams) {
+var EmbeddingExtension = function(opt_params) {
   var params = Utils.extend({
     editor: null,
     embedProviders: null,
-    ComponentClass: null
-  }, optParams);
+    ComponentClass: null,
+  }, opt_params);
 
   /**
    * A reference to the editor this extension is enabled in.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = params.editor;
 
@@ -34,7 +34,7 @@ var EmbeddingExtension = function (optParams) {
 
   /**
    * The component class to use for embedding.
-   * @type {Component}
+   * @type {function(new:./embeddedComponent, Object=)}
    */
   this.ComponentClass = params.ComponentClass;
 };
@@ -57,20 +57,20 @@ EmbeddingExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Instantiate an instance of the extension and configure it.
- * @param  {Editor} editor Instance of the editor installing this extension.
+ * @param  {../editor} editor Instance of the editor installing this extension.
  * @param  {Object} config Configuration for the extension.
  * @static
  */
-EmbeddingExtension.onInstall = function (editor, config) {
-  if (!config.embedProviders || ! config.ComponentClass) {
-    throw Errors.ConfigrationError(
+EmbeddingExtension.onInstall = function(editor, config) {
+  if (!config.embedProviders || !config.ComponentClass) {
+    throw new Errors.ConfigrationError(
         'EmbeddingExtension needs "embedProviders" and "ComponentClass"');
   }
 
   var extension = new EmbeddingExtension({
     embedProviders: config.embedProviders,
     ComponentClass: config.ComponentClass,
-    editor: editor
+    editor: editor,
   });
 
   // Register the embedProviders with the loader to allow components to
@@ -89,7 +89,7 @@ EmbeddingExtension.prototype.init = function() {
   /**
    * Callback wrapper to allow passing provider for the callback.
    * @param  {string} provider Provider name.
-   * @return {Function} Regex match handler.
+   * @return {../defs.ComponentFactoryMethodDef} Regex match handler.
    */
   var handleRegexMatchProvider = function(provider) {
     return function(matchedComponent, opsCallback) {
@@ -110,33 +110,35 @@ EmbeddingExtension.prototype.init = function() {
   var toolbeltButtons = [{
     label: I18n.get('button.video'),
     icon: I18n.get('button.icon.video'),
-    placeholder: I18n.get('placeholder.video')
+    placeholder: I18n.get('placeholder.video'),
   }, {
     label: I18n.get('button.photo'),
     icon: I18n.get('button.icon.photo'),
-    placeholder: I18n.get('placeholder.photo')
+    placeholder: I18n.get('placeholder.photo'),
   }, {
     label: I18n.get('button.post'),
     icon: I18n.get('button.icon.post'),
-    placeholder: I18n.get('placeholder.post')
+    placeholder: I18n.get('placeholder.post'),
   }, {
     label: I18n.get('button.gif'),
     icon: I18n.get('button.icon.gif'),
-    placeholder: I18n.get('placeholder.gif')
+    placeholder: I18n.get('placeholder.gif'),
   }, {
     label: I18n.get('button.quiz'),
     icon: I18n.get('button.icon.quiz'),
-    placeholder: I18n.get('placeholder.quiz')
+    placeholder: I18n.get('placeholder.quiz'),
   }];
 
   for (var i = 0; i < toolbeltButtons.length; i++) {
     var insertVideoButton = new Button({
       label: toolbeltButtons[i].label,
       icon: toolbeltButtons[i].icon,
-      data: { placeholder: toolbeltButtons[i].placeholder }
+      data: {
+        placeholder: toolbeltButtons[i].placeholder,
+      },
     });
     insertVideoButton.addEventListener(
-        'click', this.handleInsertClicked.bind(this));
+        'click', this.handleInsertClicked.bind(this), false);
     this.toolbelt.addButton(insertVideoButton);
   }
 };
@@ -147,7 +149,7 @@ EmbeddingExtension.prototype.handleInsertClicked = function(event) {
   var placeholder = button.data.placeholder;
   var newP = new Paragraph({
     placeholderText: placeholder,
-    section: this.editor.selection.getSectionAtStart()
+    section: this.editor.selection.getSectionAtStart(),
   });
 
   var index = this.editor.selection.getComponentAtStart().getIndexInSection();
@@ -158,8 +160,8 @@ EmbeddingExtension.prototype.handleInsertClicked = function(event) {
 
 /**
  * Handles regex match by instantiating a component.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  * @param  {string} provider Embed provider name.
  */
 EmbeddingExtension.prototype.handleRegexMatch = function(
@@ -168,7 +170,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   var ops = [];
   var embeddedComponent = new this.ComponentClass({
     url: matchedComponent.text,
-    provider: provider
+    provider: provider,
   });
   embeddedComponent.section = matchedComponent.section;
 

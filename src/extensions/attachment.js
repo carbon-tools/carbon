@@ -7,17 +7,18 @@ var Selection = require('../selection');
 /**
  * Allow for updating attributes in history and in the component for
  * uploading files and media.
- * @param {Object=} optParams Optional Parameters.
+ * @param {Object=} opt_params Optional Parameters.
+ * @constructor
  */
-var Attachment = function (optParams) {
+var Attachment = function(opt_params) {
   var params = Utils.extend({
     file: null,
     dataUri: null,
     // TODO(mkhatib): Make this general for any kind of component
     // (e.g. video, pdf...etc)
     figure: null,
-    insertedOps: null
-  }, optParams);
+    insertedOps: null,
+  }, opt_params);
 
   /**
    * The file that was picked by the user.
@@ -34,13 +35,13 @@ var Attachment = function (optParams) {
 
   /**
    * Figure inserted for this attachment.
-   * @type {Figure}
+   * @type {../figure}
    */
   this.figure = params.figure;
 
   /**
    * Operations used to insert the component.
-   * @type {Array.<Object>}
+   * @type {Array<../defs.OperationDef>}
    */
   this.insertedOps = params.insertedOps;
 

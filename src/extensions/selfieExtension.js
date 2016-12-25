@@ -9,14 +9,15 @@ var I18n = require('../i18n');
 
 /**
  * Allows users to take selfies and insert them into the article.
- * @param {Object=} optParams Optional parameters.
+ * @param {Object=} opt_params Optional parameters.
+ * @constructor
  */
-var SelfieExtension = function(optParams) {
+var SelfieExtension = function(opt_params) {
 
   var params = Utils.extend({
     // TODO(mkhatib): Add config params for size and shutter sound.
     editor: null,
-  }, optParams);
+  }, opt_params);
 
   // Create offscreen canvas to use as video buffer from the webcam.
   // TODO(mkhatib): Maybe actually insert it as a Figure when /selfie
@@ -33,26 +34,26 @@ var SelfieExtension = function(optParams) {
 
   /* jshint ignore:start */
   Webcam.set({
-    width: 320,
-    height: 240,
-    dest_width: 1280,
-    dest_height: 720,
-    crop_width: 1280,
-    crop_height: 720,
-    image_format: 'jpeg',
-    jpeg_quality: 90
+    'width': 320,
+    'height': 240,
+    'dest_width': 1280,
+    'dest_height': 720,
+    'crop_width': 1280,
+    'crop_height': 720,
+    'image_format': 'jpeg',
+    'jpeg_quality': 90,
   });
   /* jshint ignore:end */
 
   /**
    * Editor instance this extension was installed on.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = params.editor;
 
   /**
    * Toolbelt toolbar instance.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbelt = this.editor.getToolbar(SelfieExtension.TOOLBELT_TOOLBAR_NAME);
 
@@ -83,7 +84,7 @@ SelfieExtension.COMMAND_REGEX = '^\\+selfie$';
 
 /**
  * Event to fire when the selfie is taken.
- * @type {String}
+ * @type {string}
  */
 SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
@@ -97,9 +98,9 @@ SelfieExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Initiate an extension instance.
- * @param  {Editor} editor Editor installing this extension.
+ * @param  {../editor} editor Editor installing this extension.
  */
-SelfieExtension.onInstall = function (editor) {
+SelfieExtension.onInstall = function(editor) {
   if (!Webcam) {
     console.error('SelfieExtension depends on Webcam.js being loaded. Make' +
       ' sure to include it in your app.');
@@ -107,7 +108,7 @@ SelfieExtension.onInstall = function (editor) {
   }
 
   var extension = new SelfieExtension({
-    editor: editor
+    editor: editor,
   });
   extension.init();
 };
@@ -123,9 +124,10 @@ SelfieExtension.prototype.init = function() {
 
   var selfieButton = new Button({
     label: I18n.get('button.selfie'),
-    icon: I18n.get('button.icon.selfie')
+    icon: I18n.get('button.icon.selfie'),
   });
-  selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
+  selfieButton.addEventListener(
+      'click', this.handleInsertClicked.bind(this), false);
   this.toolbelt.addButton(selfieButton);
 };
 
@@ -133,14 +135,14 @@ SelfieExtension.prototype.init = function() {
 /**
  * Takes a selfie from the webcam and make a callback with the operations
  * to execute to insert it.
- * @param  {Function} opsCallback Callback to call with the operations to insert
+ * @param  {function(Array<../defs.OperationDef>)} opsCallback Callback to call with the operations to insert
  * the selfie.
  */
 SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
   var that = this;
   var ops = [];
   Webcam.attach('#' + SelfieExtension.CAM_PREVIEW_ELEMENT_ID);
-  Webcam.on('live', function () {
+  Webcam.on('live', function() {
     setTimeout(function() {
       Webcam.snap(function(dataUri) {
         var selection = that.editor.article.selection;
@@ -163,15 +165,15 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
           dataUri: dataUri,
           figure: selection.getSectionAtStart().getComponentByName(figure.name),
           editor: that.editor,
-          insertedOps: insertFigureOps
+          insertedOps: insertFigureOps,
         });
 
         // Dispatch an attachment added event to allow clients to upload the
         // file.
         var newEvent = new CustomEvent(
           SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME, {
-            detail: { attachment: attachment }
-        });
+            detail: {attachment: attachment},
+          });
         that.editor.dispatchEvent(newEvent);
       });
 
@@ -184,8 +186,8 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
 
 /**
  * Handles regex match by instantiating a component.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
 SelfieExtension.prototype.handleMatchedRegex = function(
     matchedComponent, opsCallback) {

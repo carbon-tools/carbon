@@ -6,7 +6,7 @@ var Loader = require('../loader');
 
 /**
  * YouTubeComponent main.
- * @param {Object} optParams Optional params to initialize the object.
+ * @param {Object=} opt_params Optional params to initialize the object.
  * Default:
  *   {
  *     src: '',
@@ -15,8 +15,10 @@ var Loader = require('../loader');
  *     height: '360px',
  *     name: Utils.getUID()
  *   }
+ * @extends {./iframeComponent}
+ * @constructor
  */
-var YouTubeComponent = function(optParams) {
+var YouTubeComponent = function(opt_params) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     src: '',
@@ -25,7 +27,7 @@ var YouTubeComponent = function(optParams) {
     // TODO(mkhatib): Implement and auto-height mode where it can calculate
     // the best ratio for the player.
     height: '360px',
-  }, optParams);
+  }, opt_params);
 
   IFrameComponent.call(this, params);
 };
@@ -43,12 +45,12 @@ Loader.register(YouTubeComponent.CLASS_NAME, YouTubeComponent);
 
 /**
  * Regex strings list that for matching YouTube URLs.
- * @type {Array.<string>}
+ * @type {Array<string>}
  */
 YouTubeComponent.YOUTUBE_URL_REGEXS = [
-    '(?:https?://(?:www\.)?youtube\.com\/(?:[^\/]+/.+/|' +
+  '(?:https?://(?:www\.)?youtube\.com\/(?:[^\/]+/.+/|' +
     '(?:v|e(?:mbed)?)/|.*[?&]v=)|' +
-    'youtu\.be/)([^"&?/ ]{11})'
+    'youtu\.be/)([^"&?/ ]{11})',
 ];
 
 
@@ -66,14 +68,14 @@ YouTubeComponent.prototype.getComponentClassName = function() {
  * @param  {Object} json JSON representation of the youtube.
  * @return {YouTubeComponent} YouTubeComponent object representing JSON data.
  */
-YouTubeComponent.fromJSON = function (json) {
+YouTubeComponent.fromJSON = function(json) {
   return new YouTubeComponent(json);
 };
 
 
 /**
  * Handles onInstall when the YouTubeComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {../editor} editor Instance of the editor that installed the module.
  */
 YouTubeComponent.onInstall = function(editor) {
   YouTubeComponent.registerRegexes_(editor);
@@ -84,7 +86,7 @@ YouTubeComponent.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create YouTube component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
+ * @param  {../editor} editor The editor to register regexes with.
  * @private
  */
 YouTubeComponent.registerRegexes_ = function(editor) {
@@ -101,7 +103,7 @@ YouTubeComponent.registerRegexes_ = function(editor) {
  * @param  {string} link YouTube video URL.
  * @return {YouTubeComponent} YouTubeComponent component created from the link.
  */
-YouTubeComponent.createYouTubeComponentFromLink = function (link, attrs) {
+YouTubeComponent.createYouTubeComponentFromLink = function(link, attrs) {
   var src = link;
   for (var i = 0; i < YouTubeComponent.YOUTUBE_URL_REGEXS.length; i++) {
     var regex = new RegExp(YouTubeComponent.YOUTUBE_URL_REGEXS);
@@ -117,10 +119,10 @@ YouTubeComponent.createYouTubeComponentFromLink = function (link, attrs) {
 
 /**
  * Creates a YouTube video component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+YouTubeComponent.handleMatchedRegex = function(matchedComponent, opsCallback) {
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
   var ytComponent = YouTubeComponent.createYouTubeComponentFromLink(
@@ -142,7 +144,7 @@ YouTubeComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
  * @param  {string} id YouTube video ID.
  * @return {string} Embed src URL.
  */
-YouTubeComponent.createEmbedSrcFromId = function (id) {
+YouTubeComponent.createEmbedSrcFromId = function(id) {
   return 'https://www.youtube.com/embed/' + id +
     '?rel=0&amp;showinfo=0&amp;iv_load_policy=3';
 };
@@ -152,6 +154,6 @@ YouTubeComponent.createEmbedSrcFromId = function (id) {
  * Returns the length of the youtube component content.
  * @return {number} Length of the youtube component content.
  */
-YouTubeComponent.prototype.getLength = function () {
+YouTubeComponent.prototype.getLength = function() {
   return 1;
 };

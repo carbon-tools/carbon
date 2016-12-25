@@ -6,7 +6,7 @@ var Loader = require('../loader');
 
 /**
  * VimeoComponent main.
- * @param {Object} optParams Optional params to initialize the object.
+ * @param {Object=} opt_params Optional params to initialize the object.
  * Default:
  *   {
  *     src: '',
@@ -15,8 +15,10 @@ var Loader = require('../loader');
  *     height: '360px',
  *     name: Utils.getUID()
  *   }
+ * @extends {./iframeComponent}
+ * @constructor
  */
-var VimeoComponent = function(optParams) {
+var VimeoComponent = function(opt_params) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     src: '',
@@ -25,7 +27,7 @@ var VimeoComponent = function(optParams) {
     // TODO(mkhatib): Implement and auto-height mode where it can calculate
     // the best ratio for the player.
     height: '380px',
-  }, optParams);
+  }, opt_params);
 
   IFrameComponent.call(this, params);
 };
@@ -42,10 +44,10 @@ Loader.register(VimeoComponent.CLASS_NAME, VimeoComponent);
 
 /**
  * Regex strings list that for matching Vimeo URLs.
- * @type {Array.<string>}
+ * @type {Array<string>}
  */
 VimeoComponent.VIMEO_URL_REGEXS = [
-    '^http(?:s?):\/\/(?:www\.)?vimeo\.com\/([0-9]+)'
+  '^http(?:s?):\/\/(?:www\.)?vimeo\.com\/([0-9]+)',
 ];
 
 
@@ -63,14 +65,14 @@ VimeoComponent.prototype.getComponentClassName = function() {
  * @param  {Object} json JSON representation of the youtube.
  * @return {VimeoComponent} VimeoComponent object representing JSON data.
  */
-VimeoComponent.fromJSON = function (json) {
+VimeoComponent.fromJSON = function(json) {
   return new VimeoComponent(json);
 };
 
 
 /**
  * Handles onInstall when the VimeoComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {../editor} editor Instance of the editor that installed the module.
  */
 VimeoComponent.onInstall = function(editor) {
   VimeoComponent.registerRegexes_(editor);
@@ -81,7 +83,7 @@ VimeoComponent.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create Vimeo component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
+ * @param  {../editor} editor The editor to register regexes with.
  * @private
  */
 VimeoComponent.registerRegexes_ = function(editor) {
@@ -98,7 +100,7 @@ VimeoComponent.registerRegexes_ = function(editor) {
  * @param  {string} link Vimeo video URL.
  * @return {VimeoComponent} VimeoComponent component created from the link.
  */
-VimeoComponent.createVimeoComponentFromLink = function (link, attrs) {
+VimeoComponent.createVimeoComponentFromLink = function(link, attrs) {
   var src = link;
   for (var i = 0; i < VimeoComponent.VIMEO_URL_REGEXS.length; i++) {
     var regex = new RegExp(VimeoComponent.VIMEO_URL_REGEXS);
@@ -114,10 +116,10 @@ VimeoComponent.createVimeoComponentFromLink = function (link, attrs) {
 
 /**
  * Creates a Vimeo video component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-VimeoComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+VimeoComponent.handleMatchedRegex = function(matchedComponent, opsCallback) {
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
   var ytComponent = VimeoComponent.createVimeoComponentFromLink(
@@ -139,7 +141,7 @@ VimeoComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
  * @param  {string} id Vimeo video ID.
  * @return {string} Embed src URL.
  */
-VimeoComponent.createEmbedSrcFromId = function (id) {
+VimeoComponent.createEmbedSrcFromId = function(id) {
   return 'https://player.vimeo.com/video/' + id + '?title=0&byline=0&portrait=0';
 };
 
@@ -148,6 +150,6 @@ VimeoComponent.createEmbedSrcFromId = function (id) {
  * Returns the length of the youtube component content.
  * @return {number} Length of the youtube component content.
  */
-VimeoComponent.prototype.getLength = function () {
+VimeoComponent.prototype.getLength = function() {
   return 1;
 };

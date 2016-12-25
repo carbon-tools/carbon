@@ -1,22 +1,25 @@
 'use strict';
 
 var Utils = require('../utils');
+var CustomEventTarget = require('../customEventTarget');
 
 
 /**
  * TextField component to add to toolbars.
- * @param {Object=} optParams Optional params.
+ * @param {Object=} opt_params Optional params.
+ * @extends {../customEventTarget}
+ * @constructor
  */
-var TextField = function (optParams) {
+var TextField = function(opt_params) {
   var params = Utils.extend({
     placeholder: 'New field',
     name: Utils.getUID(),
     required: true,
     data: {},
     value: '',
-  }, optParams);
+  }, opt_params);
 
-  Utils.CustomEventTarget.call(this);
+  CustomEventTarget.call(this);
 
   /**
    * Field name.
@@ -44,7 +47,7 @@ var TextField = function (optParams) {
 
   /**
    * The parent button of the field.
-   * @type {Button}
+   * @type {?./button}
    */
   this.parentButton = null;
 
@@ -56,7 +59,7 @@ var TextField = function (optParams) {
 
   /**
    * Input field element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(TextField.TAG_NAME);
   this.dom.setAttribute('placeholder', this.placeholder);
@@ -64,7 +67,7 @@ var TextField = function (optParams) {
   this.dom.setAttribute('required', this.required);
   this.dom.addEventListener('keyup', this.handleKeyUp.bind(this));
 };
-TextField.prototype = Object.create(Utils.CustomEventTarget.prototype);
+TextField.prototype = Object.create(CustomEventTarget.prototype);
 module.exports = TextField;
 
 
@@ -77,12 +80,12 @@ TextField.TAG_NAME = 'input';
 
 /**
  * Handles key up event and update the value of the field.
- * @param {Function} handler Callback to call when the button is clicked.
+ * @param {!Event} event Keyboard event.
  */
 TextField.prototype.handleKeyUp = function(event) {
   this.value = this.dom.value;
   var newEvent = new CustomEvent('keyup', {
-      detail: { target: this }
+    detail: {target: this},
   });
   newEvent.keyCode = event.keyCode;
   this.dispatchEvent(newEvent);
@@ -93,7 +96,7 @@ TextField.prototype.handleKeyUp = function(event) {
  * Sets the value of the field.
  * @param {string} value Value to set to the field.
  */
-TextField.prototype.setValue = function (value) {
+TextField.prototype.setValue = function(value) {
   this.value = value;
   this.dom.value = value;
 };

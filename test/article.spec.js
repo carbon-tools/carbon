@@ -27,16 +27,16 @@ describe('Article', function() {
   it('should return the json model', function() {
     var paragraphOpts = {
       name: 'paragraph-name',
-      text: 'paragraph text'
+      text: 'paragraph text',
     };
 
     var sectionOpts = {
       name: 'section-name',
-      components: [new Paragraph(paragraphOpts)]
+      components: [new Paragraph(paragraphOpts)],
     };
 
     var article = new Article({
-      sections: [new Section(sectionOpts)]
+      sections: [new Section(sectionOpts)],
     });
 
     expect(article.getJSONModel()).toEqual({
@@ -47,10 +47,10 @@ describe('Article', function() {
           text: paragraphOpts.text,
           placeholderText: null,
           paragraphType: Paragraph.Types.Paragraph,
-          name: paragraphOpts.name
+          name: paragraphOpts.name,
         }],
-        name: sectionOpts.name
-      }]
+        name: sectionOpts.name,
+      }],
     });
 
   });
@@ -100,14 +100,14 @@ describe('Article', function() {
 
   it('should execute the proper operation', function() {
     var section = new Section({
-      components: [new Paragraph()]
+      components: [new Paragraph()],
     });
 
     var article = new Article({
-      sections: [section]
+      sections: [section],
     });
 
-    article.render(document.createElement('div'), { editMode: true });
+    article.render(document.createElement('div'), {editMode: true});
 
     var op = {
       do: {
@@ -115,12 +115,12 @@ describe('Article', function() {
         section: article.sections[0].name,
         componentClass: Paragraph.CLASS_NAME,
         component: '1234',
-        index: 1
+        index: 1,
       },
       undo: {
         op: 'deleteComponent',
-        component: '1234'
-      }
+        component: '1234',
+      },
     };
 
     article.exec(op, 'do');
@@ -133,14 +133,14 @@ describe('Article', function() {
         op: 'updateComponent',
         component: section.components[0].name,
         value: 'Hello World',
-        cursorOffset: 11
+        cursorOffset: 11,
       },
       undo: {
         op: 'updateComponent',
         component: section.components[0].name,
         value: '',
-        cursorOffset: 0
-      }
+        cursorOffset: 0,
+      },
     };
 
     article.exec(op, 'do');
@@ -158,13 +158,13 @@ describe('Article', function() {
       section = article.sections[0];
       var lastP = new Paragraph();
 
-      section.insertComponentAt(new Layout({ components: lastP }), 1);
+      section.insertComponentAt(new Layout({components: lastP}), 1);
 
       firstLayout = section.components[0];
       lastLayout = section.components[1];
 
-      lastP.render(document.createElement('div'), { editMode: true });
-      article.render(document.createElement('div'), { editMode: true });
+      lastP.render(document.createElement('div'), {editMode: true});
+      article.render(document.createElement('div'), {editMode: true});
     });
 
     it('should trim empty paragraphs', function() {
@@ -176,12 +176,12 @@ describe('Article', function() {
     it('should trim empty paragraphs from start to end', function() {
       var testText1 = 'testText 1';
       var testText2 = 'testText 2';
-      var p1 = new Paragraph({ text: '&nbsp;&nbsp;\n' });
-      var p2 = new Paragraph({ text: testText1 });
-      var p3 = new Paragraph({ text: testText2 });
-      var p4 = new Paragraph({ text: '  &nbsp; ' });
-      var p5 = new Paragraph({ text: null });
-      var p6 = new Paragraph({ text: '&#8203; \n', name: 'lastComponent' });
+      var p1 = new Paragraph({text: '&nbsp;&nbsp;\n'});
+      var p2 = new Paragraph({text: testText1});
+      var p3 = new Paragraph({text: testText2});
+      var p4 = new Paragraph({text: '  &nbsp; '});
+      var p5 = new Paragraph({text: null});
+      var p6 = new Paragraph({text: '&#8203; \n', name: 'lastComponent'});
 
       firstLayout.insertComponentAt(p1, 0);
       firstLayout.insertComponentAt(p2, 1);
@@ -190,12 +190,12 @@ describe('Article', function() {
       lastLayout.insertComponentAt(p4, 1);
       lastLayout.insertComponentAt(p5, 2);
       lastLayout.insertComponentAt(p6, 3);
-      p1.render(document.createElement('div'), { editMode: true });
-      p2.render(document.createElement('div'), { editMode: true });
-      p3.render(document.createElement('div'), { editMode: true });
-      p4.render(document.createElement('div'), { editMode: true });
-      p5.render(document.createElement('div'), { editMode: true });
-      p6.render(document.createElement('div'), { editMode: true });
+      p1.render(document.createElement('div'), {editMode: true});
+      p2.render(document.createElement('div'), {editMode: true});
+      p3.render(document.createElement('div'), {editMode: true});
+      p4.render(document.createElement('div'), {editMode: true});
+      p5.render(document.createElement('div'), {editMode: true});
+      p6.render(document.createElement('div'), {editMode: true});
 
       article.trim();
 
@@ -204,13 +204,13 @@ describe('Article', function() {
     });
 
     it('should not trim empty non-paragraph components', function() {
-      var listOpt1 = { tagName: 'ol' };
-      var listOpt2 = { tagName: 'ul' };
+      var listOpt1 = {tagName: 'ol'};
+      var listOpt2 = {tagName: 'ul'};
 
       firstLayout.insertComponentAt(new List(listOpt1), 0);
-      firstLayout.insertComponentAt(new Paragraph({ text: '' }), 1);
-      firstLayout.insertComponentAt(new Paragraph({ text: null }), 2);
-      firstLayout.insertComponentAt(new Paragraph({ text: '   \n' }), 3);
+      firstLayout.insertComponentAt(new Paragraph({text: ''}), 1);
+      firstLayout.insertComponentAt(new Paragraph({text: null}), 2);
+      firstLayout.insertComponentAt(new Paragraph({text: '   \n'}), 3);
       lastLayout.insertComponentAt(new List(listOpt2), 0);
 
       article.trim();

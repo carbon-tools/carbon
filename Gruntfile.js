@@ -1,25 +1,27 @@
 var modRewrite = require('connect-modrewrite');
+var splittable = require('splittable');
 
 module.exports = function(grunt) {
   'use strict';
 
   require('load-grunt-tasks')(grunt);
 
+  /* eslint max-len: 0 */
   grunt.initConfig({
 
     pkg: grunt.file.readJSON('package.json'),
-    srcDir: "src",
-    buildDir: "build",
-    testDir: "test",
-    distDir: "dist",
-    demoDir: "demo",
+    srcDir: 'src',
+    buildDir: 'build',
+    testDir: 'test',
+    distDir: 'dist',
+    demoDir: 'demo',
 
-    clean: [ "<%= buildDir %>", "<%= distDir %>" ],
+    clean: ['<%= buildDir %>', '<%= distDir %>'],
 
     shell: {
       deployCDN: {
-        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/*'
-      }
+        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/*',
+      },
     },
 
     // Builds one js file from all require('..') statements.
@@ -28,102 +30,99 @@ module.exports = function(grunt) {
       standalone: {
         options: {
           browserifyOptions: {
-            standalone: 'carbon'
-          }
+            standalone: 'carbon',
+          },
         },
         files: {
-          '<%= buildDir %>/<%=pkg.name%>.js': '<%= srcDir %>/main.js'
-        }
+          '<%= buildDir %>/<%=pkg.name%>.js': '<%= srcDir %>/main.js',
+        },
       },
 
       thirdparty: {
         options: {
           browserifyOptions: {
-            standalone: 'carbon3p'
-          }
+            standalone: 'carbon3p',
+          },
         },
         files: {
-          '<%= buildDir %>/<%=pkg.name%>3p.js': '<%= srcDir %>/3rdparty/carbon3p.js'
-        }
-      }
+          '<%= buildDir %>/<%=pkg.name%>3p.js': '<%= srcDir %>/3rdparty/carbon3p.js',
+        },
+      },
     },
 
     concat: {
       options: {
-        separator: '\n\n'
+        separator: '\n\n',
       },
       dist: {
         files: {
           '<%= distDir %>/<%= pkg.name %>.js': '<%= buildDir %>/<%= pkg.name %>.js',
-        }
+        },
       },
       css: {
         src: 'styles/*.css',
-        dest: '<%= distDir %>/<%= pkg.name %>.css'
-      }
+        dest: '<%= distDir %>/<%= pkg.name %>.css',
+      },
     },
 
     copy: {
       main: {
         files: [{
-            src: '<%= srcDir %>/3rdparty/iframe.html',
-            dest: '<%= distDir %>/iframe.html'
+          src: '<%= srcDir %>/3rdparty/iframe.html',
+          dest: '<%= distDir %>/iframe.html',
         }, {
-            src: '<%= buildDir %>/<%= pkg.name %>3p.js',
-            dest: '<%= distDir %>/<%= pkg.name %>3p.js'
+          src: '<%= buildDir %>/<%= pkg.name %>3p.js',
+          dest: '<%= distDir %>/<%= pkg.name %>3p.js',
         }],
       },
     },
 
-    jshint: {
-      dist: ['<%= srcDir %>/**/*.js'],
-      test: ['<%= testDir %>/**/*.spec.js'],
+    eslint: {
+      target: [
+        '<%= srcDir %>/**/*.js',
+        '<%= testDir %>/**/*.spec.js',
+      ],
       options: {
-        globals: {
-          console: true,
-          module: true,
-          document: true
-        },
-        jshintrc: '.jshintrc'
-      }
+        fix: true,
+      },
     },
 
     uglify: {
       options: {
-        banner: '/*! <%= pkg.name %> <%= grunt.template.today("dd-mm-yyyy") %> */\n'
+        banner: '/*! <%= pkg.name %> <%= grunt.template.today("dd-mm-yyyy") %> */\n',
       },
       dist: {
         files: {
           '<%= distDir %>/<%= pkg.name %>.min.js': '<%= buildDir %>/<%= pkg.name %>.js',
           '<%= distDir %>/<%= pkg.name %>3p.min.js': '<%= buildDir %>/<%= pkg.name %>3p.js',
-        }
-      }
+        },
+      },
     },
 
     cssmin: {
       options: {
-        advanced: false
+        advanced: false,
       },
       target: {
         files: {
-          '<%= distDir %>/<%= pkg.name %>.min.css': '<%= distDir %>/<%= pkg.name %>.css'
-        }
-      }
+          '<%= distDir %>/<%= pkg.name %>.min.css': '<%= distDir %>/<%= pkg.name %>.css',
+        },
+      },
     },
 
     karma: {
       options: {
         configFile: 'karma.conf.js',
-        autoWatch: false
+        autoWatch: false,
       },
 
       unit: {
         background: true,
-        singleRun: false
+        singleRun: false,
       },
 
       continous: {
-        singleRun: true
+        singleRun: true,
       },
 
       unitCoverage: {
@@ -132,15 +131,15 @@ module.exports = function(grunt) {
         singleRun: true,
         reporters: ['progress', 'coverage'],
         preprocessors: {
-          'src/{,*/}*.js': ['coverage']
+          'src/{,*/}*.js': ['coverage'],
         },
         coverageReporter: {
           reporters: [
-            {type : 'text'},
-            {type: 'html', dir: 'coverage'}
-          ]
-        }
-      }
+            {type: 'text'},
+            {type: 'html', dir: 'coverage'},
+          ],
+        },
+      },
     },
 
     watch: {
@@ -150,19 +149,19 @@ module.exports = function(grunt) {
           '<%= demoDir %>/{,*/}*.js',
           '<%= demoDir %>/{,*/}*.css',
         ],
-        tasks: ['build']
+        tasks: ['build'],
       },
       gruntfile: {
-        files: ['Gruntfile.js']
+        files: ['Gruntfile.js'],
       },
       livereload: {
         options: {
-          livereload: '<%= connect.options.livereload %>'
+          livereload: '<%= connect.options.livereload %>',
         },
         files: [
           '<%= srcDir %>/{,*/}*.html',
           'styles/{,*/}*.css',
-          'images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}'
+          'images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}',
         ],
         tasks: [
           'clean',
@@ -170,15 +169,15 @@ module.exports = function(grunt) {
           'browserify:thirdparty',
           'concat',
           'copy',
-        ]
+        ],
       },
       test: {
         files: [
           '<%= srcDir %>/**/*.js',
-          '<%= testDir %>/**/*.spec.js'
+          '<%= testDir %>/**/*.spec.js',
         ],
-        tasks: ['test']
-      }
+        tasks: ['test'],
+      },
     },
 
     connect: {
@@ -187,10 +186,13 @@ module.exports = function(grunt) {
         hostname: 'localhost',
         livereload: 35729,
         debug: true,
-        middleware: function (connect, options) {
-          var optBase = (typeof options.base === 'string') ? [options.base] : options.base,
-              middleware = [modRewrite(['!\\.html|\\.js|\\.svg|\\.ttf|\\.woff|\\.woff2|\\.css|\\.png|\\.jpg\\.gif|\\swf$ / [L]'])]
-                .concat(optBase.map(function (path) {
+        middleware: function(connect, options) {
+          var isString = typeof options.base === 'string';
+          var optBase = isString ? [options.base] : options.base;
+          var regexStr = '!\\.html|\\.js|\\.svg|\\.ttf|\\.woff|\\.woff2|' +
+              '\\.css|\\.png|\\.jpg\\.gif|\\swf$ / [L]';
+          var middleware = [modRewrite([regexStr])]
+                .concat(optBase.map(function(path) {
                   if (path.indexOf('rewrite|') === -1) {
                     return connect.static(path);
                   } else {
@@ -200,7 +202,7 @@ module.exports = function(grunt) {
                 }));
 
           return middleware;
-        }
+        },
       },
       livereload: {
         options: {
@@ -208,9 +210,9 @@ module.exports = function(grunt) {
           base: [
             '.',
             '.tmp',
-            '<%= pkg.name %>'
-          ]
-        }
+            '<%= pkg.name %>',
+          ],
+        },
       },
       test: {
         options: {
@@ -218,47 +220,47 @@ module.exports = function(grunt) {
           base: [
             '.tmp',
             'test',
-            '<%= pkg.name %>'
-          ]
-        }
+            '<%= pkg.name %>',
+          ],
+        },
       },
       dist: {
         options: {
-          base: '<%= distDir %>'
-        }
+          base: '<%= distDir %>',
+        },
       },
       coverage: {
         options: {
           open: true,
           base: 'coverage/',
           port: 5555,
-          keepalive: true
-        }
-      }
-    }
+          keepalive: true,
+        },
+      },
+    },
 
   });
 
-  grunt.registerTask('serve', function (target) {
+  grunt.registerTask('serve', function() {
     grunt.task.run([
       'clean',
       'build',
       'connect:livereload:dist',
       'watch:dist',
       'watch:gruntfile',
-      'watch:livereload'
+      'watch:livereload',
     ]);
   });
 
   grunt.registerTask('coverage', [
     'karma:unitCoverage',
-    'connect:coverage'
+    'connect:coverage',
   ]);
 
   grunt.registerTask('test', [
-    'jshint',
+    'eslint',
     'karma:continous',
-    'watch:test'
+    'watch:test',
   ]);
 
   grunt.registerTask('build', [
@@ -269,17 +271,44 @@ module.exports = function(grunt) {
     'copy',
     'uglify',
     'cssmin',
-    'jshint'
+    'eslint',
   ]);
 
   grunt.registerTask('default', [
     'build',
-    'karma:unit'
+    'karma:unit',
   ]);
 
   grunt.registerTask('deployCDN', [
     'build',
-    'shell:deployCDN'
+    'shell:deployCDN',
   ]);
+
+  grunt.registerTask('compile', ['closure-compiler:dist']);
+
+  grunt.registerTask('split', 'Builds, minifies and split modules', function() {
+    var done = this.async();
+    return splittable({
+      // Create bundles from 2 entry modules `./lib/a` and `./lib/b`.
+      modules: [
+        './src/newmain.js',
+        // './src/defs.js',
+        //'./src/3rdparty/carbon3p.js'
+      ],
+      writeTo: 'dist/modules/',
+      warnings: true,
+    }).then(function(info) {
+      if (info.warnings) {
+        grunt.fail.warn(info.warnings);
+        grunt.log.writeln('Compilation successful with warnings.');
+      } else {
+        grunt.log.writeln('Compilation successful.');
+      }
+      done(true);
+    }, function(reason) {
+      grunt.fail.fatal(reason, 'Compilation failed');
+      done(false);
+    });
+  });
 
 };

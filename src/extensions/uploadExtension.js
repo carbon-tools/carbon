@@ -9,13 +9,15 @@ var I18n = require('../i18n');
 
 /**
  * An upload button that extends Button to style the upload button.
- * @param {Object=} optParams Optional parameters.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../toolbars/button}
+ * @constructor
  */
-var UploadButton = function (optParams) {
+var UploadButton = function(opt_params) {
   var params = Utils.extend({
     label: 'Upload',
     icon: '',
-  }, optParams);
+  }, opt_params);
 
   Button.call(this, params);
 
@@ -23,13 +25,14 @@ var UploadButton = function (optParams) {
 
   /**
    * Upload button input element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.uploadButtonDom = document.createElement(UploadButton.TAG_NAME);
   this.uploadButtonDom.setAttribute('type', 'file');
   this.uploadButtonDom.setAttribute('name', this.name);
   this.uploadButtonDom.setAttribute('multiple', true);
-  this.uploadButtonDom.addEventListener('change', this.handleChange.bind(this));
+  this.uploadButtonDom.addEventListener(
+      'change', this.handleChange.bind(this), false);
 
   this.dom.appendChild(this.uploadButtonDom);
 };
@@ -55,7 +58,8 @@ UploadButton.TAG_NAME = 'input';
  * @param {Event} event File event containing the selected files.
  */
 UploadButton.prototype.handleChange = function(event) {
-  var eventDetails = { target: this, files: event.target.files };
+  var fileEl = /** @type {HTMLInputElement} */ (event.target);
+  var eventDetails = {target: this, files: fileEl.files};
   var newEvent = new CustomEvent('change', {detail: eventDetails});
   this.dispatchEvent(newEvent);
   event.target.value = '';
@@ -64,17 +68,18 @@ UploadButton.prototype.handleChange = function(event) {
 
 /**
  * Upload Extension enables upload button on the toolbelt.
+ * @constructor
  */
-var UploadExtension = function () {
+var UploadExtension = function() {
   /**
    * The editor this toolbelt belongs to.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = null;
 
   /**
    * The toolbelt toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbelt = null;
 };
@@ -104,7 +109,7 @@ UploadExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 /**
  * Initializes the upload extensions.
- * @param  {Editor} editor Editor instance this installed on.
+ * @param  {../editor} editor Editor instance this installed on.
  */
 UploadExtension.onInstall = function(editor) {
   var uploadExtension = new UploadExtension();
@@ -122,7 +127,7 @@ UploadExtension.onDestroy = function() {
 
 /**
  * Initialize the upload button and listener.
- * @param  {Editor} editor The editor to enable the extension on.
+ * @param  {../editor} editor The editor to enable the extension on.
  */
 UploadExtension.prototype.init = function(editor) {
   this.editor = editor;
@@ -131,9 +136,9 @@ UploadExtension.prototype.init = function(editor) {
 
   var uploadButton = new UploadButton({
     label: I18n.get('button.upload'),
-    icon: I18n.get('button.icon.upload')
+    icon: I18n.get('button.icon.upload'),
   });
-  uploadButton.addEventListener('change', this.handleUpload.bind(this));
+  uploadButton.addEventListener('change', this.handleUpload.bind(this), false);
   this.toolbelt.addButton(uploadButton);
 };
 
@@ -163,14 +168,14 @@ UploadExtension.prototype.handleUpload = function(event) {
       file: file,
       figure: selection.getComponentAtStart(),
       editor: that.editor,
-      insertedOps: insertFigureOps
+      insertedOps: insertFigureOps,
     });
 
     // Dispatch an attachment added event to allow clients to upload the file.
     var newEvent = new CustomEvent(
       UploadExtension.ATTACHMENT_ADDED_EVENT_NAME, {
-        detail: { attachment: attachment }
-    });
+        detail: {attachment: attachment},
+      });
     that.editor.dispatchEvent(newEvent);
   };
 
@@ -183,8 +188,8 @@ UploadExtension.prototype.handleUpload = function(event) {
 
 /**
  * Read file data URL.
- * @param  {File} file File picked by the user.
- * @param  {Function} callback Callback function when the reading is complete.
+ * @param  {!File} file File picked by the user.
+ * @param  {function(string, File)} callback Callback function when the reading is complete.
  */
 UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   var reader = new FileReader();

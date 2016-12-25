@@ -6,15 +6,16 @@ var Utils = require('../utils');
 
 /**
  * Provides an Embed Provider using Embedly APIs.
- * @param {Object=} optParams Config params.
+ * @param {Object=} opt_params Config params.
  *   required: apiKey
+ * @implements {./abstractEmbedProvider}
  * @constructor
  */
-var EmbedlyProvider = function (optParams) {
+var EmbedlyProvider = function(opt_params) {
   var params = Utils.extend({
     endpoint: 'https://api.embed.ly/1/oembed',
     apiKey: null,
-  }, optParams);
+  }, opt_params);
 
   /**
    * Embedly oembed endpoint.
@@ -28,7 +29,6 @@ var EmbedlyProvider = function (optParams) {
    */
   this.apiKey = params.apiKey;
 
-  AbstractEmbedProvider.call(this, params);
 };
 EmbedlyProvider.prototype = Object.create(AbstractEmbedProvider.prototype);
 module.exports = EmbedlyProvider;
@@ -46,11 +46,11 @@ EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/pho
  * by passing it to a callabck.
  * @param {string} url Url to get the oembed response for.
  * @param {Function} callback A callback function to call with the result.
- * @param {Object=} optArgs Optional arguments to pass with the URL.
+ * @param {Object=} opt_args Optional arguments to pass with the URL.
  */
 EmbedlyProvider.prototype.getEmbedForUrl = function(
-    url, callback, optArgs) {
-  var endpoint = this.getOEmbedEndpointForUrl(url, optArgs);
+    url, callback, opt_args) {
+  var endpoint = this.getOEmbedEndpointForUrl(url, opt_args);
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (xhttp.readyState == 4) {
@@ -66,15 +66,15 @@ EmbedlyProvider.prototype.getEmbedForUrl = function(
 /**
  * Returns the URL to call for oembed response.
  * @param {string} url URL to create the url for.
- * @param {Object} optArgs Arguments to pass with the URL.
+ * @param {Object=} opt_args Arguments to pass with the URL.
  * @return {string}
  */
-EmbedlyProvider.prototype.getOEmbedEndpointForUrl = function(url, optArgs) {
+EmbedlyProvider.prototype.getOEmbedEndpointForUrl = function(url, opt_args) {
   var urlParams = Utils.extend({
     key: this.apiKey,
     // luxe: 1,
-    url: url
-  }, optArgs);
+    url: url,
+  }, opt_args);
   var queryParts = [];
   for (var name in urlParams) {
     queryParts.push([name, urlParams[name]].join('='));

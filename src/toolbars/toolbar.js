@@ -1,21 +1,23 @@
 'use strict';
 
 var Utils = require('../utils');
-
+var CustomEventTarget = require('../customEventTarget');
 
 /**
  * Toolbar component for adding controls to the editor.
- * @param {Object=} optParams Optional Params.
+ * @param {Object=} opt_params Optional Params.
+ * @extends {../customEventTarget}
+ * @constructor
  */
-var Toolbar = function (optParams) {
-  Utils.CustomEventTarget.call(this);
+var Toolbar = function(opt_params) {
+  CustomEventTarget.call(this);
 
   var params = Utils.extend({
     buttons: [],
     classNames: [],
     name: Utils.getUID(),
-    rtl: false
-  }, optParams);
+    rtl: false,
+  }, opt_params);
 
   /**
    * Toolbar name.
@@ -31,7 +33,7 @@ var Toolbar = function (optParams) {
 
   /**
    * CSS class names to add to the toolbar.
-   * @type {Array.<string>}
+   * @type {Array<string>}
    */
   this.classNames = params.classNames;
   this.classNames.push(Toolbar.TOOLBAR_CLASS_NAME);
@@ -41,13 +43,13 @@ var Toolbar = function (optParams) {
 
   /**
    * List of buttons on the toolbar.
-   * @type {Array.<Button>}
+   * @type {Array<!./button>}
    */
   this.buttons = [];
 
   /**
    * The current active button on the toolbar.
-   * @type {Button}
+   * @type {?./button}
    */
   this.activeButton = null;
 
@@ -59,14 +61,14 @@ var Toolbar = function (optParams) {
 
   /**
    * Element for rendering the toolbar.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Toolbar.TAG_NAME);
   this.dom.className = this.classNames.join(' ');
 
   /**
    * Element for containing both the buttons and fields.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.containerDom = document.createElement(
       Toolbar.BUTTONS_CONTAINER_TAG_NAME);
@@ -76,7 +78,7 @@ var Toolbar = function (optParams) {
 
   /**
    * Element for containing buttons of the toolbar.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.buttonsContainer = document.createElement(
       Toolbar.BUTTONS_CONTAINER_TAG_NAME);
@@ -85,7 +87,7 @@ var Toolbar = function (optParams) {
 
   /**
    * Element for containing fields of the toolbar.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.fieldsContainer = document.createElement(
       Toolbar.FIELDS_CONTAINER_TAG_NAME);
@@ -98,7 +100,7 @@ var Toolbar = function (optParams) {
 
   document.body.appendChild(this.dom);
 };
-Toolbar.prototype = Object.create(Utils.CustomEventTarget.prototype);
+Toolbar.prototype = Object.create(CustomEventTarget.prototype);
 module.exports = Toolbar;
 
 
@@ -181,11 +183,11 @@ Toolbar.prototype.onDestroy = function() {
 
 /**
  * Adds a button to the toolbar.
- * @param {Button} button The button to add to the toolbar.
+ * @param {!./button} button The button to add to the toolbar.
  */
-Toolbar.prototype.addButton = function (button) {
+Toolbar.prototype.addButton = function(button) {
   var event = new CustomEvent('button-added', {
-    detail: { target: this }
+    detail: {target: this},
   });
 
   this.buttons.push(button);
@@ -200,7 +202,7 @@ Toolbar.prototype.addButton = function (button) {
  * Sets the toolbar to be visible or hidden.
  * @param {boolean} isVisible Whether to be visible or not.
  */
-Toolbar.prototype.setVisible = function (isVisible) {
+Toolbar.prototype.setVisible = function(isVisible) {
   this.isVisible = isVisible;
   if (this.isVisible) {
     this.dom.classList.add(Toolbar.VISIBLE_CLASS_NAME);
@@ -214,9 +216,9 @@ Toolbar.prototype.setVisible = function (isVisible) {
 
 /**
  * Sets the toolbar position relative to start top position of an element.
- * @param {HTMLElement} element Element to position the toolbar.
+ * @param {!Element} element Element to position the toolbar.
  */
-Toolbar.prototype.setPositionToStartTopOf = function (element) {
+Toolbar.prototype.setPositionToStartTopOf = function(element) {
   var wSelection = window.getSelection();
   var oldRange = wSelection.getRangeAt(0);
   var bounds = element.getBoundingClientRect();
@@ -225,7 +227,7 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
   // to include any floating that is happening to the element.
   try {
     var tempSelectionOn = element;
-    if (element.childNodes && element.childNodes[0].length) {
+    if (element.childNodes && element.childNodes.length) {
       tempSelectionOn = element.childNodes[0];
     }
     tempRange.setStart(tempSelectionOn, 0);
@@ -259,9 +261,9 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
 
 /**
  * Sets the toolbar position relative to start bottom position of an element.
- * @param {HTMLElement} element Element to position the toolbar.
+ * @param {!Element} element Element to position the toolbar.
  */
-Toolbar.prototype.setPositionToStartBottomOf = function (element) {
+Toolbar.prototype.setPositionToStartBottomOf = function(element) {
   var bounds = element.getBoundingClientRect();
 
   // Offset the top bound with the scrolled amount of the page.
@@ -278,9 +280,9 @@ Toolbar.prototype.setPositionToStartBottomOf = function (element) {
 
 /**
  * Sets the toolbar position relative to middle top position of an element.
- * @param {HTMLElement} element Element to position the toolbar.
+ * @param {!Element} element Element to position the toolbar.
  */
-Toolbar.prototype.setPositionToTopOf = function (element) {
+Toolbar.prototype.setPositionToTopOf = function(element) {
   var bounds = element.getBoundingClientRect();
   var windowRect = document.body.getBoundingClientRect();
 
@@ -301,7 +303,7 @@ Toolbar.prototype.setPositionToTopOf = function (element) {
 /**
  * Sets the toolbar position relative to top of window selection.
  */
-Toolbar.prototype.setPositionTopOfSelection = function () {
+Toolbar.prototype.setPositionTopOfSelection = function() {
   var wSelection = window.getSelection();
   var range = wSelection.getRangeAt(0);
   var bounds = range.getBoundingClientRect();
@@ -324,9 +326,9 @@ Toolbar.prototype.setPositionTopOfSelection = function () {
 /**
  * Returns the button with the passed name.
  * @param  {string} name Name of the button to find.
- * @return {Button|null} Button with the specified name.
+ * @return {./button|null} Button with the specified name.
  */
-Toolbar.prototype.getButtonByName = function (name) {
+Toolbar.prototype.getButtonByName = function(name) {
   for (var i = 0; i < this.buttons.length; i++) {
     if (this.buttons[i].name === name) {
       return this.buttons[i];
@@ -338,9 +340,9 @@ Toolbar.prototype.getButtonByName = function (name) {
 
 /**
  * Sets the toolbar active button.
- * @param {Button} button To set active.
+ * @param {!./button} button To set active.
  */
-Toolbar.prototype.setActiveButton = function (button) {
+Toolbar.prototype.setActiveButton = function(button) {
   if (this.activeButton) {
     this.activeButton.setActive(false);
     this.activeButton = null;
@@ -356,7 +358,7 @@ Toolbar.prototype.setActiveButton = function (button) {
 /**
  * Resets the status and the values of the fields.
  */
-Toolbar.prototype.resetFields = function () {
+Toolbar.prototype.resetFields = function() {
   for (var i = 0; i < this.buttons.length; i++) {
     this.buttons[i].resetFields();
   }

@@ -4,9 +4,19 @@ var Utils = require('../utils');
 
 
 /**
- * Encapsulates logic for third party oEmbed embedding.
+ * @typedef {{
+ *   html: string,
+ *   provider_name: string,
+ *   type: string,
+ * }}
  */
-var ThirdPartyEmbed = function () {
+var OEmbedDataDef;
+
+/**
+ * Encapsulates logic for third party oEmbed embedding.
+ * @constructor
+ */
+var ThirdPartyEmbed = function() {
 
   /**
    * Embed Width.
@@ -30,17 +40,18 @@ var ThirdPartyEmbed = function () {
    * Origin of the parent window.
    * @type {string}
    */
-  this.origin = null;
+  this.origin = '';
 
   /**
    * Main div outer container.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
-  this.dom = document.getElementById('outer-container');
+  this.dom = /** @type {!Element} */ (
+      document.getElementById('outer-container'));
 
   /**
-   * Inner container element.
-   * @type {HTMLElement}
+   * Inner container element
+   * @type {!Element}
    */
   this.container = document.createElement('div');
   this.container.className = 'container';
@@ -66,8 +77,8 @@ ThirdPartyEmbed.prototype.init = function() {
  * @param  {string} origin
  */
 ThirdPartyEmbed.prototype.triggerDimensions = function(width, height, origin) {
-  this.embedWidth = parseFloat(width);
-  this.embedHeight = parseFloat(height);
+  this.embedWidth = width;
+  this.embedHeight = height;
   this.sendMessage('embed-size', {
     width: width,
     height: height,
@@ -79,11 +90,11 @@ ThirdPartyEmbed.prototype.triggerDimensions = function(width, height, origin) {
  * Embeds the URL by calling its oEmbed endpoint and embedding the content.
  * @param  {string} oEmbedUrl OEmbed Endpoint to call to get the content.
  * @param  {number} width Width of container to load the content in.
- * @return {[type]}        [description]
  */
 ThirdPartyEmbed.prototype.embed = function(oEmbedUrl, width) {
   this.dom.style.width = width + 'px';
-  Utils.ajax(oEmbedUrl, function(oembedData) {
+  Utils.ajax(oEmbedUrl, function(data) {
+    var oembedData = /** @type {OEmbedDataDef} */ (data);
     this.embedType = oembedData.type;
 
     // If this is a rich embed. Watch its size and notify the parent with
@@ -91,7 +102,10 @@ ThirdPartyEmbed.prototype.embed = function(oEmbedUrl, width) {
     if (this.embedType === 'rich') {
       Utils.addResizeListener(this.dom, function() {
         var styles = getComputedStyle(this.dom);
-        this.triggerDimensions(styles.width, styles.height, this.origin);
+        this.triggerDimensions(
+          parseFloat(styles.width),
+          parseFloat(styles.height),
+          this.origin);
         this.dom.style.width = 'auto';
       }.bind(this));
     }
@@ -108,7 +122,8 @@ ThirdPartyEmbed.prototype.embed = function(oEmbedUrl, width) {
       }
       if (this.embedWidth && this.embedHeight) {
         this.triggerDimensions(this.embedWidth, this.embedHeight, this.origin);
-        this.container.style.paddingBottom = (this.embedHeight/this.embedWidth) * 100 + '%';
+        this.container.style.paddingBottom = ((
+            this.embedHeight / this.embedWidth) * 100 + '%');
       }
     }
 
@@ -121,15 +136,19 @@ ThirdPartyEmbed.prototype.embed = function(oEmbedUrl, width) {
 
 /**
  * Executes scripts in the specified element.
- * @param  {HTMLElement} element.
+ * @param  {!Element} element
  * @private
  */
 ThirdPartyEmbed.prototype.executeScriptsIn_ = function(element) {
   var scripts = element.getElementsByTagName('script');
   for (var i = 0; i < scripts.length; i++) {
-    /* jshint evil: true */
+    /* eslint no-eval: [2, {"allowIndirect": true}] */
+    /* eslint no-useless-call: 0 */
     if (!scripts[i].getAttribute('src')) {
-      eval(Utils.getTextFromElement(scripts[i]));
+      // This is fine. We purposfully evaluate the script to execute it.
+      // Using .call(null) hack for a lesser-evil eval that doesn't allow
+      // changing the scope.
+      eval.call(null, Utils.getTextFromElement(scripts[i]));
     } else {
       var script = document.createElement('script');
       script.src = scripts[i].getAttribute('src');
@@ -146,23 +165,23 @@ ThirdPartyEmbed.prototype.executeScriptsIn_ = function(element) {
 /**
  * Sends a message to the parent window.
  * @param  {string} type Message type.
- * @param  {Object=} optObject Optional object to send.
- * @param  {string=} origin.
+ * @param  {Object=} opt_object Optional object to send.
+ * @param  {string=} opt_origin
  */
-ThirdPartyEmbed.prototype.sendMessage = function(type, optObject, origin) {
+ThirdPartyEmbed.prototype.sendMessage = function(type, opt_object, opt_origin) {
   if (window.parent === window) {
     return;
   }
-  var object = optObject || {};
+  var object = opt_object || {};
   object.type = type;
-  window.parent.postMessage(object, origin);
+  window.parent.postMessage(object, opt_origin);
 };
 
 
 /**
  * Parses the fragment from the iframe to get passed data from.
  * @param  {string} fragment Fragment to parse.
- * @return {Object} Parsed JSON object from the fragment.
+ * @return {!Object} Parsed JSON object from the fragment.
  */
 ThirdPartyEmbed.prototype.parseFragment = function(fragment) {
   var json = fragment.substr(1);
@@ -172,5 +191,5 @@ ThirdPartyEmbed.prototype.parseFragment = function(fragment) {
   if (json.indexOf('{%22') === 0 || json.indexOf('%7B%22') === 0) {
     json = decodeURIComponent(json);
   }
-  return json ? JSON.parse(json) : {};
+  return /** @type {!Object} */ (json ? JSON.parse(json) : {});
 };

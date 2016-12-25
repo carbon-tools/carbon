@@ -8,8 +8,19 @@ var I18n = require('./i18n');
 
 
 /**
+ * @typedef {{
+ *   src: string,
+ *   caption: (?string|undefined),
+ *   captionPlaceholder: (?string|undefined),
+ *   width: (?string|undefined),
+ *   height: (?string|undefined),
+ * }} */
+var FigureComponentParamsDef;
+
+
+/**
  * Figure main.
- * @param {Object} optParams Optional params to initialize the Figure object.
+ * @param {FigureComponentParamsDef=} opt_params Optional params to initialize the Figure object.
  * Default:
  *   {
  *     src: '',
@@ -17,16 +28,18 @@ var I18n = require('./i18n');
  *     width: '100%'
  *     name: Utils.getUID()
  *   }
+ * @extends {./component}
+ * @constructor
  */
-var Figure = function(optParams) {
+var Figure = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {FigureComponentParamsDef} */ (Utils.extend({
     src: '',
     caption: null,
     captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
     height: null,
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -46,11 +59,11 @@ var Figure = function(optParams) {
    * Width of the figure.
    * @type {string}
    */
-  this.width = params.width;
+  this.width = params.width || '100%';
 
   /**
    * Height of the figure.
-   * @type {string}
+   * @type {string|null|undefined}
    */
   this.height = params.height;
 
@@ -58,30 +71,30 @@ var Figure = function(optParams) {
    * Placeholder text to show if the Figure is empty.
    * @type {string}
    */
-  this.caption = params.caption;
+  this.caption = params.caption || '';
 
   /**
    * Text to place as placeholder for caption.
    * @type {string}
    */
-  this.captionPlaceholder = params.captionPlaceholder;
+  this.captionPlaceholder = params.captionPlaceholder || '';
 
   /**
    * Placeholder text to show if the Figure is empty.
-   * @type {string}
+   * @type {./paragraph}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: params.captionPlaceholder,
+    placeholderText: params.captionPlaceholder || '',
     name: this.name + '-caption',
-    text: params.caption,
+    text: params.caption || '',
     paragraphType: Paragrarph.Types.Caption,
-    parentComponent: this,
-    inline: true
+    parentComponent: /** @type {./component} */ (this),
+    inline: true,
   });
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
@@ -136,26 +149,26 @@ Figure.CAPTION_TAG_NAME = 'figcaption';
 
 /**
  * Regex strings list that for matching image URLs.
- * @type {Array.<string>}
+ * @type {Array<string>}
  */
 Figure.IMAGE_URL_REGEXS = [
-    'https?://(.*)\.(jpg|png|gif|jpeg)$'
+  'https?://(.*)\.(jpg|png|gif|jpeg)$',
 ];
 
 
 /**
  * Create and initiate a figure object from JSON.
- * @param  {Object} json JSON representation of the figure.
+ * @param  {FigureComponentParamsDef} json JSON representation of the figure.
  * @return {Figure} Figure object representing the JSON data.
  */
-Figure.fromJSON = function (json) {
+Figure.fromJSON = function(json) {
   return new Figure(json);
 };
 
 
 /**
  * Handles onInstall when Paragrarph module is installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {./editor} editor Instance of the editor that installed the module.
  */
 Figure.onInstall = function(editor) {
   Figure.registerRegexes_(editor);
@@ -164,7 +177,7 @@ Figure.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create image from if matched.
- * @param  {Editor} editor The editor to register the regex with.
+ * @param  {./editor} editor The editor to register the regex with.
  */
 Figure.registerRegexes_ = function(editor) {
   for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
@@ -177,10 +190,10 @@ Figure.registerRegexes_ = function(editor) {
 
 /**
  * Creates a figure component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {./paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<./defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
+Figure.handleMatchedRegex = function(matchedComponent, opsCallback) {
   var src = matchedComponent.text;
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
@@ -216,7 +229,7 @@ Figure.prototype.getJSONModel = function() {
     name: this.name,
     width: this.width,
     height: this.height,
-    caption: this.captionParagraph.text
+    caption: this.captionParagraph.text,
   };
 
   if (!this.isDataUrl) {
@@ -229,14 +242,14 @@ Figure.prototype.getJSONModel = function() {
 
 /**
  * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
+ * @param  {!Element} element Element to render component in.
+ * @param  {Object=} opt_options Options for rendering.
  *   options.insertBefore - To render the component before another element.
  * @override
  */
-Figure.prototype.render = function(element, options) {
+Figure.prototype.render = function(element, opt_options) {
   if (!this.isRendered) {
-    Component.prototype.render.call(this, element, options);
+    Component.prototype.render.call(this, element, opt_options);
 
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
@@ -247,7 +260,7 @@ Figure.prototype.render = function(element, options) {
       if (this.width && this.height) {
         this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
         this.imgContainerDom.style.paddingBottom = (
-            (parseInt(this.height)/parseInt(this.width) * 100) + '%');
+            (parseInt(this.height, 10) / parseInt(this.width, 10) * 100) + '%');
       }
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
@@ -257,25 +270,27 @@ Figure.prototype.render = function(element, options) {
 
     if (this.editMode) {
       if (this.src) {
-        this.imgDom.addEventListener('click', this.select.bind(this));
+        this.imgDom.addEventListener(
+            'click', this.handleClick.bind(this), false);
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
         this.selectionDom.setAttribute('contenteditable', true);
-        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.selectionDom.addEventListener(
+            'focus', this.handleClick.bind(this), false);
         this.dom.appendChild(this.selectionDom);
       }
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
 
       if (this.imgDom && (!this.width || !this.height)) {
-        this.imgDom.addEventListener('load', function () {
+        this.imgDom.addEventListener('load', function() {
           if (this.editMode) {
             var styles = window.getComputedStyle(this.imgDom);
-            this.width = styles.width;
-            this.height = styles.height;
+            this.width = Utils.getSizeWithUnit(styles.width);
+            this.height = Utils.getSizeWithUnit(styles.height);
           }
-        }.bind(this));
+        }.bind(this), false);
       }
     }
   }
@@ -283,31 +298,39 @@ Figure.prototype.render = function(element, options) {
 
 
 /**
- * Returns the operations to execute a deletion of the image component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * Handles clicking on the embedded component to update the selection.
  */
-Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
+Figure.prototype.handleClick = function() {
+  this.select();
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the image component.
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<./defs.OperationDef>} List of operations needed to be executed.
+ */
+Figure.prototype.getDeleteOps = function(opt_indexOffset, opt_cursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'Figure',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         src: this.src,
         caption: this.captionParagraph.text,
-        width: this.width
-      }
-    }
+        width: this.width,
+      },
+    },
   }];
 
   // If this is the only child of the layout delete the layout as well.
@@ -322,11 +345,11 @@ Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
 /**
  * Returns the operations to execute inserting a figure.
  * @param {number} index Index to insert the figure at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the figure.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the figure.
  */
-Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+Figure.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -338,14 +361,14 @@ Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
       attrs: {
         src: this.src,
         width: this.width,
-        caption: this.captionParagraph.text
-      }
+        caption: this.captionParagraph.text,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -354,7 +377,7 @@ Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
  * Returns the length of the figure content.
  * @return {number} Length of the figure content.
  */
-Figure.prototype.getLength = function () {
+Figure.prototype.getLength = function() {
   return 1;
 };
 

@@ -4,9 +4,25 @@ var Utils = require('./utils');
 var Component = require('./component');
 var Loader = require('./loader');
 
+
+/**
+ * @typedef {{
+ *    text: (string|undefined),
+ *    placeholderText: (string|undefined),
+ *    paragraphType: (string|undefined),
+ *    formats: (?Array<./defs.InlineFormattingDef>|undefined),
+ *    name: (string|undefined),
+ *    parentComponent: (./component|undefined),
+ *    inline: (boolean|undefined),
+ *    section: (?./section|undefined),
+ * }}
+ */
+var ParagraphParamsDef;
+
+
 /**
  * Paragraph main.
- * @param {Object} optParams Optional params to initialize the Paragraph object.
+ * @param {ParagraphParamsDef=} opt_params Optional params to initialize the Paragraph object.
  * Default:
  *   {
  *     text: '',
@@ -15,10 +31,12 @@ var Loader = require('./loader');
  *     formats: [],
  *     name: Utils.getUID()
  *   }
+ * @extends {./component}
+ * @constructor
  */
-var Paragraph = function(optParams) {
+var Paragraph = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {ParagraphParamsDef} */ (Utils.extend({
     // Text rendered in this paragraph.
     text: '',
     // If you want to show a placeholder if there was no text.
@@ -27,7 +45,7 @@ var Paragraph = function(optParams) {
     paragraphType: Paragraph.Types.Paragraph,
     // List of inline formats for the paragraph.
     formats: [],
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -35,35 +53,35 @@ var Paragraph = function(optParams) {
    * Internal model text in this paragraph.
    * @type {string}
    */
-  this.text = params.text;
+  this.text = params.text || '';
 
   /**
    * Placeholder text to show if the paragraph is empty.
    * @type {string}
    */
-  this.placeholderText = params.placeholderText;
+  this.placeholderText = params.placeholderText || '';
 
   /**
    * Inline formats for the paragraph.
-   * @type {Array.<Object>}
+   * @type {Array<./defs.InlineFormattingDef>}
    */
-  this.formats = params.formats;
+  this.formats = params.formats || [];
 
   /**
    * Paragraph type.
    * @type {string}
    */
-  this.paragraphType = params.paragraphType;
+  this.paragraphType = params.paragraphType || Paragraph.Types.Paragraph;
 
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
 
-  this.setText(params.text);
+  this.setText(this.text);
 
   if (this.formats) {
     this.updateInnerDom_();
@@ -90,7 +108,7 @@ Paragraph.EMPTY_PARAGRAPH_CLASS = 'empty-paragraph';
 
 /**
  * Differet types of a paragraph.
- * @type {Enum}
+ * @enum {string}
  */
 Paragraph.Types = {
   Paragraph: 'p',
@@ -100,26 +118,25 @@ Paragraph.Types = {
   Quote: 'blockquote',
   Code: 'pre',
   Caption: 'figcaption',
-  ListItem: 'li'
+  ListItem: 'li',
 };
 
 
 /**
  * Create and initiate a paragraph object from JSON.
- * @param  {Object} json JSON representation of the paragraph.
+ * @param  {ParagraphParamsDef} json JSON representation of the paragraph.
  * @return {Paragraph} Paragraph object representing the JSON data.
  */
-Paragraph.fromJSON = function (json) {
+Paragraph.fromJSON = function(json) {
   return new Paragraph(json);
 };
 
 
 /**
  * Called when the module is installed on in an editor.
- * @param  {Editor} editor Editor instance which installed the module.
+ * @param  {./editor} unusedEditor Editor instance which installed the module.
  */
-Paragraph.onInstall = function (editor) {
-  // jshint unused: false
+Paragraph.onInstall = function(unusedEditor) {
 };
 
 
@@ -138,9 +155,9 @@ Paragraph.prototype.getComponentClassName = function() {
  */
 Paragraph.prototype.isHeader = function() {
   return [
-      Paragraph.Types.MainHeader,
-      Paragraph.Types.SecondaryHeader,
-      Paragraph.Types.ThirdHeader
+    Paragraph.Types.MainHeader,
+    Paragraph.Types.SecondaryHeader,
+    Paragraph.Types.ThirdHeader,
   ].indexOf(this.paragraphType) !== -1;
 };
 
@@ -163,8 +180,8 @@ Paragraph.prototype.setText = function(text) {
 
     // Remove zero-width whitespace when there are other characters.
     if (this.text.length > 1) {
-      this.text = this.text.replace('\u200B', '').
-          replace(/^\s/, '\xa0');
+      this.text = this.text.replace('\u200B', '')
+          .replace(/^\s/, '\xa0');
     }
   }
   if (!this.text.replace(/\s/, '').length) {
@@ -188,6 +205,7 @@ Paragraph.prototype.getWordAt_ = function(index) {
   if (start < end) {
     return this.text.substring(start, end);
   }
+  return '';
 };
 
 
@@ -244,7 +262,10 @@ Paragraph.prototype.insertCharactersAt = function(chars, index) {
  * @param  {number} count Number of characters to remove.
  */
 Paragraph.prototype.removeCharactersAt = function(index, count) {
-  var texts = [this.text.substring(0, index), this.text.substring(index + count)];
+  var texts = [
+    this.text.substring(0, index),
+    this.text.substring(index + count),
+  ];
   var updatedText = texts.join('');
 
   this.shiftFormatsFrom_(index, -1 * count);
@@ -286,7 +307,7 @@ Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
  * attached to this paragraph.
  * @private
  */
-Paragraph.prototype.updateInnerDom_ = function () {
+Paragraph.prototype.updateInnerDom_ = function() {
   if (!this.formats.length) {
     this.setText(this.text);
     return;
@@ -303,7 +324,8 @@ Paragraph.prototype.updateInnerDom_ = function () {
       newDom.appendChild(document.createTextNode(text));
     }
     formatClose = this.formats[i].to;
-    var formatEl = document.createElement(this.formats[i].type);
+    var type = /** @type {string} */ (this.formats[i].type);
+    var formatEl = document.createElement(type);
     for (var attr in this.formats[i].attrs) {
       formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
     }
@@ -331,7 +353,7 @@ Paragraph.prototype.isPlaceholder = function() {
 
 /**
  * Applies a list of formats to this paragraph.
- * @param  {Array.<Object>} formats A list of format objects to apply.
+ * @param  {Array<./defs.InlineFormattingDef>} formats A list of format objects to apply.
  */
 Paragraph.prototype.applyFormats = function(formats) {
   for (var i = 0; i < formats.length; i++) {
@@ -342,8 +364,8 @@ Paragraph.prototype.applyFormats = function(formats) {
 
 /**
  * Returns the currently selected formatter in the range.
- * @param {Selection} selection Selection to get formatter at.
- * @return {Object|null} Currently selected formatter.
+ * @param {./selection} selection Selection to get formatter at.
+ * @return {./defs.InlineFormattingDef|null} Currently selected formatter.
  */
 Paragraph.prototype.getSelectedFormatter = function(selection) {
   for (var i = 0; i < this.formats.length; i++) {
@@ -362,12 +384,13 @@ Paragraph.prototype.getSelectedFormatter = function(selection) {
 /**
  * Applies a format to this paragraph. This could add, remove or subtract from
  * the formats on the paragraph.
- * @param  {Object} format A format objects to apply.
+ * @param {./defs.InlineFormattingDef} format A format objects to apply.
+ * @param {boolean=} opt_clear Whether to force clear format.
  */
-Paragraph.prototype.format = function(format, clear) {
+Paragraph.prototype.format = function(format, opt_clear) {
   // See the range already formatted in a similar type.
-  format = Utils.clone(format);
-  var originalExistingFormats = this.getFormattedRanges(format, !clear);
+  format = /** @type {./defs.InlineFormattingDef} */ (Utils.clone(format));
+  var originalExistingFormats = this.getFormattedRanges(format, !opt_clear);
   if (originalExistingFormats && originalExistingFormats.length) {
     var existingFormats = Utils.clone(originalExistingFormats);
     for (var i = 0; i < existingFormats.length; i++) {
@@ -384,12 +407,12 @@ Paragraph.prototype.format = function(format, clear) {
         this.formats.splice(index, 1);
       } else if (format.to === existingFormat.to || (
           format.to > existingFormat.to &&
-          format.from < existingFormat.to && clear)) {
+          format.from < existingFormat.to && opt_clear)) {
         existingFormat.to = format.from;
         this.formats[index] = existingFormat;
       } else if (format.from === existingFormat.from || (
           format.from < existingFormat.from &&
-          format.to > existingFormat.from && clear)) {
+          format.to > existingFormat.from && opt_clear)) {
         existingFormat.from = format.to;
         this.formats[index] = existingFormat;
       }
@@ -401,12 +424,15 @@ Paragraph.prototype.format = function(format, clear) {
         this.formats.splice(index, 1);
 
         this.addNewFormatting({
-            type: existingFormat.type, from: existingFormat.from, to: format.from });
+          type: existingFormat.type,
+          from: existingFormat.from,
+          to: format.from,
+        });
 
         this.addNewFormatting({
-            type: existingFormat.type, from: format.to, to: existingFormat.to });
+          type: existingFormat.type, from: format.to, to: existingFormat.to});
       } else {
-        if (!clear) {
+        if (!opt_clear) {
           existingFormat.from = Math.min(existingFormat.from, format.from);
           existingFormat.to = Math.max(existingFormat.to, format.to);
           this.formats[index] = existingFormat;
@@ -421,14 +447,14 @@ Paragraph.prototype.format = function(format, clear) {
       this.addNewFormatting(format);
     } else {
       // Clear all formats touching the range and apply the new format.
-      if (!clear) {
+      if (!opt_clear) {
         this.format(format, true);
         this.format(format);
       }
     }
   }
 
-  if (!clear) {
+  if (!opt_clear) {
     this.normalizeFormats_();
   }
   this.updateInnerDom_();
@@ -462,14 +488,14 @@ Paragraph.prototype.normalizeFormats_ = function() {
  * Returns formats representing the range given.
  * @param  {number} from Where to start.
  * @param  {number} to Where to end.
- * @return {Array.<Object>} List of formats representing that range formats.
+ * @return {Array<./defs.InlineFormattingDef>} List of formats representing that range formats.
  */
 Paragraph.prototype.getFormatsForRange = function(from, to) {
   var finalFormats = [];
   var rangeFormats = this.getFormattedRanges({
     from: from,
     to: to,
-    type: null
+    type: null,
   }, false);
 
   rangeFormats = Utils.clone(rangeFormats);
@@ -493,9 +519,9 @@ Paragraph.prototype.getFormatsForRange = function(from, to) {
 
 /**
  * Finds if the paragraph has formatted regions in the format range.
- * @param  {Object} format The format to check in its range.
+ * @param  {./defs.InlineFormattingDef} format The format to check in its range.
  * @param  {boolean=} matchType Whether to check for type match.
- * @return {Array.<Object>} List of formats that overlap the format.
+ * @return {Array<./defs.InlineFormattingDef>} List of formats that overlap the format.
  */
 Paragraph.prototype.getFormattedRanges = function(format, matchType) {
   var matchingFormats = [];
@@ -539,12 +565,13 @@ Paragraph.prototype.getFormattedRanges = function(format, matchType) {
   } else {
     return matchingFormats;
   }
+  return matchingFormats;
 };
 
 
 /**
  * Adds and sorts the formatting to be in the correct order.
- * @param {Object} format The new formatter to add.
+ * @param {./defs.InlineFormattingDef} format The new formatter to add.
  */
 Paragraph.prototype.addNewFormatting = function(format) {
   this.formats.push(format);
@@ -566,7 +593,7 @@ Paragraph.prototype.addNewFormatting = function(format) {
 
 /**
  * Creates and return a JSON representation of the model.
- * @return {Object} JSON representation of this paragraph.
+ * @return {./defs.ParagraphJsonDef} JSON representation of this paragraph.
  */
 Paragraph.prototype.getJSONModel = function() {
   var paragraph = {
@@ -574,7 +601,7 @@ Paragraph.prototype.getJSONModel = function() {
     name: this.name,
     text: this.text,
     placeholderText: this.placeholderText,
-    paragraphType: this.paragraphType
+    paragraphType: this.paragraphType,
   };
 
   if (this.formats && this.formats.length) {
@@ -587,15 +614,15 @@ Paragraph.prototype.getJSONModel = function() {
 
 /**
  * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
+ * @param  {!Element} element Element to render component in.
+ * @param  {Object=} opt_options Options for rendering.
  *   options.insertBefore - To render the component before another element.
  *   options.editMode - To render the paragraph in edit mode.
  * @override
  */
-Paragraph.prototype.render = function(element, options) {
+Paragraph.prototype.render = function(element, opt_options) {
   if (!this.isRendered) {
-    Component.prototype.render.call(this, element, options);
+    Component.prototype.render.call(this, element, opt_options);
 
     if (this.editMode) {
       this.dom.setAttribute('contenteditable', true);
@@ -616,15 +643,15 @@ Paragraph.prototype.render = function(element, options) {
 /**
  * Returns the operations to execute a deletion of the paragraph component.
  *   For partial deletion pass optFrom and optTo.
- * @param  {number=} optIndexOffset Optional offset to add to the index of the
+ * @param  {number=} opt_indexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
- * @param {Object=} optCursorAfterOp Where to move cursor to after deletion.
- * @param {boolean=} optKeepEmptyContainer Whether to keep the empty container
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @param {boolean=} opt_keepEmptyContainer Whether to keep the empty container
  * or delete it.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * @return {Array<./defs.OperationDef>} List of operations needed to be executed.
  */
 Paragraph.prototype.getDeleteOps = function(
-    optIndexOffset, optCursorAfterOp, optKeepEmptyContainer) {
+    opt_indexOffset, opt_cursorAfterOp, opt_keepEmptyContainer) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -634,26 +661,26 @@ Paragraph.prototype.getDeleteOps = function(
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'Paragraph',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         text: this.text,
         placeholderText: this.placeholderText,
         paragraphType: this.paragraphType,
-        formats: this.formats
-      }
-    }
+        formats: this.formats,
+      },
+    },
   }];
 
   // If this is the last element in the section/layout/list delete the container
   // as well.
-  if (!optKeepEmptyContainer && this.section.getLength() < 2) {
+  if (!opt_keepEmptyContainer && this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
@@ -663,11 +690,11 @@ Paragraph.prototype.getDeleteOps = function(
 /**
  * Returns the operations to execute inserting a paragarph.
  * @param {number} index Index to insert the paragarph at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the paragraph.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the paragraph.
  */
-Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+Paragraph.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -680,14 +707,14 @@ Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
         text: this.text,
         formats: this.formats,
         placeholderText: this.placeholderText,
-        paragraphType: this.paragraphType
-      }
+        paragraphType: this.paragraphType,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -695,8 +722,8 @@ Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
 /**
  * Returns the operations to execute inserting characters in a paragraph.
  * @param {string} chars The characters to insert in a paragraph.
- * @param  {number=} index Index to insert the characters at.
- * @return {Array.<Object>} Operations for inserting characters in paragraph.
+ * @param {number} index Index to insert the characters at.
+ * @return {Array<./defs.OperationDef>} Operations for inserting characters in paragraph.
  */
 Paragraph.prototype.getInsertCharsOps = function(chars, index) {
   return [{
@@ -705,15 +732,15 @@ Paragraph.prototype.getInsertCharsOps = function(chars, index) {
       component: this.name,
       cursorOffset: index + chars.length,
       value: chars,
-      index: index
+      index: index,
     },
     undo: {
       op: 'removeChars',
       component: this.name,
       cursorOffset: index,
       index: index,
-      count: chars.length
-    }
+      count: chars.length,
+    },
   }];
 };
 
@@ -721,26 +748,26 @@ Paragraph.prototype.getInsertCharsOps = function(chars, index) {
 /**
  * Returns the operations to execute removing characters in a paragraph.
  * @param {string} chars The characters to remove in a paragraph.
- * @param  {number=} index Index to remove the characters starting at.
- * @param {number=} optDirection The directions to remove chars at.
- * @return {Array.<Object>} Operations for removing characters in paragraph.
+ * @param  {number} index Index to remove the characters starting at.
+ * @param {number=} opt_direction The directions to remove chars at.
+ * @return {Array<./defs.OperationDef>} Operations for removing characters in paragraph.
  */
-Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
+Paragraph.prototype.getRemoveCharsOps = function(chars, index, opt_direction) {
   return [{
     do: {
       op: 'removeChars',
       component: this.name,
       cursorOffset: index,
       index: index,
-      count: chars.length
+      count: chars.length,
     },
     undo: {
       op: 'insertChars',
       component: this.name,
-      cursorOffset: index - (optDirection || 0),
+      cursorOffset: index - (opt_direction || 0),
       value: chars,
-      index: index
-    }
+      index: index,
+    },
   }];
 };
 
@@ -749,7 +776,7 @@ Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
  * Returns operations needed to update a word at index to another.
  * @param  {string} newWord The new word to update to.
  * @param  {number} index Index of the word to update.
- * @return {Array.<Object>} Operations for updating a word.
+ * @return {Array<./defs.OperationDef>} Operations for updating a word.
  */
 Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
   var currentWord = this.getWordAt_(index);
@@ -768,32 +795,33 @@ Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
 /**
  * Returns the operations to execute updating a paragraph attributes.
  * @param  {Object} attrs Attributes to update for the paragraph.
- * @param  {number=} optCursorOffset Optional cursor offset.
- * @param  {number=} optSelectRange Optional selecting range.
- * @param  {string=} optValue Optional value to update the component with.
- * @param  {number=} optCursorOffsetBeforeOp Optional cursor offset before
+ * @param  {number=} opt_cursorOffset Optional cursor offset.
+ * @param  {number=} opt_selectRange Optional selecting range.
+ * @param  {string=} opt_value Optional value to update the component with.
+ * @param  {number=} opt_cursorOffsetBeforeOp Optional cursor offset before
  * operation execution (to correctly undo cursor offset).
- * @return {Array.<Object>} Operations for updating a paragraph attributes.
+ * @return {Array<./defs.OperationDef>} Operations for updating a paragraph attributes.
  */
 Paragraph.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange, optValue, optCursorOffsetBeforeOp) {
+    attrs, opt_cursorOffset, opt_selectRange, opt_value,
+    opt_cursorOffsetBeforeOp) {
   return [{
     do: {
       op: 'updateComponent',
       component: this.name,
-      cursorOffset: optCursorOffset,
-      selectRange: optSelectRange,
+      cursorOffset: opt_cursorOffset,
+      selectRange: opt_selectRange,
       formats: attrs.formats,
-      value: optValue
+      value: opt_value,
     },
     undo: {
       op: 'updateComponent',
       component: this.name,
-      cursorOffset: optCursorOffsetBeforeOp,
-      selectRange: optSelectRange,
+      cursorOffset: opt_cursorOffsetBeforeOp,
+      selectRange: opt_selectRange,
       formats: attrs.formats,
-      value: optValue ? this.text : undefined
-    }
+      value: opt_value ? this.text : undefined,
+    },
   }];
 };
 
@@ -802,7 +830,7 @@ Paragraph.prototype.getUpdateOps = function(
  * Returns the length of the paragraph content.
  * @return {number} Length of the paragraph content.
  */
-Paragraph.prototype.getLength = function () {
+Paragraph.prototype.getLength = function() {
   return this.text.length;
 };
 
@@ -811,7 +839,7 @@ Paragraph.prototype.getLength = function () {
  * Returns the length of the paragraph content.
  * @return {number} Length of the paragraph content.
  */
-Paragraph.prototype.getDomLength = function () {
+Paragraph.prototype.getDomLength = function() {
   return this.dom.innerText.length;
 };
 

@@ -79,14 +79,19 @@ I18n.set = function(locale, id, string) {
 /**
  * Returns the string for the specific ID.
  * @param  {string} id String ID.
- * @param  {string} optLocale Optional Locale - default to currentLocale.
- * @return {string|null} The string for that locale if found.
+ * @param  {string=} opt_locale Optional Locale - default to currentLocale.
+ * @return {string|undefined} The string for that locale if found.
  */
-I18n.get = function(id, optLocale) {
-  var locale = optLocale || I18n.currentLocale;
+I18n.get = function(id, opt_locale) {
+  var locale = opt_locale || I18n.currentLocale;
   if (!I18n.LANG_STRING_MAP[locale] ||
       !I18n.LANG_STRING_MAP[locale][id]) {
     locale = I18n.getFallbackLocale();
   }
-  return I18n.LANG_STRING_MAP[locale][id];
+  try {
+    return I18n.LANG_STRING_MAP[locale][id];
+  } catch (e) {
+    console.error(e);
+    return;
+  }
 };
