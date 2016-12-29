@@ -31,6 +31,7 @@ module.exports = function(grunt) {
         options: {
           browserifyOptions: {
             standalone: 'carbon',
+            debug: grunt.option('debug'),
           },
         },
         files: {
@@ -42,6 +43,7 @@ module.exports = function(grunt) {
         options: {
           browserifyOptions: {
             standalone: 'carbon3p',
+            debug: grunt.option('debug'),
           },
         },
         files: {
