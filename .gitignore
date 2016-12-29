@@ -11,6 +11,7 @@ log/
 results/
 coverage/
 _site/
+dist/
 
 *.seed
 *.log
