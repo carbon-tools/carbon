@@ -582,6 +582,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var offset, currentOffset;
   var that = this;
   var cursor = null;
+  var movingBetweenParagraphs = false;
 
   /*
    * Map direction arrows between rtl and ltr
@@ -894,6 +895,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Left.
     case previousArrow:
+      if (currentIsParagraph) {
+        this.handlePendingInputIfAny_();
+      }
       if (prevComponent && !currentIsParagraph) {
         offset = 0;
         if (prevIsParagraph) {
@@ -910,26 +914,25 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Up.
     case 38:
-      if (prevComponent) {
-        offset = 0;
-        if (prevIsParagraph && !currentIsParagraph) {
-          if (currentIsParagraph) {
-            currentOffset = selection.start.offset;
-            offset = Math.min(prevComponent.getLength(), currentOffset);
-          } else {
-            offset = prevComponent.getLength();
-          }
-          selection.setCursor({
-            component: prevComponent,
-            offset: offset,
-          });
-          preventDefault = true;
-        }
+      movingBetweenParagraphs = prevIsParagraph && currentIsParagraph;
+      if (currentIsParagraph) {
+        this.handlePendingInputIfAny_();
+      }
+      if (prevComponent && !movingBetweenParagraphs) {
+        offset = prevIsParagraph ? prevComponent.getLength() : 0;
+        selection.setCursor({
+          component: prevComponent,
+          offset: offset,
+        });
+        preventDefault = true;
       }
       break;
 
     // Right.
     case nextArrow:
+      if (currentIsParagraph) {
+        this.handlePendingInputIfAny_();
+      }
       if (selection.isCursorAtEnding() && nextComponent) {
         selection.setCursor({
           component: nextComponent,
@@ -941,10 +944,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
     // Down.
     case 40:
-      if (nextComponent) {
-        if (nextIsParagraph && !currentIsParagraph) {
-          currentOffset = selection.end.offset;
-        }
+      movingBetweenParagraphs = nextIsParagraph && currentIsParagraph;
+      if (currentIsParagraph) {
+        this.handlePendingInputIfAny_();
+      }
+      if (nextComponent && !movingBetweenParagraphs) {
+        currentOffset = nextIsParagraph ? selection.end.offset : 0;
         offset = Math.min(nextComponent.getLength(), currentOffset);
         selection.setCursor({
           component: nextComponent,
