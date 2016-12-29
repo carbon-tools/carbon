@@ -827,6 +827,51 @@ Paragraph.prototype.getUpdateOps = function(
 
 
 /**
+ * Generates the operations needed to split a paragraph into two at the selection.
+ * @param {./selection} selection Selection to get formatter at.
+ * @param  {number} opt_indexOffset Offset to add to paragraphs index.
+ * @return {Array<./defs.OperationDef>} List of operations to split the paragraph.
+ */
+Paragraph.prototype.getSplitOpsAt = function(selection, opt_indexOffset) {
+  var ops = [];
+  var currentComponent = selection.getComponentAtEnd();
+  var currentIndex = currentComponent.getIndexInSection();
+  var afterCursorText = currentComponent.text.substring(
+      selection.end.offset, currentComponent.text.length);
+
+  var afterCursorFormats = currentComponent.getFormatsForRange(
+      selection.start.offset, currentComponent.text.length);
+
+  Utils.arrays.extend(ops, currentComponent.getUpdateOps({
+    formats: afterCursorFormats,
+  }, selection.start.offset));
+
+  Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+      afterCursorText, selection.start.offset));
+
+  var afterCursorShiftedFormats = Utils.clone(afterCursorFormats);
+  var formatShift = -selection.start.offset;
+  for (var k = 0; k < afterCursorShiftedFormats.length; k++) {
+    afterCursorShiftedFormats[k].from += formatShift;
+    afterCursorShiftedFormats[k].to += formatShift;
+  }
+
+  var newP = new Paragraph({
+    section: /** @type {./section} */ (selection.getSectionAtEnd()),
+    text: /** @type {string} */ (afterCursorText),
+    formats: /** @type {Array<./defs.FormattingActionDef>} */ (
+        afterCursorShiftedFormats),
+    paragraphType: /** @type {string} */ (currentComponent.paragraphType),
+  });
+  Utils.arrays.extend(
+      ops, newP.getInsertOps(currentIndex + (opt_indexOffset || 0) + 1));
+
+  return ops;
+};
+
+
+
+/**
  * Returns the length of the paragraph content.
  * @return {number} Length of the paragraph content.
  */

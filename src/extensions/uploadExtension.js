@@ -1,5 +1,6 @@
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Button = require('../toolbars/button');
 var Utils = require('../utils');
 var Figure = require('../figure');
@@ -68,21 +69,27 @@ UploadButton.prototype.handleChange = function(event) {
 
 /**
  * Upload Extension enables upload button on the toolbelt.
+ * @param  {../editor} editor Editor instance this installed on.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../core/abstract-extension}
  * @constructor
  */
-var UploadExtension = function() {
+var UploadExtension = function(editor, opt_params) {
   /**
    * The editor this toolbelt belongs to.
    * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
   /**
    * The toolbelt toolbar.
    * @type {../toolbars/toolbar}
    */
   this.toolbelt = null;
+
+  this.init();
 };
+UploadExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = UploadExtension;
 
 
@@ -108,29 +115,9 @@ UploadExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
- * Initializes the upload extensions.
- * @param  {../editor} editor Editor instance this installed on.
- */
-UploadExtension.onInstall = function(editor) {
-  var uploadExtension = new UploadExtension();
-  uploadExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-UploadExtension.onDestroy = function() {
-  // pass
-};
-
-
-/**
  * Initialize the upload button and listener.
- * @param  {../editor} editor The editor to enable the extension on.
  */
-UploadExtension.prototype.init = function(editor) {
-  this.editor = editor;
+UploadExtension.prototype.init = function() {
   this.toolbelt = this.editor.getToolbar(
       UploadExtension.TOOLBELT_TOOLBAR_NAME);
 

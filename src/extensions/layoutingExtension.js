@@ -1,5 +1,6 @@
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Selection = require('../selection');
 var Toolbar = require('../toolbars/toolbar');
 var Button = require('../toolbars/button');
@@ -15,15 +16,18 @@ var GiphyComponent = require('./giphyComponent');
 /**
  * LayoutingExtension extension for the editor.
  *   Adds an extendable toolbar for components to add buttons to.
+ * @param {../editor} editor Editor instance this installed on.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../core/abstract-extension}
  * @constructor
  */
-var LayoutingExtension = function() {
+var LayoutingExtension = function(editor, opt_params) {
 
   /**
    * The editor this toolbelt belongs to.
    * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
   /**
    * The layouting toolbar.
@@ -31,7 +35,9 @@ var LayoutingExtension = function() {
    */
   this.toolbar = null;
 
+  this.init();
 };
+LayoutingExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = LayoutingExtension;
 
 
@@ -43,30 +49,9 @@ LayoutingExtension.CLASS_NAME = 'LayoutingExtension';
 
 
 /**
- * Initializes the toolbelt extensions.
- * @param  {../editor} editor Editor instance this installed on.
- */
-LayoutingExtension.onInstall = function(editor) {
-  var toolbeltExtension = new LayoutingExtension();
-  toolbeltExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-LayoutingExtension.onDestroy = function() {
-  // pass.
-};
-
-
-/**
  * Initiates the toolbelt extension.
- * @param  {../editor} editor The editor to initialize the extension for.
  */
-LayoutingExtension.prototype.init = function(editor) {
-  this.editor = editor;
-
+LayoutingExtension.prototype.init = function() {
   // Create a new toolbar for the toolbelt.
   this.toolbar = new Toolbar({
     name: LayoutingExtension.TOOLBAR_NAME,

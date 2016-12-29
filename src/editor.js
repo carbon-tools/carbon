@@ -1,6 +1,7 @@
 'use strict';
 
 var Article = require('./article');
+var AbstractExtension = require('./core/abstract-extension');
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var List = require('./list');
@@ -16,6 +17,8 @@ var UploadExtension = require('./extensions/uploadExtension');
 var I18n = require('./i18n');
 var Layout = require('./layout');
 var CustomEventTarget = require('./customEventTarget');
+var CopyCutPaste = require('./extensions/copy-cut-paste').CopyCutPaste;
+var Component = require('./component');
 
 
 /**
@@ -101,7 +104,7 @@ var Editor = function(element, opt_params) {
   /**
    * Flag used to disable handleInputEvent
    */
-  this.disableInputHandler = false;
+  this.disableInputHandler_ = false;
 
   /**
    * Editor's inline toolbar.
@@ -127,9 +130,9 @@ var Editor = function(element, opt_params) {
 
   /**
    * Components installed and enabled in the editor.
-   * @type {Object.<string, Function>}
+   * @type {Object<string, function(new:./component)>}
    */
-  this.installedModules = {};
+  this.installedComponents = {};
 
   // Install built-in Components.
   this.install(Section);
@@ -137,23 +140,22 @@ var Editor = function(element, opt_params) {
   this.install(List);
   this.install(Figure);
 
+  /**
+   * Components installed and enabled in the editor.
+   * @type {Object<string, ./core/abstract-extension>}
+   */
+  this.installedExtensions = {};
+
   // Install built-in extensions.
   this.install(FormattingExtension);
   this.install(ToolbeltExtension);
   this.install(UploadExtension);
+  this.install(CopyCutPaste);
 
   // Install user provided components and extensions.
   for (var i = 0; i < params.modules.length; i++) {
     this.install(params.modules[i]);
   }
-
-
-  this.composition_ = {
-    component: null,
-    start: null,
-    update: null,
-    end: null,
-  };
 
   this.init();
   this.setArticle(this.article);
@@ -224,8 +226,8 @@ Editor.prototype.init = function() {
   this.element.addEventListener('input', Utils.debounce(
       this.handleInputEvent.bind(this), 200).bind(this));
 
-  this.element.addEventListener('cut', this.handleCut.bind(this));
-  this.element.addEventListener('paste', this.handlePaste.bind(this));
+  this.element.addEventListener('cut', this.handleCut_.bind(this));
+  this.element.addEventListener('paste', this.handlePaste_.bind(this));
   this.element.classList.add('carbon-editor');
   this.element.setAttribute('contenteditable', true);
 
@@ -246,9 +248,9 @@ Editor.prototype.destroy = function() {
     }
   }
 
-  for (name in this.installedModules) {
-    if (this.installedModules[name].onDestroy) {
-      this.installedModules[name].onDestroy();
+  for (name in this.installedComponents) {
+    if (this.installedComponents[name].onDestroy) {
+      this.installedComponents[name].onDestroy();
     }
   }
 
@@ -270,6 +272,7 @@ Editor.prototype.setArticle = function(article) {
 
 /**
  * Renders the editor and article inside the element.
+ * @export
  */
 Editor.prototype.render = function() {
   // TODO(mkhatib): Maybe implement a destroy on components to cleanup
@@ -290,17 +293,74 @@ Editor.prototype.render = function() {
 
 /**
  * Installs and activate a component type to use in the editor.
- * @param  {Function} ModuleClass The component class.
- * @param  {Object=} optArgs Optional arguments to pass to onInstall of module.
- * @param {boolean=} optForce Whether to force registeration.
+ * @param {function(new:./component)|function(new:./core/abstract-extension)} ModuleClass The component class.
+ * @param {Object=} opt_args Optional arguments to pass to onInstall of module.
+ * @param {boolean=} opt_force Whether to force registeration.
+ * @export
  */
-Editor.prototype.install = function(ModuleClass, optArgs, optForce) {
-  if (this.installedModules[ModuleClass.CLASS_NAME] && !optForce) {
-    console.warn(ModuleClass.CLASS_NAME +
-        ' module has already been installed in this editor.');
+Editor.prototype.install = function(ModuleClass, opt_args, opt_force) {
+  if (ModuleClass.prototype instanceof AbstractExtension) {
+    this.installExtension_(ModuleClass, opt_args, opt_force);
+  } else if (ModuleClass.prototype instanceof Component) {
+    this.installComponent_(ModuleClass, opt_args, opt_force);
   }
-  this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
-  ModuleClass.onInstall(this, optArgs);
+};
+
+
+/**
+ * Installs and activate a component type to use in the editor.
+ * @param {function(new:./component)} ModuleClass The component class.
+ * @param {Object=} opt_args Optional arguments to pass to onInstall of module.
+ * @param {boolean=} opt_force Whether to force registeration.
+ * @private
+ */
+Editor.prototype.installComponent_ = function(
+    ModuleClass, opt_args, opt_force) {
+  if (!(ModuleClass.prototype instanceof Component)) {
+    throw new Error('Component passed does not extend Component class.');
+  }
+
+  if (this.installedComponents[ModuleClass.CLASS_NAME] && !opt_force) {
+    // TODO(mkhatib): Think about whether it should be possible to install
+    // multiple instances of an extension.
+    console.warn(ModuleClass.CLASS_NAME +
+        ' component has already been installed in this editor.');
+  }
+
+  if (ModuleClass.onInstall) {
+    ModuleClass.onInstall(this, opt_args);
+  }
+  this.installedComponents[ModuleClass.CLASS_NAME] = ModuleClass;
+};
+
+
+
+/**
+ * Installs and activate a component type to use in the editor.
+ * @param {function(new:./core/abstract-extension, Editor, Object=)} ModuleClass The component class.
+ * @param {Object=} opt_args Optional arguments to pass to onInstall of module.
+ * @param {boolean=} opt_force Whether to force registeration.
+ * @private
+ */
+Editor.prototype.installExtension_ = function(
+    ModuleClass, opt_args, opt_force) {
+  if (!(ModuleClass.prototype instanceof AbstractExtension)) {
+    throw new Error(
+        'Extension passed does not extend AbstractExtension class.');
+  }
+
+  if (this.installedExtensions[ModuleClass.CLASS_NAME] && !opt_force) {
+    // TODO(mkhatib): Think about whether it should be possible to install
+    // multiple instances of an extension.
+    console.warn(ModuleClass.CLASS_NAME +
+        ' extension has already been installed in this editor.');
+  }
+
+  if (ModuleClass.onInstall) {
+    ModuleClass.onInstall(this, opt_args);
+  }
+  this.installedExtensions[ModuleClass.CLASS_NAME] = new ModuleClass(
+      this, opt_args);
 };
 
 
@@ -308,10 +368,10 @@ Editor.prototype.install = function(ModuleClass, optArgs, optForce) {
  * Registers a keyboard shortcut in the editor.
  * @param  {string} shortcutId Shortcut string e.g. 'ctrl+b'.
  * @param  {Function} handler Callback handler for handling the shortcut.
- * @param  {boolean=} optForce Whether to override an already registered one.
+ * @param  {boolean=} opt_force Whether to override an already registered one.
  */
-Editor.prototype.registerShrotcut = function(shortcutId, handler, optForce) {
-  this.shortcutsManager.register(shortcutId, handler, optForce);
+Editor.prototype.registerShrotcut = function(shortcutId, handler, opt_force) {
+  this.shortcutsManager.register(shortcutId, handler, opt_force);
 };
 
 
@@ -369,7 +429,7 @@ Editor.prototype.getToolbar = function(name) {
  * @return {Function} Class function for the component.
  */
 Editor.prototype.getModule = function(name) {
-  return this.installedModules[name];
+  return this.installedComponents[name] || this.installedExtensions[name];
 };
 
 
@@ -377,11 +437,11 @@ Editor.prototype.getModule = function(name) {
  * Registers a regex with the factory.
  * @param  {string} regex String regular expression to register for.
  * @param  {./defs.ComponentFactoryMethodDef} factoryMethod Callback factory method for handling match.
- * @param  {boolean=} optForce Forcing registering even when its already
+ * @param  {boolean=} opt_force Forcing registering even when its already
  * registered.
  */
-Editor.prototype.registerRegex = function(regex, factoryMethod, optForce) {
-  this.componentFactory.registerRegex(regex, factoryMethod, optForce);
+Editor.prototype.registerRegex = function(regex, factoryMethod, opt_force) {
+  this.componentFactory.registerRegex(regex, factoryMethod, opt_force);
 };
 
 
@@ -405,7 +465,7 @@ Editor.prototype.handleSelectionChanged = function(event) {
  */
 Editor.prototype.handleInputEvent = function() {
   // Short circuit the function if handling input is disabled
-  if (this.disableInputHandler === true) {
+  if (this.disableInputHandler_ === true) {
     return;
   }
 
@@ -449,7 +509,7 @@ Editor.prototype.handleInputEvent = function() {
  * @private
  */
 Editor.prototype.handlePendingInputIfAny_ = function() {
-  this.disableInputHandler = false;
+  this.enableInput();
   this.handleInputEvent();
 };
 
@@ -465,7 +525,7 @@ Editor.prototype.handleKeyUpEvent = function(event) {
     this.accentInProgress = Utils.getAccent(event);
   }
   // User removed his finger from the key re-enable input handler.
-  this.disableInputHandler = false;
+  this.enableInput();
 };
 
 
@@ -511,7 +571,7 @@ Editor.prototype.handleKeyPressEvent = function(event) {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
-  this.disableInputHandler = true;
+  this.disableInput();
   var INPUT_INSERTING = 'insert-chars';
   var INPUT_REMOVING = 'remove-chars';
   var selection = this.article.selection, newP;
@@ -584,7 +644,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       inBetweenComponents = section.getComponentsBetween(
           selection.getComponentAtStart(), selection.getComponentAtEnd());
     }
-    Utils.arrays.extend(ops, this.getDeleteSelectionOps());
+    Utils.arrays.extend(ops, selection.getDeleteSelectionOps());
 
     this.article.transaction(ops);
     selection.setCursor(selection.start);
@@ -628,8 +688,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // an instanceof Paragraph. Maybe find a better way to manage this.
       if (!selection.isCursorAtEnding() && currentIsParagraph &&
           !currentComponent.inline) {
-        Utils.arrays.extend(ops, this.getSplitParagraphOps(
-            -inBetweenComponents.length));
+        Utils.arrays.extend(ops, currentComponent.getSplitOps(
+            selection, -inBetweenComponents.length));
       } else {
         var factoryMethod;
         if (currentIsParagraph) {
@@ -916,141 +976,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
 
 /**
- * Generates the operations needed to delete current selection.
- * @return {Array<./defs.OperationDef>} List of operations to delete selection.
- */
-Editor.prototype.getDeleteSelectionOps = function() {
-  var ops = [];
-  var count;
-  var selection = this.article.selection;
-  var section = selection.getSectionAtStart();
-  var inBetweenComponents = [];
-  if (section) {
-    inBetweenComponents = section.getComponentsBetween(
-      selection.getComponentAtStart(), selection.getComponentAtEnd());
-  }
-
-  for (var i = 0; i < inBetweenComponents.length; i++) {
-    Utils.arrays.extend(ops, inBetweenComponents[i].getDeleteOps(-i));
-  }
-
-  if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
-    var lastComponent = selection.getComponentAtEnd();
-    if (lastComponent instanceof Paragraph || selection.end.offset > 0) {
-      Utils.arrays.extend(ops, lastComponent.getDeleteOps(
-          -inBetweenComponents.length));
-    }
-
-    if (lastComponent instanceof Paragraph) {
-      var lastParagraphOldText = lastComponent.text;
-      var lastParagraphText = lastParagraphOldText.substring(
-          selection.end.offset, lastParagraphOldText.length);
-
-      var firstParagraphOldText = selection.getComponentAtStart().text;
-      var firstParagraphText = firstParagraphOldText.substring(
-          selection.start.offset, firstParagraphOldText.length);
-
-      var startParagraph = selection.getComponentAtStart();
-      var startParagraphFormats = startParagraph.getFormatsForRange(
-          selection.start.offset, firstParagraphOldText.length);
-
-      var selectRange = firstParagraphOldText.length - selection.start.offset;
-      if ((startParagraphFormats && startParagraphFormats.length) ||
-          selectRange) {
-        Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-          formats: startParagraphFormats,
-        }, selection.start.offset, selectRange));
-      }
-
-      if (firstParagraphText && firstParagraphText.length) {
-        Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
-            firstParagraphText, selection.start.offset));
-      }
-
-      var lastCount = lastParagraphOldText.length - lastParagraphText.length;
-      Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
-          lastParagraphText, selection.start.offset));
-
-      var endParagraphFormatting = lastComponent.getFormatsForRange(
-          selection.end.offset, lastParagraphOldText.length);
-      var formatShift = -lastCount + selection.start.offset;
-      for (var k = 0; k < endParagraphFormatting.length; k++) {
-        endParagraphFormatting[k].from += formatShift;
-        endParagraphFormatting[k].to += formatShift;
-      }
-
-      Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-        formats: endParagraphFormatting,
-      }, firstParagraphOldText.length - firstParagraphText.length));
-    }
-  } else {
-    var currentComponent = selection.getComponentAtStart();
-    var selectedText = currentComponent.text.substring(
-        selection.start.offset, selection.end.offset);
-    count = selection.end.offset - selection.start.offset;
-    var currentComponentFormats = currentComponent.getFormatsForRange(
-        selection.start.offset, selection.end.offset);
-
-    Utils.arrays.extend(ops, currentComponent.getUpdateOps({
-      formats: currentComponentFormats,
-    }, selection.start.offset, count));
-
-    Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
-        selectedText, selection.start.offset));
-  }
-
-  return ops;
-};
-
-
-/**
- * Generates the operations needed to split a paragraph into two at the cursor.
- * @param  {number} indexOffset Offset to add to paragraphs index.
- * @return {Array<./defs.OperationDef>} List of operations to split the paragraph.
- */
-Editor.prototype.getSplitParagraphOps = function(indexOffset) {
-  var ops = [];
-  var selection = this.article.selection;
-  var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.getIndexInSection();
-  var afterCursorText = currentComponent.text.substring(
-      selection.end.offset, currentComponent.text.length);
-
-  var afterCursorFormats = currentComponent.getFormatsForRange(
-      selection.start.offset, currentComponent.text.length);
-
-  Utils.arrays.extend(ops, currentComponent.getUpdateOps({
-    formats: afterCursorFormats,
-  }, selection.start.offset));
-
-  Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
-      afterCursorText, selection.start.offset));
-
-  var afterCursorShiftedFormats = Utils.clone(afterCursorFormats);
-  var formatShift = -selection.start.offset;
-  for (var k = 0; k < afterCursorShiftedFormats.length; k++) {
-    afterCursorShiftedFormats[k].from += formatShift;
-    afterCursorShiftedFormats[k].to += formatShift;
-  }
-
-  var newP = new Paragraph({
-    section: /** @type {./section} */ (selection.getSectionAtEnd()),
-    text: /** @type {string} */ (afterCursorText),
-    formats: /** @type {Array<./defs.FormattingActionDef>} */ (
-        afterCursorShiftedFormats),
-    paragraphType: /** @type {string} */ (currentComponent.paragraphType),
-  });
-  Utils.arrays.extend(
-      ops, newP.getInsertOps(currentIndex + indexOffset + 1));
-
-  return ops;
-};
-
-
-/**
  * Generates the operations needed to merge two paragraphs.
- * TODO(mkhatib): Figure out a way to handle this without discarding the formats
- * of the text in the paragraphs.
  * @param  {Paragraph} firstP First Paragraph.
  * @param  {Paragraph} secondP Second Paragraph.
  * @param  {number} indexOffset Offset to add to paragraphs index.
@@ -1082,77 +1008,6 @@ Editor.prototype.getMergeParagraphsOps = function(
 
 
 /**
- * Handles paste event for the editor.
- * @param  {Event} event Paste Event.
- */
-Editor.prototype.handlePaste = function(event) {
-  // Execute any debounced input handler right away to apply any
-  // unupdated content before moving to other operations.
-  this.handlePendingInputIfAny_();
-
-  var startComponent = this.selection.getComponentAtEnd();
-  var pastedContent;
-  if (window.clipboardData && window.clipboardData.getData) { // IE
-    pastedContent = window.clipboardData.getData('Text');
-  } else if (event.clipboardData && event.clipboardData.getData) {
-    var cbData = event.clipboardData;
-    // Enforce inline paste when pasting in an inline component
-    // (e.g. figcaption).
-    if (startComponent.inline) {
-      pastedContent = cbData.getData('text/plain');
-      pastedContent = pastedContent.split('\n').join(' ');
-    } else {
-      pastedContent = (
-          cbData.getData('text/html') || cbData.getData('text/plain'));
-    }
-  }
-
-  var tempEl = document.createElement('div');
-  tempEl.innerHTML = pastedContent || '';
-
-  if (startComponent.getPreviousComponent()) {
-    startComponent = startComponent.getPreviousComponent();
-  }
-
-  var ops = this.getDeleteSelectionOps();
-  this.article.transaction(ops);
-  var pasteOps = this.processPastedContent(tempEl);
-  this.article.transaction(pasteOps);
-
-  var factoryMethod;
-  var that = this;
-  var endComponent = this.selection.getComponentAtEnd();
-  if (endComponent.getNextComponent()) {
-    endComponent = endComponent.getNextComponent();
-  }
-  var currentComponent = startComponent;
-
-  var opsCallback = function(ops) {
-    that.article.transaction(ops);
-    setTimeout(function() {
-      that.dispatchEvent(new Event('change'));
-    }, 2);
-  };
-
-  while (currentComponent && currentComponent !== endComponent) {
-    var currentIsParagraph = currentComponent instanceof Paragraph;
-    if (currentIsParagraph) {
-      factoryMethod = this.componentFactory.match(
-          currentComponent.text);
-      if (factoryMethod) {
-        factoryMethod(currentComponent, opsCallback);
-      }
-    }
-
-    currentComponent = currentComponent.getNextComponent();
-  }
-
-  this.selection.updateSelectionFromWindow();
-  event.preventDefault();
-};
-
-
-/**
  * Creates and return a JSON representation of the model.
  * @return {Object} JSON representation of this paragraph.
  */
@@ -1166,269 +1021,69 @@ Editor.prototype.getJSONModel = function() {
  * @return {string} Rendered HTML of the article.
  */
 Editor.prototype.getHTML = function() {
+  // TODO(mkhatib): This should remove contenteditable attributes from content.
   return this.article.dom.outerHTML;
 };
 
 
-
 /**
- * Sanitizes and generates list of operations to properly insert pasted
- * content into the article.
- *
- * TODO(mkhatib): Probably move this to its own module and
- * make it easier for people to customize or override this with
- * their own sanitizer.
- *
- * @param  {!Element} element HTML Element to sanitize and create ops for.
- * @param {number=} opt_indexOffset
- * @return {Array<./defs.OperationDef>} List of operations objects that represents the
- * the pasted content.
+ * Handles paste event for the editor.
+ * @param  {Event} event Paste Event.
+ * @private
  */
-Editor.prototype.processPastedContent = function(element, opt_indexOffset) {
-  var ops = [];
-  var text, paragraphType, appendOperations, newP;
-  var textPasted = Utils.getTextFromElement(element);
-  var children = element.childNodes;
-  var component;
-  var selection = this.article.selection;
-  var currentComponent = selection.getComponentAtStart();
-  var section = selection.getSectionAtStart();
-  var startParagraphIndex = currentComponent.getIndexInSection();
-  var currentIndex = /** @type {number} */ (
-      opt_indexOffset || startParagraphIndex);
-  var cursor = {
-    component: currentComponent.name,
-    offset: selection.end.offset,
-  };
+Editor.prototype.handlePaste_ = function(event) {
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  this.handlePendingInputIfAny_();
 
-  var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
-    'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
-    '#text', 'META'];
-
-  function hasOnlyInlineChildNodes(elem) {
-    var children = elem.childNodes;
-    for (var i = 0; i < children.length ; i++) {
-      if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
-        return false;
-      } else if (children[i].childNodes) {
-        var subChilds = children[i].childNodes;
-        for (var k = 0; k < subChilds.length; k++) {
-          if (!isInlinePaste(subChilds) ||
-              !hasOnlyInlineChildNodes(subChilds[k])) {
-            return false;
-          }
-        }
-      }
-    }
-    return true;
-  }
-
-  function isInlinePaste(children) {
-    var metaNodes = 0;
-    for (var i = 0; i < children.length; i++) {
-      if (children[i] && children[i].nodeName.toLowerCase() === 'meta') {
-        metaNodes++;
-      } else if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
-        return false;
-      }
-    }
-
-    if (children.length - metaNodes < 2) {
-      return true;
+  for (var key in this.installedExtensions) {
+    var extension = this.installedExtensions[key];
+    var result = extension.onPaste(event);
+    if (result) {
+      event.preventDefault();
+      return;
     }
   }
-
-  if (!children || !children.length ||
-      (isInlinePaste(children) && hasOnlyInlineChildNodes(element))) {
-    var lines = textPasted.split('\n');
-    if (lines.length < 2) {
-      // Text before and after pasting.
-      var textStart = currentComponent.text.substring(
-          0, selection.start.offset);
-
-      // Calculate cursor offset before pasting.
-      var offsetBeforeOperation = textStart.length;
-
-      Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
-          textPasted, offsetBeforeOperation));
-    } else {
-      // TODO(mkhatib): Maybe allow pasting new lined paragraphs once we
-      // have better support for it.
-      for (var lineNum = 0; lineNum < lines.length; lineNum++) {
-        if (lines[lineNum].trim().length > 0) {
-          newP = new Paragraph({
-            section: section,
-            text: lines[lineNum],
-          });
-          Utils.arrays.extend(
-              ops, newP.getInsertOps(currentIndex++, cursor));
-        }
-      }
-    }
-  } else if (hasOnlyInlineChildNodes(element)) {
-    text = Utils.getTextFromElement(element);
-
-    newP = new Paragraph({
-      section: section,
-      text: text,
-      formats: FormattingExtension.generateFormatsForNode(element),
-    });
-    Utils.arrays.extend(
-        ops, newP.getInsertOps(currentIndex++, cursor));
-  } else {
-    // When pasting multi-line, split the current paragraph if pasting
-    // mid-paragraph.
-    if (!selection.isCursorAtEnding()) {
-      Utils.arrays.extend(ops, this.getSplitParagraphOps(0));
-      currentIndex++;
-    }
-    for (var i = 0; i < children.length; i++) {
-      var el = /** @type {Element} */ (children[i]);
-      var tag = el.nodeName && el.nodeName.toLowerCase();
-      switch (tag) {
-        // These tags are currently unsupported for paste and are stripped out.
-        case 'undefined':
-        case 'meta':
-        case 'script':
-        case 'style':
-        case 'embed':
-        case 'br':
-        case 'hr':
-          continue;
-        case 'figure':
-          var allImgs = el.getElementsByTagName('img');
-          if (!allImgs || !allImgs.length) {
-            continue;
-          }
-          for (var j = 0; j < allImgs.length; j++) {
-            component = new Figure({
-              src: allImgs[j].getAttribute('src'),
-            });
-            component.section = selection.getSectionAtEnd();
-            Utils.arrays.extend(
-                ops, component.getInsertOps(currentIndex++, cursor));
-          }
-          paragraphType = null;
-          break;
-        case 'img':
-          component = new Figure({
-            src: el.getAttribute('src'),
-          });
-          component.section = selection.getSectionAtEnd();
-          Utils.arrays.extend(
-              ops, component.getInsertOps(currentIndex++, cursor));
-          paragraphType = null;
-          break;
-        case 'ul':
-        case 'ol':
-          var tagName = List.UNORDERED_LIST_TAG;
-          if (tag === 'ol') {
-            tagName = List.ORDERED_LIST_TAG;
-          }
-          var lis = el.getElementsByTagName('li');
-          if (!lis || !lis.length) {
-            continue;
-          }
-          component = new List({
-            tagName: tagName,
-            components: [],
-          });
-          component.section = selection.getSectionAtEnd();
-          Utils.arrays.extend(
-              ops, component.getInsertOps(currentIndex++, cursor));
-          for (j = 0; j < lis.length; j++) {
-            newP = new Paragraph({
-              paragraphType: Paragraph.Types.ListItem,
-              text: Utils.getTextFromElement(lis[j]),
-            });
-            newP.section = component;
-            Utils.arrays.extend(
-                ops, newP.getInsertOps(j, cursor));
-          }
-          paragraphType = null;
-          break;
-        case 'p':
-        case '#text':
-          paragraphType = Paragraph.Types.Paragraph;
-          break;
-        case 'blockquote':
-          paragraphType = Paragraph.Types.Quote;
-          break;
-        case 'h1':
-          paragraphType = Paragraph.Types.MainHeader;
-          break;
-        case 'h2':
-          paragraphType = Paragraph.Types.SecondaryHeader;
-          break;
-        case 'h3':
-        case 'h4':
-        case 'h5':
-        case 'h6':
-          paragraphType = Paragraph.Types.ThirdHeader;
-          break;
-        case 'pre':
-          paragraphType = Paragraph.Types.Code;
-          break;
-        default:
-          // To preserve inline styling.
-          if (hasOnlyInlineChildNodes(el)) {
-            // TODO(mkhatib): This is here to preserve inline styling, which
-            // is currently unsupported by the editor. Once this is added
-            // change this to reflect that. Currently just add a non-styled
-            // paragraph.
-            paragraphType = Paragraph.Types.Paragraph;
-          } else {
-            // In case there are still more block elements, recursively get
-            // their operations and add them to the operations list.
-
-            // TODO(mkhatib): This is very clumsy and not very readable, move
-            // the recursive process to its own helper method and make it more
-            // readable.
-            appendOperations = this.processPastedContent(el, currentIndex);
-
-            // Increase the currentIndex by the amount of paragraphs we've added
-            // which is the amount of operations.
-            currentIndex += appendOperations.length;
-          }
-      }
-
-      if (appendOperations) {
-        Utils.arrays.extend(ops, appendOperations);
-        appendOperations = null;
-      } else if (paragraphType) {
-        // Add an operation to insert new paragraph and update its text.
-        text = Utils.getTextFromElement(el);
-
-        newP = new Paragraph({
-          section: section,
-          text: text,
-          paragraphType: paragraphType,
-          formats: FormattingExtension.generateFormatsForNode(el),
-        });
-        Utils.arrays.extend(
-            ops, newP.getInsertOps(currentIndex++, cursor));
-      }
-    }
-  }
-  return ops;
 };
 
 
 /**
  * Handles cut event for the editor.
+ * TODO(mkhatib): Explore providing pre and post hooks to these handlers.
+ * @param {Event} event
+ * @private
  */
-Editor.prototype.handleCut = function() {
+Editor.prototype.handleCut_ = function(event) {
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
   this.handlePendingInputIfAny_();
 
-  this.disableInputHandler = true;
-  var ops = this.getDeleteSelectionOps();
-  var article = this.article;
-  var dispatchEvent = this.dispatchEvent.bind(this);
-  setTimeout(function() {
-    article.transaction(ops);
-    this.disableInputHandler = false;
-    dispatchEvent(new Event('change'));
-  }, 20);
+  for (var key in this.installedExtensions) {
+    var extension = this.installedExtensions[key];
+    var result = extension.onCut(event);
+    if (result) {
+      return;
+    }
+  }
+
+};
+
+
+/**
+ * Disables editor handling of input event.
+ * TODO(mkhatib): Implement a better way to handle this instead of
+ * disabling/enabling input handling.
+ */
+Editor.prototype.disableInput = function() {
+  this.disableInputHandler_ = true;
+};
+
+
+/**
+ * Enables editor handling of input event.
+ * TODO(mkhatib): Implement a better way to handle this instead of
+ * disabling/enabling input handling.
+ */
+Editor.prototype.enableInput = function() {
+  this.disableInputHandler_ = false;
 };

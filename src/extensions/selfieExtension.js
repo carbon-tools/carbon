@@ -1,5 +1,6 @@
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Utils = require('../utils');
 var Attachment = require('./attachment');
 var Figure = require('../figure');
@@ -9,15 +10,12 @@ var I18n = require('../i18n');
 
 /**
  * Allows users to take selfies and insert them into the article.
+ * @param  {../editor} editor Editor installing this extension.
  * @param {Object=} opt_params Optional parameters.
  * @constructor
  */
-var SelfieExtension = function(opt_params) {
-
-  var params = Utils.extend({
-    // TODO(mkhatib): Add config params for size and shutter sound.
-    editor: null,
-  }, opt_params);
+var SelfieExtension = function(editor, opt_params) {
+  // TODO(mkhatib): Add config params for size and shutter sound.
 
   // Create offscreen canvas to use as video buffer from the webcam.
   // TODO(mkhatib): Maybe actually insert it as a Figure when /selfie
@@ -49,7 +47,7 @@ var SelfieExtension = function(opt_params) {
    * Editor instance this extension was installed on.
    * @type {../editor}
    */
-  this.editor = params.editor;
+  this.editor = editor;
 
   /**
    * Toolbelt toolbar instance.
@@ -57,7 +55,9 @@ var SelfieExtension = function(opt_params) {
    */
   this.toolbelt = this.editor.getToolbar(SelfieExtension.TOOLBELT_TOOLBAR_NAME);
 
+  this.init();
 };
+SelfieExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = SelfieExtension;
 
 
@@ -98,19 +98,14 @@ SelfieExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Initiate an extension instance.
- * @param  {../editor} editor Editor installing this extension.
+ * @param  {../editor} unusedEditor Editor installing this extension.
  */
-SelfieExtension.onInstall = function(editor) {
+SelfieExtension.onInstall = function(unusedEditor) {
   if (!Webcam) {
     console.error('SelfieExtension depends on Webcam.js being loaded. Make' +
       ' sure to include it in your app.');
     return;
   }
-
-  var extension = new SelfieExtension({
-    editor: editor,
-  });
-  extension.init();
 };
 
 

@@ -29,6 +29,10 @@ java -jar $CLOSURE_COMPILER_PATH \
     --js src/customEventTarget.js \
     --js src/editor.js \
     --js src/errors.js \
+    --js src/core/abstract-extension.js \
+    --js src/core/operations/ops-from-html.js \
+    --js src/extensions/copy-cut-paste/index.js \
+    --js src/extensions/copy-cut-paste/copy-cut-paste.js \
     --js src/extensions/abstractEmbedProvider.js \
     --js src/extensions/attachment.js \
     --js src/extensions/carbonEmbedProvider.js \
@@ -60,6 +64,7 @@ java -jar $CLOSURE_COMPILER_PATH \
     --js src/toolbars/button.js \
     --js src/toolbars/textField.js \
     --js src/toolbars/toolbar.js \
+    --js src/utils/dom.js \
     --js src/utils.js \
     --externs externs/webcam.externs.js \
     --output_wrapper '(function(){%output%})();' \
@@ -89,10 +94,10 @@ java -jar $CLOSURE_COMPILER_PATH \
     # \
     # --js src/extensions/youtubeComponent.js \
     # --module youtube:1:iframe: \
-    
-    # --entry_point carbon 
+
+    # --entry_point carbon
     # --entry_point carbon.i18n.ar
     # --entry_point carbon.i18n.en
     # --js src/i18n/ar.js
-    # --module 
+    # --module
     # --js src/i18n/en.js

@@ -108,6 +108,13 @@ Component.onInstall = function(unusedEditor) {
 
 
 /**
+ * Called when the module is uninstalled from the an editor.
+ */
+Component.onDestroy = function() {
+};
+
+
+/**
  * Returns the class name of this component.
  * @return {string}
  */

@@ -1,5 +1,6 @@
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Utils = require('../utils');
 var Errors = require('../errors');
 var Loader = require('../loader');
@@ -10,12 +11,13 @@ var I18n = require('../i18n');
 /**
  * EmbeddingExtension allows embedding different kind of components using
  * different providers.
+ * @param {../editor} editor Editor instance installing this extension.
  * @param {Object=} opt_params Config params.
+ * @extends {../core/abstract-extension}
  * @constructor
  */
-var EmbeddingExtension = function(opt_params) {
+var EmbeddingExtension = function(editor, opt_params) {
   var params = Utils.extend({
-    editor: null,
     embedProviders: null,
     ComponentClass: null,
   }, opt_params);
@@ -24,7 +26,7 @@ var EmbeddingExtension = function(opt_params) {
    * A reference to the editor this extension is enabled in.
    * @type {../editor}
    */
-  this.editor = params.editor;
+  this.editor = editor;
 
   /**
    * Maps the different providers with their instances.
@@ -37,7 +39,10 @@ var EmbeddingExtension = function(opt_params) {
    * @type {function(new:./embeddedComponent, Object=)}
    */
   this.ComponentClass = params.ComponentClass;
+
+  this.init();
 };
+EmbeddingExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = EmbeddingExtension;
 
 
@@ -57,26 +62,19 @@ EmbeddingExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Instantiate an instance of the extension and configure it.
- * @param  {../editor} editor Instance of the editor installing this extension.
+ * @param  {../editor} unusedEditor Instance of the editor installing this extension.
  * @param  {Object} config Configuration for the extension.
  * @static
  */
-EmbeddingExtension.onInstall = function(editor, config) {
+EmbeddingExtension.onInstall = function(unusedEditor, config) {
   if (!config.embedProviders || !config.ComponentClass) {
     throw new Errors.ConfigrationError(
         'EmbeddingExtension needs "embedProviders" and "ComponentClass"');
   }
 
-  var extension = new EmbeddingExtension({
-    embedProviders: config.embedProviders,
-    ComponentClass: config.ComponentClass,
-    editor: editor,
-  });
-
   // Register the embedProviders with the loader to allow components to
   // access them. Force this?
   Loader.register('embedProviders', config.embedProviders, true);
-  extension.init();
 };
 
 

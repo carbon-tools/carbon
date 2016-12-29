@@ -1,5 +1,6 @@
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Paragraph = require('../paragraph');
 var Selection = require('../selection');
 var Utils = require('../utils');
@@ -10,15 +11,17 @@ var I18n = require('../i18n');
 
 /**
  * Editor formatting logic is an extension to the editor.
+ * @param {../editor} editor Editor instance installing this extension.
  * @param {Object=} opt_params Optional params to initialize the Formatting object.
  * Default:
  *   {
  *     enableInline: true,
  *     enableBlock: true
  *   }
+ * @extends {../core/abstract-extension}
  * @constructor
  */
-var Formatting = function(opt_params) {
+var Formatting = function(editor, opt_params) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
@@ -43,9 +46,11 @@ var Formatting = function(opt_params) {
    * Editor reference.
    * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
+  this.init();
 };
+Formatting.prototype = Object.create(AbstractExtension.prototype);
 module.exports = Formatting;
 
 
@@ -171,35 +176,21 @@ Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
 
 /**
  * Initializes the formatting extensions.
- * @param  {../editor} editor Editor instance this installed on.
  */
-Formatting.onInstall = function(editor) {
+Formatting.onInstall = function() {
   // Ugly hack because we can't load I18n strings on load time.
   // TODO(mkhatib): Figure out a better way to handle this.
   var a = Formatting.getActionForTagName('a');
   a.attrs.href.placeholder = I18n.get('placeholder.href');
-
-  var formattingExtension = new Formatting();
-  formattingExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-Formatting.onDestroy = function() {
-  // pass
 };
 
 
 /**
  * Initializes the formatting extension.
- * @param  {../editor} editor The parent editor for the extension.
  */
-Formatting.prototype.init = function(editor) {
-  this.editor = editor;
-  this.blockToolbar = editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
-  this.inlineToolbar = editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
+Formatting.prototype.init = function() {
+  this.blockToolbar = this.editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
+  this.inlineToolbar = this.editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
 
   // Inline toolbar used for formatting inline elements (bold, italic...).
   this.initInlineToolbarButtons();

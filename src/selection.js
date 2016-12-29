@@ -505,11 +505,100 @@ var SelectionSingletonAccessor = (function() {
   };
 
 
-    /**
-     * Initialize selection listeners to the element.
-     * @param  {!Element} element The html element to listen for selection
-     * changes on.
-     */
+  /**
+   * Generates the operations needed to delete current selection.
+   * @return {Array<./defs.OperationDef>} List of operations to delete selection.
+   */
+  EditorSelection.prototype.getDeleteSelectionOps = function() {
+    var ops = [];
+    var count;
+    var section = this.getSectionAtStart();
+    var inBetweenComponents = [];
+    if (section) {
+      inBetweenComponents = section.getComponentsBetween(
+        this.getComponentAtStart(), this.getComponentAtEnd());
+    }
+
+    for (var i = 0; i < inBetweenComponents.length; i++) {
+      Utils.arrays.extend(ops, inBetweenComponents[i].getDeleteOps(-i));
+    }
+
+    if (this.getComponentAtEnd() !== this.getComponentAtStart()) {
+      var lastComponent = this.getComponentAtEnd();
+      // TODO(mkhatib): This checks if the component is a paragraph,
+      // to avoid require(./paragraph). Find a better way to do this.
+      if (lastComponent.paragraphType || this.end.offset > 0) {
+        Utils.arrays.extend(ops, lastComponent.getDeleteOps(
+            -inBetweenComponents.length));
+      }
+
+      if (lastComponent.paragraphType) {
+        var lastParagraphOldText = lastComponent.text;
+        var lastParagraphText = lastParagraphOldText.substring(
+            this.end.offset, lastParagraphOldText.length);
+
+        var firstParagraphOldText = this.getComponentAtStart().text;
+        var firstParagraphText = firstParagraphOldText.substring(
+            this.start.offset, firstParagraphOldText.length);
+
+        var startParagraph = this.getComponentAtStart();
+        var startParagraphFormats = startParagraph.getFormatsForRange(
+            this.start.offset, firstParagraphOldText.length);
+
+        var selectRange = firstParagraphOldText.length - this.start.offset;
+        if ((startParagraphFormats && startParagraphFormats.length) ||
+            selectRange) {
+          Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+            formats: startParagraphFormats,
+          }, this.start.offset, selectRange));
+        }
+
+        if (firstParagraphText && firstParagraphText.length) {
+          Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
+              firstParagraphText, this.start.offset));
+        }
+
+        var lastCount = lastParagraphOldText.length - lastParagraphText.length;
+        Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
+            lastParagraphText, this.start.offset));
+
+        var endParagraphFormatting = lastComponent.getFormatsForRange(
+            this.end.offset, lastParagraphOldText.length);
+        var formatShift = -lastCount + this.start.offset;
+        for (var k = 0; k < endParagraphFormatting.length; k++) {
+          endParagraphFormatting[k].from += formatShift;
+          endParagraphFormatting[k].to += formatShift;
+        }
+
+        Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+          formats: endParagraphFormatting,
+        }, firstParagraphOldText.length - firstParagraphText.length));
+      }
+    } else {
+      var currentComponent = this.getComponentAtStart();
+      var selectedText = currentComponent.text.substring(
+          this.start.offset, this.end.offset);
+      count = this.end.offset - this.start.offset;
+      var currentComponentFormats = currentComponent.getFormatsForRange(
+          this.start.offset, this.end.offset);
+
+      Utils.arrays.extend(ops, currentComponent.getUpdateOps({
+        formats: currentComponentFormats,
+      }, this.start.offset, count));
+
+      Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+          selectedText, this.start.offset));
+    }
+
+    return ops;
+  };
+
+
+  /**
+   * Initialize selection listeners to the element.
+   * @param  {!Element} element The html element to listen for selection
+   * changes on.
+   */
   EditorSelection.prototype.initSelectionListener = function(element) {
       // On `mouseup` the mouse could have been clicked to move the cursor.
     element.addEventListener('mouseup',
