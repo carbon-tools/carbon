@@ -33,13 +33,13 @@ java -jar $CLOSURE_COMPILER_PATH \
     --js src/core/operations/ops-from-html.js \
     --js src/extensions/copy-cut-paste/index.js \
     --js src/extensions/copy-cut-paste/copy-cut-paste.js \
-    --js src/extensions/abstractEmbedProvider.js \
+    --js src/extensions/embedding/abstractEmbedProvider.js \
     --js src/extensions/attachment.js \
-    --js src/extensions/carbonEmbedProvider.js \
+    --js src/extensions/embedding/carbonEmbedProvider.js \
     --js src/extensions/componentFactory.js \
-    --js src/extensions/embeddedComponent.js \
-    --js src/extensions/embeddingExtension.js \
-    --js src/extensions/embedlyProvider.js \
+    --js src/extensions/embedding/embeddedComponent.js \
+    --js src/extensions/embedding/embeddingExtension.js \
+    --js src/extensions/embedding/embedlyProvider.js \
     --js src/extensions/formattingExtension.js \
     --js src/extensions/giphyComponent.js \
     --js src/extensions/iframeComponent.js \

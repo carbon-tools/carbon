@@ -1,7 +1,7 @@
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
-var Utils = require('../utils');
+var Utils = require('../../utils');
 
 
 /**

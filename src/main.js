@@ -1,5 +1,6 @@
 'use strict';
 
+/* eslint max-len: 0 */
 // Explicitly require this so closure-compiler doesn't ignore the file because
 // of --dependency_mode=STRICT option.
 // This is only needed if using Closure Compiler.
@@ -36,13 +37,14 @@ module.exports.Loader = require('./loader');
 // TODO(mkhatib): Find a better way to expose the classes and without making
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
-module.exports.EmbeddedComponent = require('./extensions/embeddedComponent');
-module.exports.AbstractEmbedProvider = require(
-    './extensions/abstractEmbedProvider');
-module.exports.EmbedlyProvider = require('./extensions/embedlyProvider');
-module.exports.CarbonEmbedProvider = require(
-    './extensions/carbonEmbedProvider');
-module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
+
+// Embedding extension.
+module.exports.EmbeddedComponent = require('./extensions/embedding/embeddedComponent');
+module.exports.AbstractEmbedProvider = require('./extensions/embedding/abstractEmbedProvider');
+module.exports.EmbedlyProvider = require('./extensions/embedding/embedlyProvider');
+module.exports.CarbonEmbedProvider = require('./extensions/embedding/carbonEmbedProvider');
+module.exports.EmbeddingExtension = require('./extensions/embedding/embeddingExtension');
+
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
 module.exports.LayoutingExtension = require('./extensions/layoutingExtension');

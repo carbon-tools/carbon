@@ -1,19 +1,19 @@
 'use strict';
 
-var AbstractExtension = require('../core/abstract-extension');
-var Utils = require('../utils');
-var Errors = require('../errors');
-var Loader = require('../loader');
-var Button = require('../toolbars/button');
-var Paragraph = require('../paragraph');
-var I18n = require('../i18n');
+var AbstractExtension = require('../../core/abstract-extension');
+var Utils = require('../../utils');
+var Errors = require('../../errors');
+var Loader = require('../../loader');
+var Button = require('../../toolbars/button');
+var Paragraph = require('../../paragraph');
+var I18n = require('../../i18n');
 
 /**
  * EmbeddingExtension allows embedding different kind of components using
  * different providers.
- * @param {../editor} editor Editor instance installing this extension.
+ * @param {../../editor} editor Editor instance installing this extension.
  * @param {Object=} opt_params Config params.
- * @extends {../core/abstract-extension}
+ * @extends {../../core/abstract-extension}
  * @constructor
  */
 var EmbeddingExtension = function(editor, opt_params) {
@@ -24,7 +24,7 @@ var EmbeddingExtension = function(editor, opt_params) {
 
   /**
    * A reference to the editor this extension is enabled in.
-   * @type {../editor}
+   * @type {../../editor}
    */
   this.editor = editor;
 
@@ -62,7 +62,7 @@ EmbeddingExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Instantiate an instance of the extension and configure it.
- * @param  {../editor} unusedEditor Instance of the editor installing this extension.
+ * @param  {../../editor} unusedEditor Instance of the editor installing this extension.
  * @param  {Object} config Configuration for the extension.
  * @static
  */
@@ -87,7 +87,7 @@ EmbeddingExtension.prototype.init = function() {
   /**
    * Callback wrapper to allow passing provider for the callback.
    * @param  {string} provider Provider name.
-   * @return {../defs.ComponentFactoryMethodDef} Regex match handler.
+   * @return {../../defs.ComponentFactoryMethodDef} Regex match handler.
    */
   var handleRegexMatchProvider = function(provider) {
     return function(matchedComponent, opsCallback) {
@@ -158,8 +158,8 @@ EmbeddingExtension.prototype.handleInsertClicked = function(event) {
 
 /**
  * Handles regex match by instantiating a component.
- * @param {../paragraph} matchedComponent Component that matched registered regex.
- * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
+ * @param {../../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  * @param  {string} provider Embed provider name.
  */
 EmbeddingExtension.prototype.handleRegexMatch = function(

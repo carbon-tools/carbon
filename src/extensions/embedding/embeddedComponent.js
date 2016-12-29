@@ -1,10 +1,10 @@
 'use strict';
 
-var Utils = require('../utils');
-var Component = require('../component');
-var Paragrarph = require('../paragraph');
-var Loader = require('../loader');
-var I18n = require('../i18n');
+var Utils = require('../../utils');
+var Component = require('../../component');
+var Paragrarph = require('../../paragraph');
+var Loader = require('../../loader');
+var I18n = require('../../i18n');
 
 
 /**
@@ -27,7 +27,7 @@ var EmbeddedComponentParamsDef;
  *     caption: null,
  *     name: Utils.getUID()
  *   }
- * @extends {../component}
+ * @extends {../../component}
  * @constructor
  */
 var EmbeddedComponent = function(opt_params) {
@@ -81,7 +81,7 @@ var EmbeddedComponent = function(opt_params) {
 
   /**
    * Placeholder text to show if the Figure is empty.
-   * @type {../paragraph}
+   * @type {../../paragraph}
    */
   this.captionParagraph = new Paragrarph({
     placeholderText: I18n.get('placeholder.embed') || '',
@@ -597,8 +597,8 @@ EmbeddedComponent.prototype.handleClick = function() {
  * Returns the operations to execute a deletion of the embedded component.
  * @param  {number=} opt_indexOffset An offset to add to the index of the
  * component for insertion point.
- * @param {../defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
- * @return {Array<../defs.OperationDef>} List of operations needed to be executed.
+ * @param {../../defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<../../defs.OperationDef>} List of operations needed to be executed.
  */
 EmbeddedComponent.prototype.getDeleteOps = function(
     opt_indexOffset, opt_cursorAfterOp) {
@@ -637,9 +637,9 @@ EmbeddedComponent.prototype.getDeleteOps = function(
 /**
  * Returns the operations to execute inserting a embedded component.
  * @param {number} index Index to insert the embedded component at.
- * @param {../defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
+ * @param {../../defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array<../defs.OperationDef>} Operations for inserting the embedded component.
+ * @return {Array<../../defs.OperationDef>} Operations for inserting the embedded component.
  */
 EmbeddedComponent.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{

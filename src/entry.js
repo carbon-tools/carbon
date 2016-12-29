@@ -51,12 +51,12 @@ goog.exportSymbol('carbon.GiphyComponent', require('./extensions/giphyComponent'
 goog.exportSymbol('carbon.LayoutingExtension', require('./extensions/layoutingExtension'));
 
 // Embedding Modules.
-goog.exportSymbol('carbon.EmbeddedComponent', require('./extensions/embeddedComponent'));
-goog.exportSymbol('carbon.EmbeddingExtension', require('./extensions/embeddingExtension'));
+goog.exportSymbol('carbon.EmbeddedComponent', require('./extensions/embedding/embeddedComponent'));
+goog.exportSymbol('carbon.EmbeddingExtension', require('./extensions/embedding/embeddingExtension'));
 
 // Embedding Providers.
-goog.exportSymbol('carbon.AbstractEmbedProvider', require('./extensions/abstractEmbedProvider'));
-goog.exportSymbol('carbon.CarbonEmbedProvider', require('./extensions/carbonEmbedProvider'));
-goog.exportSymbol('carbon.EmbedlyProvider', require('./extensions/embedlyProvider'));
+goog.exportSymbol('carbon.AbstractEmbedProvider', require('./extensions/embedding/abstractEmbedProvider'));
+goog.exportSymbol('carbon.CarbonEmbedProvider', require('./extensions/embedding/carbonEmbedProvider'));
+goog.exportSymbol('carbon.EmbedlyProvider', require('./extensions/embedding/embedlyProvider'));
 
 goog.exportSymbol('carbon.SelfieExtension', require('./extensions/selfieExtension'));

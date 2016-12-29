@@ -8,7 +8,7 @@ var INLINE_ELEMENTS = [
 
 /**
  * Checks whether the passed element only has inline child nodes.
- * @param {!Element} elem
+ * @param {!Element|!Node} elem
  * @return {boolean}
  */
 function hasOnlyInlineChildNodes(elem) {
@@ -32,7 +32,7 @@ function hasOnlyInlineChildNodes(elem) {
 
 /**
  * Checks if the passed elements are all inline elements.
- * @param {Array<!Element>} elements
+ * @param {IArrayLike<!Element|!Node>} elements
  * @return {boolean}
  */
 function isInlineElements(elements) {

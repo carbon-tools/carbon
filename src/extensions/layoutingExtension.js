@@ -9,7 +9,7 @@ var Figure = require('../figure');
 var Layout = require('../layout');
 var Utils = require('../utils');
 var Loader = require('../loader');
-var EmbeddedComponent = require('./embeddedComponent');
+var EmbeddedComponent = require('./embedding/embeddedComponent');
 var GiphyComponent = require('./giphyComponent');
 
 
