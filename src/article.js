@@ -7,7 +7,7 @@ var Utils = require('./utils');
 var Loader = require('./loader');
 var Layout = require('./layout');
 var Figure = require('./figure');
-var EmbeddedComponent = require('./extensions/embeddedComponent');
+var EmbeddedComponent = require('./extensions/embedding/embeddedComponent');
 
 
 /**
