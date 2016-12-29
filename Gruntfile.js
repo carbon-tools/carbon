@@ -239,6 +239,15 @@ module.exports = function(grunt) {
       },
     },
 
+    filesizegzip: {
+      dist: {
+        options: {
+          gzip: true,
+        },
+        src: 'dist/*.*',
+      },
+    },
+
   });
 
   grunt.registerTask('serve', function() {
@@ -272,6 +281,7 @@ module.exports = function(grunt) {
     'uglify',
     'cssmin',
     'eslint',
+    'filesizegzip:dist',
   ]);
 
   grunt.registerTask('default', [
