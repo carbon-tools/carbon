@@ -1,22 +1,25 @@
 'use strict';
 
 var Utils = require('../utils');
+var CustomEventTarget = require('../customEventTarget');
 
 
 /**
  * Button component to add to toolbars.
- * @param {Object=} optParams Optional parameters.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../customEventTarget}
+ * @constructor
  */
-var Button = function (optParams) {
+var Button = function(opt_params) {
   var params = Utils.extend({
     label: 'New Button',
     icon: '',
     name: Utils.getUID(),
     fields: [],
-    data: {}
-  }, optParams);
+    data: {},
+  }, opt_params);
 
-  Utils.CustomEventTarget.call(this);
+  CustomEventTarget.call(this);
 
   /**
    * Name of the button.
@@ -32,20 +35,20 @@ var Button = function (optParams) {
 
   /**
    * Fields for the button.
-   * @type {Array.<TextField>}
+   * @type {Array<./textField>}
    */
   this.fields = [];
 
   /**
    * Button container element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Button.CONTAINER_TAG_NAME);
   this.dom.className = Button.CONTAINER_CLASS_NAME;
 
   /**
    * Button element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.buttonDom = document.createElement(Button.TAG_NAME);
   this.buttonDom.setAttribute('name', this.name);
@@ -60,7 +63,7 @@ var Button = function (optParams) {
 
   /**
    * Fields container element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.fieldsDom = document.createElement(Button.FIELDS_CONTAINER_TAG_NAME);
   this.fieldsDom.className = Button.FIELDS_CONTAINER_CLASS_NAME;
@@ -68,7 +71,7 @@ var Button = function (optParams) {
     this.addField(params.fields[i]);
   }
 };
-Button.prototype = Object.create(Utils.CustomEventTarget.prototype);
+Button.prototype = Object.create(CustomEventTarget.prototype);
 module.exports = Button;
 
 
@@ -123,11 +126,10 @@ Button.HIDDEN_CLASS_NAME = 'hidden';
 
 /**
  * Handles a click on the button.
- * @param {Function} handler Callback to call when the button is clicked.
  */
 Button.prototype.handleClick = function() {
   var newEvent = new CustomEvent('click', {
-      detail: { target: this }
+    detail: {target: this},
   });
   this.dispatchEvent(newEvent);
 };
@@ -135,7 +137,7 @@ Button.prototype.handleClick = function() {
 
 /**
  * Adds a field to the button.
- * @param {TextField} field A field to add to the button.
+ * @param {./textField} field A field to add to the button.
  */
 Button.prototype.addField = function(field) {
   field.parentButton = this;
@@ -148,7 +150,7 @@ Button.prototype.addField = function(field) {
  * Sets the button as active.
  * @param {boolean} isActive Whether the button is active or not.
  */
-Button.prototype.setActive = function (isActive) {
+Button.prototype.setActive = function(isActive) {
   this.isActive = isActive;
   if (this.isActive) {
     this.dom.classList.add(Button.ACTIVE_CLASS_NAME);
@@ -167,7 +169,7 @@ Button.prototype.setActive = function (isActive) {
  * Sets the button as visible or not.
  * @param {boolean} isVisible Whether the button should be visible or not.
  */
-Button.prototype.setVisible = function (isVisible) {
+Button.prototype.setVisible = function(isVisible) {
   this.isVisible = isVisible;
   if (this.isVisible) {
     this.dom.classList.remove(Button.HIDDEN_CLASS_NAME);
@@ -182,16 +184,16 @@ Button.prototype.setVisible = function (isVisible) {
  * @return {boolean} True if the button has extra fields.
  */
 Button.prototype.hasExtraFields = function() {
-  return this.fields && this.fields.length;
+  return !!(this.fields && this.fields.length);
 };
 
 
 /**
  * Returns a field with the specified name.
  * @param {string} name Field name.
- * @return {TextField|null} Returns a field with the name.
+ * @return {./textField|null} Returns a field with the name.
  */
-Button.prototype.getFieldByName = function (name) {
+Button.prototype.getFieldByName = function(name) {
   for (var i = 0; i < this.fields.length; i++) {
     if (this.fields[i].name === name) {
       return this.fields[i];
@@ -204,7 +206,7 @@ Button.prototype.getFieldByName = function (name) {
 /**
  * Resets the value of all fields for the button.
  */
-Button.prototype.resetFields = function () {
+Button.prototype.resetFields = function() {
   for (var i = 0; i < this.fields.length; i++) {
     this.fields[i].setValue('');
   }

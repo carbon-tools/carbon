@@ -1,9 +1,8 @@
 'use strict';
 
-var Errors = require('../errors');
-
 /**
  * An abstract class for embed providers to subclass and implement its methods.
+ * @interface
  */
 var AbstractEmbedProvider = function() {
 };
@@ -13,15 +12,12 @@ module.exports = AbstractEmbedProvider;
 /**
  * Call the proper endpoint for the passed URL and send the response back
  * by passing it to a callabck.
- * @param {string} url Url to get the oembed response for.
- * @param {Function} callback A callback function to call with the result.
- * @param {Object=} optArgs Optional arguments to pass with the URL.
+ * @param {string} unusedUrl Url to get the oembed response for.
+ * @param {Function} unusedCallback A callback function to call with the result.
+ * @param {Object=} opt_args Optional arguments to pass with the URL.
  */
 AbstractEmbedProvider.prototype.getEmbedForUrl = function(
-    url, callback, optArgs) {
-  // jshint unused: false
-  throw Errors.NotImplementedError(
-      'AbstractEmbedProvider need to implement getEmbedForUrl');
+    unusedUrl, unusedCallback, opt_args) {
 };
 
 
@@ -30,7 +26,15 @@ AbstractEmbedProvider.prototype.getEmbedForUrl = function(
  * @return {string}
  */
 AbstractEmbedProvider.prototype.getUrlsRegex = function() {
-  // jshint unused: false
-  throw Errors.NotImplementedError(
-      'AbstractEmbedProvider need to implement getUrlsRegexStr');
+};
+
+
+/**
+ * Returns the URL to call for oembed response.
+ * @param {string} unusedUrl URL to create the url for.
+ * @param {Object=} opt_args Arguments to pass with the URL.
+ * @return {string|null}
+ */
+AbstractEmbedProvider.prototype.getOEmbedEndpointForUrl = function(
+    unusedUrl, opt_args) {
 };

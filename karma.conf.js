@@ -18,15 +18,15 @@ module.exports = function(config) {
     files: [
       './node_modules/phantomjs-polyfill/bind-polyfill.js',
       './bower_components/customevent-polyfill/customevent-polyfill.js',
-      'test/**/*.js'
+      'test/**/*.js',
     ],
 
     preprocessors: {
-      'test/**/*.js': ['browserify']
+      'test/**/*.js': ['browserify'],
     },
 
     browserify: {
-      debug: true
+      debug: true,
     },
 
     // list of files / patterns to exclude
@@ -44,7 +44,7 @@ module.exports = function(config) {
     // - PhantomJS
     // - IE (only Windows)
     browsers: [
-      'PhantomJS'
+      'PhantomJS',
     ],
 
     // Which plugins to enable
@@ -54,7 +54,7 @@ module.exports = function(config) {
       'karma-phantomjs-launcher',
       'karma-jasmine',
       'karma-coverage',
-      'karma-browserify'
+      'karma-browserify',
     ],
 
     // Continuous Integration mode
@@ -65,7 +65,7 @@ module.exports = function(config) {
 
     // level of logging
     // possible values: LOG_DISABLE || LOG_ERROR || LOG_WARN || LOG_INFO || LOG_DEBUG
-    logLevel: config.LOG_INFO
+    logLevel: config.LOG_INFO,
 
     // Uncomment the following lines if you are using grunt's server to run the tests
     // proxies: {

@@ -13,42 +13,43 @@ var EmbeddedComponent = require('./extensions/embeddedComponent');
 
 /**
  * Article main.
- * @param {Object} optParams Optional params to initialize the Article object.
+ * @param {Object=} opt_params Optional params to initialize the Article object.
  * Default:
  *   {
  *     sections: []
  *   }
+ * @constructor
  */
-var Article = function(optParams) {
+var Article = function(opt_params) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The sections that is in this article.
     sections: [],
-    editor: null
-  }, optParams);
+    editor: null,
+  }, opt_params);
 
   /**
    * Editor that contains this article.
-   * @type {Editor}
+   * @type {./editor}
    */
   this.editor = params.editor;
 
   /**
    * Selection object.
-   * @type {Selection}
+   * @type {./selection}
    */
   this.selection = Selection.getInstance();
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Article.TAG_NAME);
   this.dom.className = Article.ELEMENT_CLASS_NAME;
 
   /**
    * The article sections.
-   * @type {Array.<Section>}
+   * @type {Array<./section>}
    */
   this.sections = [];
   for (var i = 0; i < params.sections.length; i++) {
@@ -57,7 +58,7 @@ var Article = function(optParams) {
 
   /**
    * Operations history on the article.
-   * @type {Array.<Object>}
+   * @type {Array<Object>}
    */
   this.history = [];
 
@@ -102,14 +103,14 @@ Article.ELEMENT_CLASS_NAME = 'carbon';
  * @param  {Object} json JSON representation of the article.
  * @return {Article} Article object representing the JSON data.
  */
-Article.fromJSON = function (json) {
+Article.fromJSON = function(json) {
   var sections = [];
   for (var i = 0; i < json.sections.length; i++) {
     sections.push(Section.fromJSON(json.sections[i]));
   }
 
   return new Article({
-    sections: sections
+    sections: sections,
   });
 };
 
@@ -152,32 +153,30 @@ Article.prototype.updateSection = function(section) {
 
 
 /**
- * Inserts a new component in article.
- * @param  {Component} component Component object.
- * @return {Component} The inserted component.
+ * Inserts a new section in article.
+ * @param  {./section} section Component object.
+ * @return {./section} The inserted section.
  */
-Article.prototype.insertComponent = function(component) {
-  var section = this.selection.getSectionAtEnd().
-      insertComponent(component);
+Article.prototype.insertComponent = function(section) {
+  return this.selection.getSectionAtEnd().insertComponent(section);
+};
+
+
+/**
+ * Removes a section from article.
+ * @param  {./section} section Component to remove.
+ * @return {./section} Removed section.
+ */
+Article.prototype.removeComponent = function(section) {
+  var index = this.sections.indexOf(section);
+  this.sections.splice(index, 1);
   return section;
 };
 
 
 /**
- * Removes a component from article.
- * @param  {Component} component Component to remove.
- * @return {Component} Removed component.
- */
-Article.prototype.removeComponent = function(component) {
-  var index = this.sections.indexOf(component);
-  this.components.splice(index, 1);
-  return component;
-};
-
-
-/**
- * Returns first component in the section.
- * @return {Component} Returns first component.
+ * Returns first section in the article.
+ * @return {./layout} Returns first layout.
  */
 Article.prototype.getFirstComponent = function() {
   return this.sections[0].getFirstComponent();
@@ -185,8 +184,8 @@ Article.prototype.getFirstComponent = function() {
 
 
 /**
- * Returns last component in the section.
- * @return {Component} Returns last component.
+ * Returns last section in the article.
+ * @return {./layout} Returns last layout.
  */
 Article.prototype.getLastComponent = function() {
   return this.sections[this.sections.length - 1].getLastComponent();
@@ -205,11 +204,12 @@ Article.prototype.hasCover = function() {
     layout = layout.getNextComponent();
   }
   if (layout instanceof Layout) {
-    var firstComponent = layout.getFirstComponent();
+    var firstComponent = /** @type {./layout} */ (layout).getFirstComponent();
     return ((firstComponent instanceof Figure ||
              firstComponent instanceof EmbeddedComponent) &&
             coverLayouts.indexOf(layout.type) !== -1);
   }
+  return false;
 };
 
 
@@ -241,7 +241,7 @@ Article.prototype.render = function(element, options) {
  */
 Article.prototype.getJSONModel = function() {
   var article = {
-    sections: []
+    sections: [],
   };
 
   for (var i = 0; i < this.sections.length; i++) {
@@ -268,11 +268,12 @@ Article.prototype.getLength = function() {
 
 /**
  * Returns first paragraph component if it is a header.
- * @return {string} First header of the article.
+ * @return {./paragraph|null} First Paragraph of the article.
  */
 Article.prototype.getFirstTextComponent = function() {
   var firstLayout = this.sections[0].components[0];
-  var firstComponent = firstLayout.getFirstComponent();
+  var firstComponent = /** @type {./layout} */ (
+      firstLayout).getFirstComponent();
   var next = firstComponent;
   while (next && !(next instanceof Paragraph)) {
     next = next.getNextComponent();
@@ -281,6 +282,8 @@ Article.prototype.getFirstTextComponent = function() {
   if (next) {
     return next;
   }
+
+  return null;
 };
 
 
@@ -289,10 +292,11 @@ Article.prototype.getFirstTextComponent = function() {
  * @return {string}
  */
 Article.prototype.getTitle = function() {
-  var component = this.getFirstTextComponent();
-  if (component && component.isHeader()) {
-    return component.text;
+  var paragraph = this.getFirstTextComponent();
+  if (paragraph && paragraph.isHeader()) {
+    return paragraph.text;
   }
+  return '';
 };
 
 
@@ -331,12 +335,14 @@ Article.prototype.getSnippet = function(optWordCount) {
   if (words && words.length) {
     return words.join(' ') + '...';
   }
+
+  return '';
 };
 
 
 /**
  * Apply list of operations to the article model.
- * @param  {Array.<Object>} ops List of operations to apply.
+ * @param  {Array<./defs.OperationDef>} ops List of operations to apply.
  */
 Article.prototype.transaction = function(ops) {
   if (this.historyAt < this.history.length) {
@@ -386,7 +392,7 @@ Article.prototype.undo = function() {
 
 /**
  * Executes an operation with the passed action.
- * @param  {Object} operation An operation object to execute.
+ * @param  {./defs.OperationDef} operation An operation object to execute.
  * @param  {string} action Can be 'do' or 'undo'.
  */
 Article.prototype.exec = function(operation, action) {
@@ -404,7 +410,7 @@ Article.prototype.exec = function(operation, action) {
     if (operation[action].cursorOffset) {
       selection.setCursor({
         component: component,
-        offset: operation[action].cursorOffset
+        offset: operation[action].cursorOffset,
       });
     }
   } else if (op === 'removeChars') {
@@ -417,7 +423,7 @@ Article.prototype.exec = function(operation, action) {
     if (operation[action].cursorOffset) {
       selection.setCursor({
         component: component,
-        offset: operation[action].cursorOffset
+        offset: operation[action].cursorOffset,
       });
     }
   } else if (op === 'updateComponent') {
@@ -443,15 +449,16 @@ Article.prototype.exec = function(operation, action) {
       if (!operation[action].selectRange) {
         selection.setCursor({
           component: component,
-          offset: operation[action].cursorOffset
+          offset: operation[action].cursorOffset,
         });
       } else {
         selection.select({
           component: component,
-          offset: operation[action].cursorOffset
+          offset: operation[action].cursorOffset,
         }, {
           component: component,
-          offset: operation[action].cursorOffset + operation[action].selectRange
+          offset: (operation[action].cursorOffset +
+              operation[action].selectRange),
         });
       }
     }
@@ -489,13 +496,31 @@ Article.prototype.handleResize_ = function() {
   }
 };
 
+
+/**
+ * Removes blank paragraphs components at the start and the end of the article
+ */
+Article.prototype.trim = function() {
+  var firstLayout = this.getFirstComponent();
+  var lastLayout = this.getLastComponent();
+  var firstComponent = firstLayout.getFirstComponent();
+  var lastComponent = lastLayout.getLastComponent();
+
+  trimDirection_(firstComponent, false);
+
+  if (firstComponent !== lastComponent) {
+    trimDirection_(lastComponent, true);
+  }
+};
+
+
 /**
  * Removes blank paragraphs components from direction start/end
- * @param {object} `component` specifiy the start from component.
- * @param {boolean} `end` detrimines if direction is end.
+ * @param {./component} component specifiy the start from component.
+ * @param {boolean} end detrimines if direction is end.
  * @private
  */
-Article.prototype.trimDirection_ = function _trimDirection(component, end) {
+var trimDirection_ = function(component, end) {
   var recursionComponent;
 
   if (component instanceof Paragraph && component.isBlank()) {
@@ -508,28 +533,12 @@ Article.prototype.trimDirection_ = function _trimDirection(component, end) {
     component.section.removeComponent(component);
 
     if (recursionComponent) {
-      _trimDirection(recursionComponent, end);
+      trimDirection_(recursionComponent, end);
     }
   }
 };
 
-/**
- * Removes blank paragraphs components at the start and the end of the article
- */
-Article.prototype.trim = function() {
-  var firstLayout = this.getFirstComponent();
-  var lastLayout = this.getLastComponent();
-  var firstComponent = firstLayout.getFirstComponent();
-  var lastComponent =  lastLayout.getLastComponent();
-
-  this.trimDirection_(firstComponent);
-
-  if (firstComponent !== lastComponent) {
-    this.trimDirection_(lastComponent, true);
-  }
-};
-
-},{"./extensions/embeddedComponent":9,"./figure":19,"./layout":23,"./loader":25,"./paragraph":27,"./section":28,"./selection":29,"./utils":33}],2:[function(require,module,exports){
+},{"./extensions/embeddedComponent":14,"./figure":24,"./layout":28,"./loader":30,"./paragraph":32,"./section":33,"./selection":34,"./utils":38}],2:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -537,15 +546,18 @@ var Errors = require('./errors');
 var Loader = require('./loader');
 var Selection = require('./selection');
 
+
 /**
  * Component main.
- * @param {Object} optParams Optional params to initialize the Component object.
+ * @param {Object=} opt_params Optional params to initialize the Component object.
  * Default:
  *   {
  *     name: Utils.getUID()
  *   }
+ * @constructor
+ * @abstract
  */
-var Component = function(optParams) {
+var Component = function(opt_params) {
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // The editor this component belongs to.
@@ -557,12 +569,12 @@ var Component = function(optParams) {
     // Indicates if this component is an inline component.
     inline: false,
     // Points to the parent component if this component is encompased within it.
-    parentComponent: null
-  }, optParams);
+    parentComponent: null,
+  }, opt_params);
 
   /**
    * Editor this component is added it.
-   * @type {Editor}
+   * @type {./editor}
    */
   this.editor = params.editor;
 
@@ -575,7 +587,7 @@ var Component = function(optParams) {
 
   /**
    * If the component is contained within another this will point to the parent.
-   * @type {Component}
+   * @type {./component}
    */
   this.parentComponent = params.parentComponent;
 
@@ -587,13 +599,13 @@ var Component = function(optParams) {
 
   /**
    * Section this Component belongs to.
-   * @type {Section}
+   * @type {./section}
    */
   this.section = params.section;
 
   /**
    * Component DOM.
-   * @type {HTMLElement}
+   * @type {?Element}
    */
   this.dom = null;
 
@@ -612,7 +624,7 @@ var Component = function(optParams) {
 
   /**
    * Used to focus non-focusable elements (e.g. figure);
-   * @type {HTMLElement}
+   * @type {?Element}
    */
   this.selectionDom = null;
 
@@ -630,16 +642,31 @@ Loader.register(Component.CLASS_NAME, Component);
 
 /**
  * Called when the module is installed on in an editor.
- * @param  {Editor} editor Editor instance which installed the module.
+ * @param  {./editor} unusedEditor Editor instance which installed the module.
  */
-Component.onInstall = function (editor) {
-  // jshint unused: false
+Component.onInstall = function(unusedEditor) {
+};
+
+
+/**
+ * Called when the module is uninstalled from the an editor.
+ */
+Component.onDestroy = function() {
+};
+
+
+/**
+ * Returns the class name of this component.
+ * @return {string}
+ */
+Component.prototype.getComponentClassName = function() {
+  return Component.CLASS_NAME;
 };
 
 
 /**
  * Get the next Component if any.
- * @return {Component} Next sibling Component.
+ * @return {?Component} Next sibling Component.
  */
 Component.prototype.getNextComponent = function() {
   // If this is an inline component and it is included in another one.
@@ -656,17 +683,19 @@ Component.prototype.getNextComponent = function() {
       // the new component after this section.
       component = this.section.getNextComponent();
       if (component && component.components) {
-        return component.getFirstComponent();
+        return /** @type {./section} */ (component).getFirstComponent();
       }
     }
     return component;
   }
+
+  return null;
 };
 
 
 /**
  * Get the previous Component if any.
- * @return {Component} Previous sibling Component.
+ * @return {?Component} Previous sibling Component.
  */
 Component.prototype.getPreviousComponent = function() {
   if (this.section) {
@@ -675,11 +704,12 @@ Component.prototype.getPreviousComponent = function() {
     if (!component) {
       component = this.section.getPreviousComponent();
       if (component && component.components) {
-        return component.getLastComponent();
+        return /** @type {./section} */ (component).getLastComponent();
       }
     }
     return component;
   }
+  return null;
 };
 
 
@@ -715,24 +745,24 @@ Component.prototype.getIndexInSection = function() {
       return 0;
     }
   }
-  return null;
+  throw Error('Component is not in a section.');
 };
 
 
 /**
  * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
+ * @param  {!Element} element Element to render component in.
+ * @param  {Object=} opt_options Options for rendering.
  *   options.insertBefore - To render the component before another element.
  */
-Component.prototype.render = function(element, options) {
-  this.editMode = !!(options && options.editMode);
+Component.prototype.render = function(element, opt_options) {
+  this.editMode = !!(opt_options && opt_options.editMode);
   if (!this.isRendered && this.dom) {
     this.dom.setAttribute('carbon', '1');
     Utils.setReference(this.name, this);
     this.isRendered = true;
-    if (options && options.insertBefore) {
-      element.insertBefore(this.dom, options.insertBefore);
+    if (opt_options && opt_options.insertBefore) {
+      element.insertBefore(this.dom, opt_options.insertBefore);
     } else {
       element.appendChild(this.dom);
     }
@@ -742,77 +772,74 @@ Component.prototype.render = function(element, options) {
 
 /**
  * Returns the operations to execute a deletion of the component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
  * component for insertion point.
  */
-Component.prototype.getDeleteOps = function(optIndexOffset) {
-  // jshint unused:false
-  throw Errors.NotImplementedError('Component Must Implement getDeleteOps');
+Component.prototype.getDeleteOps = function(opt_indexOffset) {
+  throw new Errors.NotImplementedError('Component Must Implement getDeleteOps');
 };
 
 
 /**
  * Returns the operations to execute inserting a component.
- * @param {number} index Index to insert the component at.
+ * @param {number} unusedIndex Index to insert the component at.
  * on undoing operation for re-inserting.
  */
-Component.prototype.getInsertOps = function (index) {
-  // jshint unused:false
-  throw Errors.NotImplementedError('Component Must Implement getDeleteOps');
+Component.prototype.getInsertOps = function(unusedIndex) {
+  throw new Errors.NotImplementedError('Component Must Implement getDeleteOps');
 };
 
 
 /**
  * Returns the operations to execute inserting characters in a component.
- * @param {string} chars The characters to insert in a component.
- * @param  {number=} index Index to insert the characters at.
+ * @param {string} unusedChars The characters to insert in a paragraph.
+ * @param {number} unusedIndex Index to insert the characters at.
+ * @return {Array<./defs.OperationDef>} Operations for inserting characters in paragraph.
  */
-Component.prototype.getInsertCharsOps = function(chars, index) {
-  // jshint unused:false
-  throw Errors.NotImplementedError(
+Component.prototype.getInsertCharsOps = function(unusedChars, unusedIndex) {
+  throw new Errors.NotImplementedError(
       'Component Must Implement getInsertCharsOps');
 };
 
 
 /**
  * Returns the operations to execute removing characters in a component.
- * @param {string} chars The characters to remove in a component.
- * @param {number} index Index to remove the characters starting at.
- * @param {number=} optDirection The directions to remove chars at.
+ * @param {string} unusedChars The characters to remove in a component.
+ * @param {number} unusedIndex Index to remove the characters starting at.
+ * @param {number=} opt_direction The directions to remove chars at.
  */
-Component.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
-  // jshint unused:false
-  throw Errors.NotImplementedError(
+Component.prototype.getRemoveCharsOps = function(
+    unusedChars, unusedIndex, opt_direction) {
+  throw new Errors.NotImplementedError(
       'Component Must Implement getRemoveCharsOps');
 };
 
 
 /**
  * Returns the operations to execute updating a component attributes.
- * @param  {Object} attrs Attributes to update for the component.
- * @param  {number=} optCursorOffset Optional cursor offset.
- * @param  {number=} optSelectRange Optional selecting range.
+ * @param  {Object} unusedAttrs Attributes to update for the component.
+ * @param  {number=} opt_cursorOffset Optional cursor offset.
+ * @param  {number=} opt_selectRange Optional selecting range.
  */
 Component.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange) {
-  // jshint unused:false
-  throw Errors.NotImplementedError(
+    unusedAttrs, opt_cursorOffset, opt_selectRange) {
+  throw new Errors.NotImplementedError(
       'Component does not Implement getUpdateOps');
 };
 
 
 /**
  * Selects the component.
- * @param  {number} offset Selection offset.
+ * @param  {number=} opt_offset Selection offset.
  */
-Component.prototype.select = function(offset) {
+Component.prototype.select = function(opt_offset) {
   if (this.selectionDom) {
     this.selectionDom.focus();
   }
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,
-    offset: offset
+    offset: opt_offset || 0,
   });
 };
 
@@ -821,7 +848,7 @@ Component.prototype.select = function(offset) {
  * Returns the length of the component content.
  * @return {number} Length of the component content.
  */
-Component.prototype.getLength = function () {
+Component.prototype.getLength = function() {
   return 1;
 };
 
@@ -835,7 +862,7 @@ Component.prototype.getLength = function () {
  *
  * @return {number} Length of the component content in the DOM.
  */
-Component.prototype.getDomLength = function () {
+Component.prototype.getDomLength = function() {
   return this.getLength();
 };
 
@@ -844,7 +871,7 @@ Component.prototype.getDomLength = function () {
  * Whether the component should re-render itself or not.
  * @return {boolean}
  */
-Component.prototype.shouldRerender = function () {
+Component.prototype.shouldRerender = function() {
   return false;
 };
 
@@ -852,14 +879,423 @@ Component.prototype.shouldRerender = function () {
 /**
  * Ask the component to rerender itself.
  */
-Component.prototype.rerender = function () {
+Component.prototype.rerender = function() {
   // pass.
 };
 
-},{"./errors":4,"./loader":25,"./selection":29,"./utils":33}],3:[function(require,module,exports){
+},{"./errors":7,"./loader":30,"./selection":34,"./utils":38}],3:[function(require,module,exports){
+'use strict';
+
+/**
+ * Abstract class that must be extended by extensions installed on the editor.
+ * @export
+ * @constructor
+ */
+var AbstractExtension = function(unusedEditor, opt_params) {
+};
+module.exports = AbstractExtension;
+
+/**
+ * Create a one time instantiation for your extension.
+ * @export
+ */
+AbstractExtension.onInstall = function() {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onCopy = function(unusedEvent) {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onCut = function(unusedEvent) {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onPaste = function(unusedEvent) {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onKeyup = function(unusedEvent) {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onKeypress = function(unusedEvent) {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onKeydown = function(unusedEvent) {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onShortcut = function() {};
+
+
+/**
+ * @export
+ * @return {boolean|undefined}
+ */
+AbstractExtension.prototype.onSelectionChange = function() {};
+
+},{}],4:[function(require,module,exports){
+/**
+ * @fileoverview
+ *
+ * Provides helper methods to convert HTML to operations to insert the HTML
+ * into the article model.
+ *
+ * Usage:
+
+ * opsFromHtml(html) -> Array<Operations>
+ */
+
+var Utils = require('../../utils');
+var Paragraph = require('../../paragraph');
+var Figure = require('../../figure');
+var List = require('../../list');
+var dom = require('../../utils/dom');
+var Selection = require('../../selection');
+
+/**
+ * Sanitizes and generates list of operations to properly insert pasted
+ * content into the article.
+ *
+ * TODO(mkhatib): Probably move this to its own module and
+ * make it easier for people to customize or override this with
+ * their own sanitizer.
+ *
+ * @param  {string} html HTML string to sanitize and create ops for.
+ * @param {number=} opt_indexOffset
+ * @return {Array<../../defs.OperationDef>} List of operations objects that represents the
+ * the pasted content.
+*/
+function opsFromHtml(html, opt_indexOffset) {
+  // TODO(mkhatib): MUST sanitize HTML input before doing this to avoid executing
+  // scripts or loading external resources. This would include removing scripts,
+  // styles and such and rename attributes like src/href to avoid loading resources.
+  var tempEl = document.createElement('div');
+  tempEl.innerHTML = html || '';
+  return opsFromElement_(tempEl, opt_indexOffset);
+}
+module.exports = opsFromHtml;
+
+
+/**
+ * Sanitizes and generates list of operations to properly insert pasted
+ * content into the article.
+ *
+ * TODO(mkhatib): Probably move this to its own module and
+ * make it easier for people to customize or override this with
+ * their own sanitizer.
+ *
+ * @param  {!Element} element HTML Element to sanitize and create ops for.
+ * @param {number=} opt_indexOffset
+ * @return {Array<../../defs.OperationDef>} List of operations objects that represents the
+ * the pasted content.
+ */
+function opsFromElement_(element, opt_indexOffset) {
+  var ops = [];
+  var text, paragraphType, appendOperations, newP;
+  var textPasted = Utils.getTextFromElement(element);
+  var children = element.childNodes;
+  var component;
+  var selection = Selection.getInstance();
+  var currentComponent = selection.getComponentAtStart();
+  var section = selection.getSectionAtStart();
+  var startParagraphIndex = currentComponent.getIndexInSection();
+  var currentIndex = /** @type {number} */ (
+      opt_indexOffset || startParagraphIndex);
+  var cursor = {
+    component: currentComponent.name,
+    offset: selection.end.offset,
+  };
+
+
+  if (!children || !children.length ||
+      (dom.isInlineElements(children) &&
+       dom.hasOnlyInlineChildNodes(element))) {
+    var lines = textPasted.split('\n');
+    if (lines.length < 2) {
+      // Text before and after pasting.
+      var textStart = currentComponent.text.substring(
+          0, selection.start.offset);
+
+      // Calculate cursor offset before pasting.
+      var offsetBeforeOperation = textStart.length;
+
+      Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
+          textPasted, offsetBeforeOperation));
+    } else {
+      // TODO(mkhatib): Maybe allow pasting new lined paragraphs once we
+      // have better support for it.
+      for (var lineNum = 0; lineNum < lines.length; lineNum++) {
+        if (lines[lineNum].trim().length > 0) {
+          newP = new Paragraph({
+            section: section,
+            text: lines[lineNum],
+          });
+          Utils.arrays.extend(
+              ops, newP.getInsertOps(currentIndex++, cursor));
+        }
+      }
+    }
+  } else if (dom.hasOnlyInlineChildNodes(element)) {
+    text = Utils.getTextFromElement(element);
+
+    newP = new Paragraph({
+      section: section,
+      text: text,
+      // TODO(mkhatib): How to do this without coupling on formatting extension.
+      // formats: FormattingExtension.generateFormatsForNode(element),
+    });
+    Utils.arrays.extend(
+        ops, newP.getInsertOps(currentIndex++, cursor));
+  } else {
+    // When pasting multi-line, split the current paragraph if pasting
+    // mid-paragraph.
+    if (!selection.isCursorAtEnding()) {
+      Utils.arrays.extend(ops, currentComponent.getSplitOpsAt(selection, 0));
+      currentIndex++;
+    }
+    for (var i = 0; i < children.length; i++) {
+      var el = /** @type {Element} */ (children[i]);
+      var tag = el.nodeName && el.nodeName.toLowerCase();
+      switch (tag) {
+        // These tags are currently unsupported for paste and are stripped out.
+        case 'undefined':
+        case 'meta':
+        case 'script':
+        case 'style':
+        case 'embed':
+        case 'br':
+        case 'hr':
+          continue;
+        case 'figure':
+          var allImgs = el.getElementsByTagName('img');
+          if (!allImgs || !allImgs.length) {
+            continue;
+          }
+          for (var j = 0; j < allImgs.length; j++) {
+            component = new Figure({
+              src: allImgs[j].getAttribute('src'),
+            });
+            component.section = selection.getSectionAtEnd();
+            Utils.arrays.extend(
+                ops, component.getInsertOps(currentIndex++, cursor));
+          }
+          paragraphType = null;
+          break;
+        case 'img':
+          component = new Figure({
+            src: el.getAttribute('src'),
+          });
+          component.section = selection.getSectionAtEnd();
+          Utils.arrays.extend(
+              ops, component.getInsertOps(currentIndex++, cursor));
+          paragraphType = null;
+          break;
+        case 'ul':
+        case 'ol':
+          var tagName = List.UNORDERED_LIST_TAG;
+          if (tag === 'ol') {
+            tagName = List.ORDERED_LIST_TAG;
+          }
+          var lis = el.getElementsByTagName('li');
+          if (!lis || !lis.length) {
+            continue;
+          }
+          component = new List({
+            tagName: tagName,
+            components: [],
+          });
+          component.section = selection.getSectionAtEnd();
+          Utils.arrays.extend(
+              ops, component.getInsertOps(currentIndex++, cursor));
+          for (j = 0; j < lis.length; j++) {
+            newP = new Paragraph({
+              paragraphType: Paragraph.Types.ListItem,
+              text: Utils.getTextFromElement(lis[j]),
+              // TODO(mkhatib): How to do this without coupling on formatting extension.
+              // formats: FormattingExtension.generateFormatsForNode(lis[j]),
+            });
+            newP.section = component;
+            Utils.arrays.extend(
+                ops, newP.getInsertOps(j, cursor));
+          }
+          paragraphType = null;
+          break;
+        case 'p':
+        case '#text':
+          paragraphType = Paragraph.Types.Paragraph;
+          break;
+        case 'blockquote':
+          paragraphType = Paragraph.Types.Quote;
+          break;
+        case 'h1':
+          paragraphType = Paragraph.Types.MainHeader;
+          break;
+        case 'h2':
+          paragraphType = Paragraph.Types.SecondaryHeader;
+          break;
+        case 'h3':
+        case 'h4':
+        case 'h5':
+        case 'h6':
+          paragraphType = Paragraph.Types.ThirdHeader;
+          break;
+        case 'pre':
+          paragraphType = Paragraph.Types.Code;
+          break;
+        default:
+          // To preserve inline styling.
+          if (dom.hasOnlyInlineChildNodes(el)) {
+            // TODO(mkhatib): This is here to preserve inline styling, which
+            // is currently unsupported by the editor. Once this is added
+            // change this to reflect that. Currently just add a non-styled
+            // paragraph.
+            paragraphType = Paragraph.Types.Paragraph;
+          } else {
+            // In case there are still more block elements, recursively get
+            // their operations and add them to the operations list.
+
+            // TODO(mkhatib): This is very clumsy and not very readable, move
+            // the recursive process to its own helper method and make it more
+            // readable.
+            appendOperations = opsFromElement_(el, currentIndex);
+
+            // Increase the currentIndex by the amount of paragraphs we've added
+            // which is the amount of operations.
+            currentIndex += appendOperations.length;
+          }
+      }
+
+      if (appendOperations) {
+        Utils.arrays.extend(ops, appendOperations);
+        appendOperations = null;
+      } else if (paragraphType) {
+        // Add an operation to insert new paragraph and update its text.
+        text = Utils.getTextFromElement(el);
+
+        newP = new Paragraph({
+          section: section,
+          text: text,
+          paragraphType: paragraphType,
+          // TODO(mkhatib): How to do this without coupling on formatting extension.
+          // formats: FormattingExtension.generateFormatsForNode(el),
+        });
+        Utils.arrays.extend(
+            ops, newP.getInsertOps(currentIndex++, cursor));
+      }
+    }
+  }
+  return ops;
+};
+
+},{"../../figure":24,"../../list":29,"../../paragraph":32,"../../selection":34,"../../utils":38,"../../utils/dom":39}],5:[function(require,module,exports){
+/**
+ * Custom Event Target base class to allow listening and firing events.
+ * @constructor
+ */
+var CustomEventTarget = function() {
+  /** @private @type {!Object} */
+  this.registrations_ = {};
+};
+module.exports = CustomEventTarget;
+
+
+/**
+ * Returns the listeners for the specific type.
+ * @param  {string} type Event name.
+ * @param  {boolean} useCapture
+ * @return {Array<function(Event)>} List of listeners.
+ * @private
+ */
+CustomEventTarget.prototype.getListeners_ = function(type, useCapture) {
+  var capType = (useCapture ? '1' : '0') + type;
+  if (!(capType in this.registrations_)) {
+    this.registrations_[capType] = [];
+  }
+  return this.registrations_[capType];
+};
+
+
+/**
+ * Adds event listener for object.
+ * @param  {string} type Event name.
+ * @param  {function(Event)} listener Callback function.
+ * @param  {boolean} useCapture
+ */
+CustomEventTarget.prototype.addEventListener = function(
+    type, listener, useCapture) {
+  var listeners = this.getListeners_(type, useCapture);
+  var ix = listeners.indexOf(listener);
+  if (ix === -1) {
+    listeners.push(listener);
+  }
+};
+
+
+/**
+ * Removes event listener for object.
+ * @param  {string} type Event name.
+ * @param  {function(Event)} listener Callback function.
+ * @param  {boolean} useCapture
+ */
+CustomEventTarget.prototype.removeEventListener = function(
+    type, listener, useCapture) {
+  var listeners = this.getListeners_(type, useCapture);
+  var ix = listeners.indexOf(listener);
+  if (ix !== -1) {
+    listeners.splice(ix, 1);
+  }
+};
+
+
+/**
+ * Removes all event listeners for object.
+ */
+CustomEventTarget.prototype.clearEventListeners = function() {
+  this.registrations_ = {};
+};
+
+/**
+ * Dispatches the event
+ * @param  {Event} event Event object.
+ * @return {boolean} Whether the event has not been defaultPrevented.
+ */
+CustomEventTarget.prototype.dispatchEvent = function(event) {
+  var listeners = this.getListeners_(event.type, false).slice();
+  for (var i = 0; i < listeners.length; i++) {
+    listeners[i].call(this, event);
+  }
+  return !event.defaultPrevented;
+};
+
+},{}],6:[function(require,module,exports){
 'use strict';
 
 var Article = require('./article');
+var AbstractExtension = require('./core/abstract-extension');
 var Selection = require('./selection');
 var Paragraph = require('./paragraph');
 var List = require('./list');
@@ -874,18 +1310,23 @@ var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var UploadExtension = require('./extensions/uploadExtension');
 var I18n = require('./i18n');
 var Layout = require('./layout');
+var CustomEventTarget = require('./customEventTarget');
+var CopyCutPaste = require('./extensions/copy-cut-paste').CopyCutPaste;
+var Component = require('./component');
 
 
 /**
  * Editor main.
- * @param {HTMLElement} element Editor element to decorate.
- * @param {Object} optParams Optional params to initialize the editor.
+ * @param {!Element} element Editor element to decorate.
+ * @param {Object=} opt_params Optional params to initialize the editor.
  * Default:
  *   {
  *     extensions: [new FormattingExtension()]
  *   }
+ * @extends {./customEventTarget};
+ * @constructor
  */
-var Editor = function (element, optParams) {
+var Editor = function(element, opt_params) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
@@ -896,12 +1337,12 @@ var Editor = function (element, optParams) {
       sections: [new Section({
         components: [new Layout({
           components: [new Paragraph({
-            placeholder: 'Editor'
-          })]
-        })]
-      })]
+            placeholder: 'Editor',
+          })],
+        })],
+      })],
     }),
-  }, optParams);
+  }, opt_params);
 
   I18n.setCurrentLocale(params.locale);
 
@@ -925,7 +1366,7 @@ var Editor = function (element, optParams) {
 
   /**
    * Element to decorate the editor on.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.element = element;
 
@@ -944,7 +1385,7 @@ var Editor = function (element, optParams) {
 
   /**
    * This editor's toolbars.
-   * @type {Object.<String: Toolbar>}
+   * @type {Object<string, ./toolbars/toolbar>}
    */
   this.toolbars = {};
 
@@ -957,7 +1398,7 @@ var Editor = function (element, optParams) {
   /**
    * Flag used to disable handleInputEvent
    */
-  this.disableInputHandler = false;
+  this.disableInputHandler_ = false;
 
   /**
    * Editor's inline toolbar.
@@ -966,7 +1407,7 @@ var Editor = function (element, optParams) {
   var inlineToolbar = new Toolbar({
     name: Editor.INLINE_TOOLBAR_NAME,
     classNames: [Editor.INLINE_TOOLBAR_CLASS_NAME],
-    rtl: this.rtl
+    rtl: this.rtl,
   });
   this.registerToolbar(Editor.INLINE_TOOLBAR_NAME, inlineToolbar);
 
@@ -977,15 +1418,15 @@ var Editor = function (element, optParams) {
   var blockToolbar = new Toolbar({
     name: Editor.BLOCK_TOOLBAR_NAME,
     classNames: [Editor.BLOCK_TOOLBAR_CLASS_NAME],
-    rtl: this.rtl
+    rtl: this.rtl,
   });
   this.registerToolbar(Editor.BLOCK_TOOLBAR_NAME, blockToolbar);
 
   /**
    * Components installed and enabled in the editor.
-   * @type {Object.<string, Function>}
+   * @type {Object<string, function(new:./component)>}
    */
-  this.installedModules = {};
+  this.installedComponents = {};
 
   // Install built-in Components.
   this.install(Section);
@@ -993,41 +1434,42 @@ var Editor = function (element, optParams) {
   this.install(List);
   this.install(Figure);
 
+  /**
+   * Components installed and enabled in the editor.
+   * @type {Object<string, ./core/abstract-extension>}
+   */
+  this.installedExtensions = {};
+
   // Install built-in extensions.
   this.install(FormattingExtension);
   this.install(ToolbeltExtension);
   this.install(UploadExtension);
+  this.install(CopyCutPaste);
 
   // Install user provided components and extensions.
   for (var i = 0; i < params.modules.length; i++) {
     this.install(params.modules[i]);
   }
 
-
-  this.composition_ = {
-    component: null,
-    start: null,
-    update: null,
-    end: null
-  };
-
   this.init();
   this.setArticle(this.article);
 };
-Editor.prototype = new Utils.CustomEventTarget();
+Editor.prototype = new CustomEventTarget();
 module.exports = Editor;
 
 
 /**
  * Class name for the inline toolbar.
- * @type {String}
+ * @type {string}
+ * @const
  */
 Editor.INLINE_TOOLBAR_CLASS_NAME = 'editor-inline-toolbar';
 
 
 /**
  * Class name for the inline toolbar.
- * @type {String}
+ * @type {string}
+ * @const
  */
 Editor.BLOCK_TOOLBAR_CLASS_NAME = 'editor-block-toolbar';
 
@@ -1035,6 +1477,7 @@ Editor.BLOCK_TOOLBAR_CLASS_NAME = 'editor-block-toolbar';
 /**
  * Name of the block toolbar.
  * @type {string}
+ * @const
  */
 Editor.BLOCK_TOOLBAR_NAME = 'block-toolbar';
 
@@ -1057,7 +1500,7 @@ Editor.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
  * Loads Article model from JSON.
  * @param  {Object} json JSON representation of the article.
  */
-Editor.prototype.loadJSON = function (json) {
+Editor.prototype.loadJSON = function(json) {
   var article = Article.fromJSON(json);
   this.setArticle(article);
 };
@@ -1070,19 +1513,20 @@ Editor.prototype.init = function() {
   this.selection.initSelectionListener(this.element);
 
   this.element.addEventListener('keydown', this.handleKeyDownEvent.bind(this));
-  this.element.addEventListener('keypress', this.handleKeyPressEvent.bind(this));
+  this.element.addEventListener(
+      'keypress', this.handleKeyPressEvent.bind(this));
   this.element.addEventListener('keyup', this.handleKeyUpEvent.bind(this));
 
   this.element.addEventListener('input', Utils.debounce(
       this.handleInputEvent.bind(this), 200).bind(this));
 
-  this.element.addEventListener('cut', this.handleCut.bind(this));
-  this.element.addEventListener('paste', this.handlePaste.bind(this));
+  this.element.addEventListener('cut', this.handleCut_.bind(this));
+  this.element.addEventListener('paste', this.handlePaste_.bind(this));
   this.element.classList.add('carbon-editor');
   this.element.setAttribute('contenteditable', true);
 
   this.selection.addEventListener(
-      Selection.Events.SELECTON_CHANGED,
+      Selection.Events.SELECTION_CHANGED,
       this.handleSelectionChanged.bind(this));
 };
 
@@ -1090,7 +1534,7 @@ Editor.prototype.init = function() {
 /**
  * Call to destroy the editor instance and cleanup dom and event listeners.
  */
-Editor.prototype.destroy = function () {
+Editor.prototype.destroy = function() {
   var name;
   for (name in this.toolbars) {
     if (this.toolbars[name].onDestroy) {
@@ -1098,9 +1542,9 @@ Editor.prototype.destroy = function () {
     }
   }
 
-  for (name in this.installedModules) {
-    if (this.installedModules[name].onDestroy) {
-      this.installedModules[name].onDestroy();
+  for (name in this.installedComponents) {
+    if (this.installedComponents[name].onDestroy) {
+      this.installedComponents[name].onDestroy();
     }
   }
 
@@ -1122,6 +1566,7 @@ Editor.prototype.setArticle = function(article) {
 
 /**
  * Renders the editor and article inside the element.
+ * @export
  */
 Editor.prototype.render = function() {
   // TODO(mkhatib): Maybe implement a destroy on components to cleanup
@@ -1130,9 +1575,11 @@ Editor.prototype.render = function() {
     this.element.removeChild(this.element.firstChild);
   }
   this.article.render(this.element, {editMode: true});
+  var firstLayout = /** @type {./layout} */ (this.article.sections[0]);
+  var firstSection = /** @type {./section} */ (firstLayout.getFirstComponent());
   this.selection.setCursor({
-    component: this.article.sections[0].getFirstComponent().getFirstComponent(),
-    offset: 0
+    component: firstSection.getFirstComponent(),
+    offset: 0,
   });
   this.dispatchEvent(new Event('change'));
 };
@@ -1140,17 +1587,74 @@ Editor.prototype.render = function() {
 
 /**
  * Installs and activate a component type to use in the editor.
- * @param  {Function} ModuleClass The component class.
- * @param  {Object=} optArgs Optional arguments to pass to onInstall of module.
- * @param {boolean=} optForce Whether to force registeration.
+ * @param {function(new:./component)|function(new:./core/abstract-extension)} ModuleClass The component class.
+ * @param {Object=} opt_args Optional arguments to pass to onInstall of module.
+ * @param {boolean=} opt_force Whether to force registeration.
+ * @export
  */
-Editor.prototype.install = function(ModuleClass, optArgs, optForce) {
-  if (this.installedModules[ModuleClass.CLASS_NAME] && !optForce) {
-    console.warn(ModuleClass.CLASS_NAME +
-        ' module has already been installed in this editor.');
+Editor.prototype.install = function(ModuleClass, opt_args, opt_force) {
+  if (ModuleClass.prototype instanceof AbstractExtension) {
+    this.installExtension_(ModuleClass, opt_args, opt_force);
+  } else if (ModuleClass.prototype instanceof Component) {
+    this.installComponent_(ModuleClass, opt_args, opt_force);
   }
-  this.installedModules[ModuleClass.CLASS_NAME] = ModuleClass;
-  ModuleClass.onInstall(this, optArgs);
+};
+
+
+/**
+ * Installs and activate a component type to use in the editor.
+ * @param {function(new:./component)} ModuleClass The component class.
+ * @param {Object=} opt_args Optional arguments to pass to onInstall of module.
+ * @param {boolean=} opt_force Whether to force registeration.
+ * @private
+ */
+Editor.prototype.installComponent_ = function(
+    ModuleClass, opt_args, opt_force) {
+  if (!(ModuleClass.prototype instanceof Component)) {
+    throw new Error('Component passed does not extend Component class.');
+  }
+
+  if (this.installedComponents[ModuleClass.CLASS_NAME] && !opt_force) {
+    // TODO(mkhatib): Think about whether it should be possible to install
+    // multiple instances of an extension.
+    console.warn(ModuleClass.CLASS_NAME +
+        ' component has already been installed in this editor.');
+  }
+
+  if (ModuleClass.onInstall) {
+    ModuleClass.onInstall(this, opt_args);
+  }
+  this.installedComponents[ModuleClass.CLASS_NAME] = ModuleClass;
+};
+
+
+
+/**
+ * Installs and activate a component type to use in the editor.
+ * @param {function(new:./core/abstract-extension, Editor, Object=)} ModuleClass The component class.
+ * @param {Object=} opt_args Optional arguments to pass to onInstall of module.
+ * @param {boolean=} opt_force Whether to force registeration.
+ * @private
+ */
+Editor.prototype.installExtension_ = function(
+    ModuleClass, opt_args, opt_force) {
+  if (!(ModuleClass.prototype instanceof AbstractExtension)) {
+    throw new Error(
+        'Extension passed does not extend AbstractExtension class.');
+  }
+
+  if (this.installedExtensions[ModuleClass.CLASS_NAME] && !opt_force) {
+    // TODO(mkhatib): Think about whether it should be possible to install
+    // multiple instances of an extension.
+    console.warn(ModuleClass.CLASS_NAME +
+        ' extension has already been installed in this editor.');
+  }
+
+  if (ModuleClass.onInstall) {
+    ModuleClass.onInstall(this, opt_args);
+  }
+  this.installedExtensions[ModuleClass.CLASS_NAME] = new ModuleClass(
+      this, opt_args);
 };
 
 
@@ -1158,10 +1662,10 @@ Editor.prototype.install = function(ModuleClass, optArgs, optForce) {
  * Registers a keyboard shortcut in the editor.
  * @param  {string} shortcutId Shortcut string e.g. 'ctrl+b'.
  * @param  {Function} handler Callback handler for handling the shortcut.
- * @param  {boolean=} optForce Whether to override an already registered one.
+ * @param  {boolean=} opt_force Whether to override an already registered one.
  */
-Editor.prototype.registerShrotcut = function(shortcutId, handler, optForce) {
-  this.shortcutsManager.register(shortcutId, handler, optForce);
+Editor.prototype.registerShrotcut = function(shortcutId, handler, opt_force) {
+  this.shortcutsManager.register(shortcutId, handler, opt_force);
 };
 
 
@@ -1198,7 +1702,7 @@ Editor.prototype.getSnippet = function(optWordCount) {
  * @param  {string} name Name of the toolbar.
  * @param  {Toolbar} toolbar Toolbar object.
  */
-Editor.prototype.registerToolbar = function (name, toolbar) {
+Editor.prototype.registerToolbar = function(name, toolbar) {
   this.toolbars[name] = toolbar;
 };
 
@@ -1208,7 +1712,7 @@ Editor.prototype.registerToolbar = function (name, toolbar) {
  * @param  {string} name Name of the toolbar.
  * @return {Toolbar} Toolbar object.
  */
-Editor.prototype.getToolbar = function (name) {
+Editor.prototype.getToolbar = function(name) {
   return this.toolbars[name];
 };
 
@@ -1218,20 +1722,20 @@ Editor.prototype.getToolbar = function (name) {
  * @param  {string} name Name of the function.
  * @return {Function} Class function for the component.
  */
-Editor.prototype.getModule = function (name) {
-  return this.installedModules[name];
+Editor.prototype.getModule = function(name) {
+  return this.installedComponents[name];
 };
 
 
 /**
  * Registers a regex with the factory.
  * @param  {string} regex String regular expression to register for.
- * @param  {Function} factoryMethod Callback factory method for handling match.
- * @param  {boolean=} optForce Forcing registering even when its already
+ * @param  {./defs.ComponentFactoryMethodDef} factoryMethod Callback factory method for handling match.
+ * @param  {boolean=} opt_force Forcing registering even when its already
  * registered.
  */
-Editor.prototype.registerRegex = function (regex, factoryMethod, optForce) {
-  this.componentFactory.registerRegex(regex, factoryMethod, optForce);
+Editor.prototype.registerRegex = function(regex, factoryMethod, opt_force) {
+  this.componentFactory.registerRegex(regex, factoryMethod, opt_force);
 };
 
 
@@ -1255,7 +1759,7 @@ Editor.prototype.handleSelectionChanged = function(event) {
  */
 Editor.prototype.handleInputEvent = function() {
   // Short circuit the function if handling input is disabled
-  if (this.disableInputHandler === true) {
+  if (this.disableInputHandler_ === true) {
     return;
   }
 
@@ -1299,7 +1803,7 @@ Editor.prototype.handleInputEvent = function() {
  * @private
  */
 Editor.prototype.handlePendingInputIfAny_ = function() {
-  this.disableInputHandler = false;
+  this.enableInput();
   this.handleInputEvent();
 };
 
@@ -1315,7 +1819,7 @@ Editor.prototype.handleKeyUpEvent = function(event) {
     this.accentInProgress = Utils.getAccent(event);
   }
   // User removed his finger from the key re-enable input handler.
-  this.disableInputHandler = false;
+  this.enableInput();
 };
 
 
@@ -1361,7 +1865,7 @@ Editor.prototype.handleKeyPressEvent = function(event) {
  * @param  {Event} event Event object.
  */
 Editor.prototype.handleKeyDownEvent = function(event) {
-  this.disableInputHandler = true;
+  this.disableInput();
   var INPUT_INSERTING = 'insert-chars';
   var INPUT_REMOVING = 'remove-chars';
   var selection = this.article.selection, newP;
@@ -1418,10 +1922,10 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     var lastLayout = article.getLastComponent();
     selection.select({
       component: firstLayout.getFirstComponent(),
-      offset: 0
+      offset: 0,
     }, {
       component: lastLayout.getLastComponent(),
-      offset: lastLayout.getLastComponent().getLength()
+      offset: lastLayout.getLastComponent().getLength(),
     });
     preventDefault = true;
   }
@@ -1430,11 +1934,11 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   // i.e. Enter, characters, space, backspace...etc
   else if (selection.isRange() && Utils.willTypeCharacter(event)) {
     var section = selection.getSectionAtStart();
-    if(section) {
+    if (section) {
       inBetweenComponents = section.getComponentsBetween(
           selection.getComponentAtStart(), selection.getComponentAtEnd());
     }
-    Utils.arrays.extend(ops, this.getDeleteSelectionOps());
+    Utils.arrays.extend(ops, selection.getDeleteSelectionOps());
 
     this.article.transaction(ops);
     selection.setCursor(selection.start);
@@ -1478,8 +1982,8 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // an instanceof Paragraph. Maybe find a better way to manage this.
       if (!selection.isCursorAtEnding() && currentIsParagraph &&
           !currentComponent.inline) {
-        Utils.arrays.extend(ops, this.getSplitParagraphOps(
-            -inBetweenComponents.length));
+        Utils.arrays.extend(ops, currentComponent.getSplitOps(
+            selection, -inBetweenComponents.length));
       } else {
         var factoryMethod;
         if (currentIsParagraph) {
@@ -1500,7 +2004,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           // and don't insert a new paragraph.
           selection.setCursor({
             component: nextComponent,
-            offset: 0
+            offset: 0,
           });
         } else {
           var insertType = currentComponent.paragraphType;
@@ -1508,7 +2012,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           var atIndex = currentIndex - inBetweenComponents.length + 1;
           cursor = {
             component: currentComponent.name,
-            offset: selection.end.offset
+            offset: selection.end.offset,
           };
           if (insertType === Paragraph.Types.ListItem) {
             if (currentComponent.getLength() === 0) {
@@ -1544,11 +2048,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
             // If next layout is not single-column create one and insert the new
             // paragraph into.
             if (!insertInSection ||
-                insertInSection.type !== Layout.Types.SingleColumn) {
+                (insertInSection instanceof Layout &&
+                 insertInSection.type !== Layout.Types.SingleColumn)) {
               insertInSection = new Layout({
                 type: Layout.Types.SingleColumn,
                 section: currentComponent.section.section,
-                components: []
+                components: [],
               });
               Utils.arrays.extend(
                   ops, insertInSection.getInsertOps(
@@ -1558,7 +2063,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
           newP = new Paragraph({
             section: insertInSection,
-            paragraphType: insertType
+            paragraphType: insertType,
           });
           Utils.arrays.extend(ops, newP.getInsertOps(atIndex, cursor));
         }
@@ -1573,9 +2078,9 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (!currentIsParagraph || !currentComponent.getLength()) {
         // Paragraph is empty or a non-text component. Delete it.
         this.handlePendingInputIfAny_();
-        cursor = null;
+        cursor = undefined;
         if (prevComponent) {
-          cursor = { offset: 0 };
+          cursor = {offset: 0};
           if (prevIsParagraph) {
             cursor.offset = prevComponent.getLength();
           }
@@ -1583,7 +2088,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         } else if (nextComponent) {
           cursor = {
             offset: 0,
-            component: nextComponent.name
+            component: nextComponent.name,
           };
         }
 
@@ -1615,7 +2120,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
         selection.setCursor({
           component: prevComponent,
-          offset: offsetAfterOperation
+          offset: offsetAfterOperation,
         });
 
         preventDefault = true;
@@ -1630,16 +2135,16 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     case 46:
       if (!currentIsParagraph) {
         this.handlePendingInputIfAny_();
-        cursor = null;
+        cursor = undefined;
         if (prevComponent) {
           cursor = {
             component: prevComponent.name,
-            offset: prevComponent.getLength()
+            offset: prevComponent.getLength(),
           };
         } else if (nextComponent) {
           cursor = {
             component: nextComponent.name,
-            offset: 0
+            offset: 0,
           };
         }
 
@@ -1668,13 +2173,13 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
           selection.setCursor({
             component: currentComponent,
-            offset: offsetAfterOperation
+            offset: offsetAfterOperation,
           });
         } else {
           this.handlePendingInputIfAny_();
           selection.setCursor({
             component: nextComponent,
-            offset: 0
+            offset: 0,
           });
         }
         preventDefault = true;
@@ -1691,7 +2196,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
         selection.setCursor({
           component: prevComponent,
-          offset: offset
+          offset: offset,
         });
         preventDefault = true;
       }
@@ -1710,7 +2215,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           }
           selection.setCursor({
             component: prevComponent,
-            offset: offset
+            offset: offset,
           });
           preventDefault = true;
         }
@@ -1722,7 +2227,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       if (selection.isCursorAtEnding() && nextComponent) {
         selection.setCursor({
           component: nextComponent,
-          offset: 0
+          offset: 0,
         });
         preventDefault = true;
       }
@@ -1737,7 +2242,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
         offset = Math.min(nextComponent.getLength(), currentOffset);
         selection.setCursor({
           component: nextComponent,
-          offset: offset
+          offset: offset,
         });
         preventDefault = true;
       }
@@ -1765,144 +2270,11 @@ Editor.prototype.handleKeyDownEvent = function(event) {
 
 
 /**
- * Generates the operations needed to delete current selection.
- * @return {Array.<Object>} List of operations to delete selection.
- */
-Editor.prototype.getDeleteSelectionOps = function() {
-  var ops = [];
-  var count;
-  var selection = this.article.selection;
-  var section = selection.getSectionAtStart();
-  var inBetweenComponents = [];
-  if(section) {
-    inBetweenComponents = section.getComponentsBetween(
-      selection.getComponentAtStart(), selection.getComponentAtEnd());
-  }
-
-  for (var i = 0; i < inBetweenComponents.length; i++) {
-    Utils.arrays.extend(ops, inBetweenComponents[i].getDeleteOps(-i));
-  }
-
-  if (selection.getComponentAtEnd() !== selection.getComponentAtStart()) {
-    var lastComponent = selection.getComponentAtEnd();
-    if (lastComponent instanceof Paragraph || selection.end.offset > 0) {
-      Utils.arrays.extend(ops, lastComponent.getDeleteOps(
-          -inBetweenComponents.length));
-    }
-
-    if (lastComponent instanceof Paragraph) {
-      var lastParagraphOldText = lastComponent.text;
-      var lastParagraphText = lastParagraphOldText.substring(
-          selection.end.offset, lastParagraphOldText.length);
-
-      var firstParagraphOldText = selection.getComponentAtStart().text;
-      var firstParagraphText = firstParagraphOldText.substring(
-          selection.start.offset, firstParagraphOldText.length);
-
-      var startParagraph = selection.getComponentAtStart();
-      var startParagraphFormats = startParagraph.getFormatsForRange(
-          selection.start.offset, firstParagraphOldText.length);
-
-      var selectRange = firstParagraphOldText.length - selection.start.offset;
-      if ((startParagraphFormats && startParagraphFormats.length) ||
-          selectRange) {
-        Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-          formats: startParagraphFormats
-        }, selection.start.offset, selectRange));
-      }
-
-      if (firstParagraphText && firstParagraphText.length) {
-        Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
-            firstParagraphText, selection.start.offset));
-      }
-
-      var lastCount = lastParagraphOldText.length - lastParagraphText.length;
-      Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
-          lastParagraphText, selection.start.offset));
-
-      var endParagraphFormatting = lastComponent.getFormatsForRange(
-          selection.end.offset, lastParagraphOldText.length);
-      var formatShift = -lastCount + selection.start.offset;
-      for (var k = 0; k < endParagraphFormatting.length; k++) {
-        endParagraphFormatting[k].from += formatShift;
-        endParagraphFormatting[k].to += formatShift;
-      }
-
-      Utils.arrays.extend(ops, startParagraph.getUpdateOps({
-        formats: endParagraphFormatting
-      }, firstParagraphOldText.length - firstParagraphText.length));
-    }
-  } else {
-    var currentComponent = selection.getComponentAtStart();
-    var selectedText = currentComponent.text.substring(
-        selection.start.offset, selection.end.offset);
-    count = selection.end.offset - selection.start.offset;
-    var currentComponentFormats = currentComponent.getFormatsForRange(
-        selection.start.offset, selection.end.offset);
-
-    Utils.arrays.extend(ops, currentComponent.getUpdateOps({
-      formats: currentComponentFormats
-    }, selection.start.offset, count));
-
-    Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
-        selectedText, selection.start.offset));
-  }
-
-  return ops;
-};
-
-
-/**
- * Generates the operations needed to split a paragraph into two at the cursor.
- * @param  {number} indexOffset Offset to add to paragraphs index.
- * @return {Array.<Object>} List of operations to split the paragraph.
- */
-Editor.prototype.getSplitParagraphOps = function(indexOffset) {
-  var ops = [];
-  var selection = this.article.selection;
-  var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.getIndexInSection();
-  var afterCursorText = currentComponent.text.substring(
-      selection.end.offset, currentComponent.text.length);
-
-  var afterCursorFormats = currentComponent.getFormatsForRange(
-      selection.start.offset, currentComponent.text.length);
-
-  Utils.arrays.extend(ops, currentComponent.getUpdateOps({
-    formats: afterCursorFormats
-  }, selection.start.offset));
-
-  Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
-      afterCursorText, selection.start.offset));
-
-  var afterCursorShiftedFormats = Utils.clone(afterCursorFormats);
-  var formatShift = -selection.start.offset;
-  for (var k = 0; k < afterCursorShiftedFormats.length; k++) {
-    afterCursorShiftedFormats[k].from += formatShift;
-    afterCursorShiftedFormats[k].to += formatShift;
-  }
-
-  var newP = new Paragraph({
-      section: selection.getSectionAtEnd(),
-      text: afterCursorText,
-      formats: afterCursorShiftedFormats,
-      paragraphType: currentComponent.paragraphType
-  });
-  Utils.arrays.extend(
-      ops, newP.getInsertOps(currentIndex + indexOffset + 1));
-
-  return ops;
-};
-
-
-/**
  * Generates the operations needed to merge two paragraphs.
- * TODO(mkhatib): Figure out a way to handle this without discarding the formats
- * of the text in the paragraphs.
  * @param  {Paragraph} firstP First Paragraph.
  * @param  {Paragraph} secondP Second Paragraph.
  * @param  {number} indexOffset Offset to add to paragraphs index.
- * @return {Array.<Object>} List of operations to merge the paragraphs.
+ * @return {Array<./defs.OperationDef>} List of operations to merge the paragraphs.
  */
 Editor.prototype.getMergeParagraphsOps = function(
     firstP, secondP, indexOffset) {
@@ -1922,81 +2294,10 @@ Editor.prototype.getMergeParagraphsOps = function(
   }
 
   Utils.arrays.extend(ops, firstP.getUpdateOps({
-    formats: secondPFormatting
+    formats: secondPFormatting,
   }, offsetAfterOperation));
 
   return ops;
-};
-
-
-/**
- * Handles paste event for the editor.
- * @param  {Event} event Paste Event.
- */
-Editor.prototype.handlePaste = function(event) {
-  // Execute any debounced input handler right away to apply any
-  // unupdated content before moving to other operations.
-  this.handlePendingInputIfAny_();
-
-  var startComponent = this.selection.getComponentAtEnd();
-  var pastedContent;
-  if (window.clipboardData && window.clipboardData.getData) { // IE
-    pastedContent = window.clipboardData.getData('Text');
-  } else if (event.clipboardData && event.clipboardData.getData) {
-    var cbData = event.clipboardData;
-    // Enforce inline paste when pasting in an inline component
-    // (e.g. figcaption).
-    if (startComponent.inline) {
-      pastedContent = cbData.getData('text/plain');
-      pastedContent = pastedContent.split('\n').join(' ');
-    } else {
-      pastedContent = (
-          cbData.getData('text/html') || cbData.getData('text/plain'));
-    }
-  }
-
-  var tempEl = document.createElement('div');
-  tempEl.innerHTML = pastedContent;
-
-  if (startComponent.getPreviousComponent()) {
-    startComponent = startComponent.getPreviousComponent();
-  }
-
-  var ops = this.getDeleteSelectionOps();
-  this.article.transaction(ops);
-  var pasteOps = this.processPastedContent(tempEl);
-  this.article.transaction(pasteOps);
-
-  var factoryMethod;
-  var that = this;
-  var endComponent = this.selection.getComponentAtEnd();
-  if (endComponent.getNextComponent()) {
-    endComponent = endComponent.getNextComponent();
-  }
-  var currentComponent = startComponent;
-
-  var opsCallback = function(ops) {
-    that.article.transaction(ops);
-    setTimeout(function() {
-      that.dispatchEvent(new Event('change'));
-    }, 2);
-  };
-
-  while (currentComponent && currentComponent !== endComponent) {
-    var currentIsParagraph = currentComponent instanceof Paragraph;
-    if (currentIsParagraph) {
-      factoryMethod = this.componentFactory.match(
-          currentComponent.text);
-      if (factoryMethod) {
-        factoryMethod(currentComponent, opsCallback);
-      }
-    }
-
-    currentComponent = currentComponent.getNextComponent();
-  }
-
-  this.selection.updateSelectionFromWindow();
-  event.preventDefault();
 };
 
 
@@ -2014,271 +2315,74 @@ Editor.prototype.getJSONModel = function() {
  * @return {string} Rendered HTML of the article.
  */
 Editor.prototype.getHTML = function() {
+  // TODO(mkhatib): This should remove contenteditable attributes from content.
   return this.article.dom.outerHTML;
 };
 
 
-
 /**
- * Sanitizes and generates list of operations to properly insert pasted
- * content into the article.
- *
- * TODO(mkhatib): Probably move this to its own module and
- * make it easier for people to customize or override this with
- * their own sanitizer.
- *
- * @param  {HTMLElement} element HTML Element to sanitize and create ops for.
- * @return {Array.<Object>} List of operations objects that represents the
- * the pasted content.
+ * Handles paste event for the editor.
+ * @param  {Event} event Paste Event.
+ * @private
  */
-Editor.prototype.processPastedContent = function(element, indexOffset) {
-  var ops = [];
-  var text, paragraphType, appendOperations, newP;
-  var textPasted = Utils.getTextFromElement(element);
-  var children = element.childNodes;
-  var component;
-  var selection = this.article.selection;
-  var currentComponent = selection.getComponentAtStart();
-  var section = selection.getSectionAtStart();
-  var startParagraphIndex = currentComponent.getIndexInSection();
-  var currentIndex = indexOffset || startParagraphIndex;
-  var cursor = {
-    component: currentComponent.name,
-    offset: selection.end.offset
-  };
+Editor.prototype.handlePaste_ = function(event) {
+  // Execute any debounced input handler right away to apply any
+  // unupdated content before moving to other operations.
+  this.handlePendingInputIfAny_();
 
-  var INLINE_ELEMENTS = ['B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
-      'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
-      '#text', 'META'];
-
-  function hasOnlyInlineChildNodes(elem) {
-    var children = elem.childNodes;
-    for (var i = 0; i < children.length ; i++) {
-      if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
-        return false;
-      } else if (children[i].childNodes) {
-        var subChilds = children[i].childNodes;
-        for (var k = 0; k < subChilds.length; k++) {
-          if (!isInlinePaste(subChilds) || !hasOnlyInlineChildNodes(subChilds[k])) {
-            return false;
-          }
-        }
-      }
-    }
-    return true;
-  }
-
-  function isInlinePaste(children) {
-    var metaNodes = 0;
-    for (var i = 0; i < children.length; i++) {
-      if (children[i] && children[i].nodeName.toLowerCase() === 'meta') {
-        metaNodes++;
-      } else if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
-        return false;
-      }
-    }
-
-    if (children.length - metaNodes < 2) {
-      return true;
+  for (var key in this.installedExtensions) {
+    var extension = this.installedExtensions[key];
+    var result = extension.onPaste(event);
+    if (result) {
+      event.preventDefault();
+      return;
     }
   }
-
-  if (!children || !children.length ||
-      (isInlinePaste(children) && hasOnlyInlineChildNodes(element))) {
-    var lines = textPasted.split('\n');
-    if (lines.length < 2) {
-      // Text before and after pasting.
-      var textStart = currentComponent.text.substring(0, selection.start.offset);
-
-      // Calculate cursor offset before pasting.
-      var offsetBeforeOperation = textStart.length;
-
-      Utils.arrays.extend(ops, currentComponent.getInsertCharsOps(
-          textPasted, offsetBeforeOperation));
-    } else {
-      // TODO(mkhatib): Maybe allow pasting new lined paragraphs once we
-      // have better support for it.
-      for (var lineNum = 0; lineNum < lines.length; lineNum++) {
-        if (lines[lineNum].trim().length > 0) {
-          newP = new Paragraph({
-              section: section,
-              text: lines[lineNum]
-          });
-          Utils.arrays.extend(
-              ops, newP.getInsertOps(currentIndex++, cursor));
-        }
-      }
-    }
-  } else if (hasOnlyInlineChildNodes(element)) {
-    text = Utils.getTextFromElement(element);
-
-    newP = new Paragraph({
-        section: section,
-        text: text,
-        formats: FormattingExtension.generateFormatsForNode(element)
-    });
-    Utils.arrays.extend(
-        ops, newP.getInsertOps(currentIndex++, cursor));
-  } else {
-    // When pasting multi-line, split the current paragraph if pasting
-    // mid-paragraph.
-    if (!selection.isCursorAtEnding()) {
-      Utils.arrays.extend(ops, this.getSplitParagraphOps(0));
-      currentIndex++;
-    }
-    for (var i = 0; i < children.length; i++) {
-      var el = children[i];
-      var tag = el.nodeName && el.nodeName.toLowerCase();
-      switch (tag) {
-        // These tags are currently unsupported for paste and are stripped out.
-        case undefined:
-        case 'meta':
-        case 'script':
-        case 'style':
-        case 'embed':
-        case 'br':
-        case 'hr':
-          continue;
-        case 'figure':
-          var allImgs = el.getElementsByTagName('img');
-          if (!allImgs || !allImgs.length) {
-            continue;
-          }
-          for (var j = 0; j < allImgs.length; j++) {
-            component = new Figure({
-              src: allImgs[j].getAttribute('src')
-            });
-            component.section = selection.getSectionAtEnd();
-            Utils.arrays.extend(
-                ops, component.getInsertOps(currentIndex++), cursor);
-          }
-          paragraphType = null;
-          break;
-        case 'img':
-          component = new Figure({
-            src: el.getAttribute('src')
-          });
-          component.section = selection.getSectionAtEnd();
-          Utils.arrays.extend(
-              ops, component.getInsertOps(currentIndex++, cursor));
-          paragraphType = null;
-          break;
-        case 'ul':
-        case 'ol':
-          var tagName = List.UNORDERED_LIST_TAG;
-          if (tag === 'ol') {
-            tagName = List.ORDERED_LIST_TAG;
-          }
-          var lis = el.getElementsByTagName('li');
-          if (!lis || !lis.length) {
-            continue;
-          }
-          component = new List({
-            tagName: tagName,
-            components: []
-          });
-          component.section = selection.getSectionAtEnd();
-          Utils.arrays.extend(
-              ops, component.getInsertOps(currentIndex++, cursor));
-          for (j = 0; j < lis.length; j++) {
-            newP = new Paragraph({
-              paragraphType: Paragraph.Types.ListItem,
-              text: Utils.getTextFromElement(lis[j])
-            });
-            newP.section = component;
-            Utils.arrays.extend(
-                ops, newP.getInsertOps(j, cursor));
-          }
-          paragraphType = null;
-          break;
-        case 'p':
-        case '#text':
-          paragraphType = Paragraph.Types.Paragraph;
-          break;
-        case 'blockquote':
-          paragraphType = Paragraph.Types.Quote;
-          break;
-        case 'h1':
-          paragraphType = Paragraph.Types.MainHeader;
-          break;
-        case 'h2':
-          paragraphType = Paragraph.Types.SecondaryHeader;
-          break;
-        case 'h3':
-        case 'h4':
-        case 'h5':
-        case 'h6':
-          paragraphType = Paragraph.Types.ThirdHeader;
-          break;
-        case 'pre':
-          paragraphType = Paragraph.Types.Code;
-          break;
-        default:
-          // To preserve inline styling.
-          if (hasOnlyInlineChildNodes(children[i])) {
-            // TODO(mkhatib): This is here to preserve inline styling, which
-            // is currently unsupported by the editor. Once this is added
-            // change this to reflect that. Currently just add a non-styled
-            // paragraph.
-            paragraphType = Paragraph.Types.Paragraph;
-          } else {
-            // In case there are still more block elements, recursively get
-            // their operations and add them to the operations list.
-
-            // TODO(mkhatib): This is very clumsy and not very readable, move
-            // the recursive process to its own helper method and make it more
-            // readable.
-            appendOperations = this.processPastedContent(
-                children[i], currentIndex);
-
-            // Increase the currentIndex by the amount of paragraphs we've added
-            // which is the amount of operations.
-            currentIndex += appendOperations.length;
-          }
-      }
-
-      if (appendOperations) {
-        Utils.arrays.extend(ops, appendOperations);
-        appendOperations = null;
-      } else if (paragraphType) {
-        // Add an operation to insert new paragraph and update its text.
-        text = Utils.getTextFromElement(el);
-
-        newP = new Paragraph({
-            section: section,
-            text: text,
-            paragraphType: paragraphType,
-            formats: FormattingExtension.generateFormatsForNode(el)
-        });
-        Utils.arrays.extend(
-            ops, newP.getInsertOps(currentIndex++, cursor));
-      }
-    }
-  }
-  return ops;
 };
 
 
 /**
  * Handles cut event for the editor.
+ * TODO(mkhatib): Explore providing pre and post hooks to these handlers.
+ * @param {Event} event
+ * @private
  */
-Editor.prototype.handleCut = function() {
+Editor.prototype.handleCut_ = function(event) {
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
   this.handlePendingInputIfAny_();
 
-  this.disableInputHandler = true;
-  var ops = this.getDeleteSelectionOps();
-  var article = this.article;
-  var dispatchEvent = this.dispatchEvent.bind(this);
-  setTimeout(function() {
-    article.transaction(ops);
-    this.disableInputHandler = false;
-    dispatchEvent(new Event('change'));
-  }, 20);
+  for (var key in this.installedExtensions) {
+    var extension = this.installedExtensions[key];
+    var result = extension.onCut(event);
+    if (result) {
+      return;
+    }
+  }
+
 };
 
-},{"./article":1,"./extensions/componentFactory":8,"./extensions/formattingExtension":12,"./extensions/shortcutsManager":16,"./extensions/toolbeltExtension":17,"./extensions/uploadExtension":18,"./figure":19,"./i18n":20,"./layout":23,"./list":24,"./paragraph":27,"./section":28,"./selection":29,"./toolbars/toolbar":32,"./utils":33}],4:[function(require,module,exports){
+
+/**
+ * Disables editor handling of input event.
+ * TODO(mkhatib): Implement a better way to handle this instead of
+ * disabling/enabling input handling.
+ */
+Editor.prototype.disableInput = function() {
+  this.disableInputHandler_ = true;
+};
+
+
+/**
+ * Enables editor handling of input event.
+ * TODO(mkhatib): Implement a better way to handle this instead of
+ * disabling/enabling input handling.
+ */
+Editor.prototype.enableInput = function() {
+  this.disableInputHandler_ = false;
+};
+
+},{"./article":1,"./component":2,"./core/abstract-extension":3,"./customEventTarget":5,"./extensions/componentFactory":11,"./extensions/copy-cut-paste":13,"./extensions/formattingExtension":17,"./extensions/shortcutsManager":21,"./extensions/toolbeltExtension":22,"./extensions/uploadExtension":23,"./figure":24,"./i18n":25,"./layout":28,"./list":29,"./paragraph":32,"./section":33,"./selection":34,"./toolbars/toolbar":37,"./utils":38}],7:[function(require,module,exports){
 'use strict';
 
 var Errors = {};
@@ -2288,8 +2392,10 @@ module.exports = Errors;
 /**
  * An error to use when methods are not implemented.
  * @param {string} message Message for the exception.
+ * @extends {Error}
+ * @constructor
  */
-Errors.NotImplementedError = function (message) {
+Errors.NotImplementedError = function(message) {
   this.name = 'NotImplementedError';
   this.message = (message || '');
 };
@@ -2299,27 +2405,33 @@ Errors.NotImplementedError.prototype = Error.prototype;
 /**
  * An error to use when registeration is already done.
  * @param {string} message Message for the exception.
+ * @extends {Error}
+ * @constructor
  */
-Errors.AlreadyRegisteredError = function (message) {
+Errors.AlreadyRegisteredError = function(message) {
   this.name = 'AlreadyRegisteredError';
   this.message = (message || '');
 };
 Errors.AlreadyRegisteredError.prototype = Error.prototype;
 
 
-Errors.ConfigrationError = function (message) {
+/**
+ * @param {string} message
+ * @extends {Error}
+ * @constructor
+ */
+Errors.ConfigrationError = function(message) {
   this.name = 'ConfigrationError';
   this.message = (message || '');
 };
 Errors.ConfigrationError.prototype = Error.prototype;
 
-},{}],5:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 'use strict';
-
-var Errors = require('../errors');
 
 /**
  * An abstract class for embed providers to subclass and implement its methods.
+ * @interface
  */
 var AbstractEmbedProvider = function() {
 };
@@ -2329,15 +2441,12 @@ module.exports = AbstractEmbedProvider;
 /**
  * Call the proper endpoint for the passed URL and send the response back
  * by passing it to a callabck.
- * @param {string} url Url to get the oembed response for.
- * @param {Function} callback A callback function to call with the result.
- * @param {Object=} optArgs Optional arguments to pass with the URL.
+ * @param {string} unusedUrl Url to get the oembed response for.
+ * @param {Function} unusedCallback A callback function to call with the result.
+ * @param {Object=} opt_args Optional arguments to pass with the URL.
  */
 AbstractEmbedProvider.prototype.getEmbedForUrl = function(
-    url, callback, optArgs) {
-  // jshint unused: false
-  throw Errors.NotImplementedError(
-      'AbstractEmbedProvider need to implement getEmbedForUrl');
+    unusedUrl, unusedCallback, opt_args) {
 };
 
 
@@ -2346,12 +2455,20 @@ AbstractEmbedProvider.prototype.getEmbedForUrl = function(
  * @return {string}
  */
 AbstractEmbedProvider.prototype.getUrlsRegex = function() {
-  // jshint unused: false
-  throw Errors.NotImplementedError(
-      'AbstractEmbedProvider need to implement getUrlsRegexStr');
 };
 
-},{"../errors":4}],6:[function(require,module,exports){
+
+/**
+ * Returns the URL to call for oembed response.
+ * @param {string} unusedUrl URL to create the url for.
+ * @param {Object=} opt_args Arguments to pass with the URL.
+ * @return {string|null}
+ */
+AbstractEmbedProvider.prototype.getOEmbedEndpointForUrl = function(
+    unusedUrl, opt_args) {
+};
+
+},{}],9:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2361,17 +2478,18 @@ var Selection = require('../selection');
 /**
  * Allow for updating attributes in history and in the component for
  * uploading files and media.
- * @param {Object=} optParams Optional Parameters.
+ * @param {Object=} opt_params Optional Parameters.
+ * @constructor
  */
-var Attachment = function (optParams) {
+var Attachment = function(opt_params) {
   var params = Utils.extend({
     file: null,
     dataUri: null,
     // TODO(mkhatib): Make this general for any kind of component
     // (e.g. video, pdf...etc)
     figure: null,
-    insertedOps: null
-  }, optParams);
+    insertedOps: null,
+  }, opt_params);
 
   /**
    * The file that was picked by the user.
@@ -2388,13 +2506,13 @@ var Attachment = function (optParams) {
 
   /**
    * Figure inserted for this attachment.
-   * @type {Figure}
+   * @type {../figure}
    */
   this.figure = params.figure;
 
   /**
    * Operations used to insert the component.
-   * @type {Array.<Object>}
+   * @type {Array<../defs.OperationDef>}
    */
   this.insertedOps = params.insertedOps;
 
@@ -2437,7 +2555,7 @@ Attachment.prototype.setAttributes = function(attrs) {
   }
 };
 
-},{"../selection":29,"../utils":33}],7:[function(require,module,exports){
+},{"../selection":34,"../utils":38}],10:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -2447,9 +2565,11 @@ var Utils = require('../utils');
  * Carbon embed provider uses different providers to provide support for
  * differnet URLs - uses the offical service when possible
  * (e.g. supports CORS or jsonp) and uses noembed as alternative.
- * @param {Object=} optParams Optional params to configure the provider with.
+ * @param {Object=} opt_params Optional params to configure the provider with.
+ * @implements {./abstractEmbedProvider}
+ * @constructor
  */
-var CarbonEmbedProvider = function (optParams) {
+var CarbonEmbedProvider = function(opt_params) {
   var params = Utils.extend({
     servicesConfig: {
       facebookNotes: true,
@@ -2463,10 +2583,9 @@ var CarbonEmbedProvider = function (optParams) {
       slideshare: false,
       facebookPosts: true,
       facebookVideos: false,
-    }
-  }, optParams);
+    },
+  }, opt_params);
 
-  AbstractEmbedProvider.call(this, params);
 
   /**
    * The different services enabled or disabled configuration.
@@ -2479,6 +2598,7 @@ CarbonEmbedProvider.prototype = Object.create(AbstractEmbedProvider.prototype);
 module.exports = CarbonEmbedProvider;
 
 
+/* eslint max-len: 0 */
 /**
  * Mapping Providers URL RegExes and their matching oEmbed endpoints.
  * @type {Object}
@@ -2496,31 +2616,31 @@ CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
     // Matches Facebook Posts URLs. (incl. posts, photos, story...etc)
     '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?.+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|photos|activity)\/.+|permalink\.php\?story_fbid=\\\d+|media\/set\?set=\\d+|questions\/\\d+))':
         // oEmbed endpoint for facebook posts.
-        'https://apps.facebook.com/plugins/post/oembed.json/'
+        'https://apps.facebook.com/plugins/post/oembed.json/',
         // 'https://noembed.com/embed'
   },
   facebookNotes: {
     // Matches Facebook Notes URLs.
     '^(https?:\/\/www\.facebook\.com\/notes\/[a-zA-Z0-9\-.]+\/[a-zA-Z0-9\-.]+\/\\d+)':
         // oEmbed endpoint for facebook posts.
-        'https://apps.facebook.com/plugins/post/oembed.json/'
+        'https://apps.facebook.com/plugins/post/oembed.json/',
         // 'https://noembed.com/embed'
   },
   soundcloud: {
     '^https?://soundcloud.com/.*/.*$':
-        'https://soundcloud.com/oembed?format=js'
+        'https://soundcloud.com/oembed?format=js',
   },
   youtube: {
     '^(?:https?://(?:www\.)?youtube\.com/(?:[^\/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})$':
-        'https://www.youtube.com/oembed?format=json'
+        'https://www.youtube.com/oembed?format=json',
   },
   vimeo: {
     '^http(?:s?)://(?:www\.)?vimeo\.com/(([0-9]+)|channels/.+/.+|groups/.+/videos/.+)':
-        'https://vimeo.com/api/oembed.json'
+        'https://vimeo.com/api/oembed.json',
   },
   vine: {
     '^http(?:s?)://(?:www\.)?vine\.co/v/([a-zA-Z0-9]{1,13})$':
-        'https://vine.co/oembed.json'
+        'https://vine.co/oembed.json',
   },
   twitter: {
     // Moments - doesn't seem to support jsonp!
@@ -2529,33 +2649,34 @@ CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
 
     // Statuses.
     '^https?://(?:www\.)?twitter\.com/[a-zA-Z0-9_]+/status/\\d+$':
-        'https://api.twitter.com/1/statuses/oembed.json'
+        'https://api.twitter.com/1/statuses/oembed.json',
   },
   instagram: {
     '^https?://(?:www\.)?instagr\.?am(?:\.com)?/p/[a-zA-Z0-9_\-]+/?':
-        'https://www.instagram.com/publicapi/oembed/'
+        'https://www.instagram.com/publicapi/oembed/',
   },
   slideshare: {
     '^https?://(?:www\.)?slideshare\.net/[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+':
-        'https://www.slideshare.net/api/oembed/2?format=jsonp'
+        'https://www.slideshare.net/api/oembed/2?format=jsonp',
   },
   github: {
     '^https?://gist\.github\.com/.*':
-        'https://noembed.com/embed?format=json'
-  }
+        'https://noembed.com/embed?format=json',
+  },
 };
 
 
 /**
  * Returns the URL to call for oembed response.
  * @param {string} url URL to create the url for.
- * @param {Object} optArgs Arguments to pass with the URL.
- * @return {string}
+ * @param {Object=} opt_args Arguments to pass with the URL.
+ * @return {string|null}
  */
-CarbonEmbedProvider.prototype.getOEmbedEndpointForUrl = function(url, optArgs) {
+CarbonEmbedProvider.prototype.getOEmbedEndpointForUrl = function(
+    url, opt_args) {
   var urlParams = Utils.extend({
-    url: url
-  }, optArgs);
+    url: url,
+  }, opt_args);
 
   var queryParts = [];
   for (var name in urlParams) {
@@ -2565,7 +2686,7 @@ CarbonEmbedProvider.prototype.getOEmbedEndpointForUrl = function(url, optArgs) {
   var endpoint = this.getOEmbedBaseForUrl_(url);
   if (!endpoint) {
     console.error('Could not find oembed endpoint for url: ', url);
-    return;
+    return null;
   }
   var separator = endpoint.indexOf('?') === -1 ? '?' : '&';
   return [endpoint, queryParts.join('&')].join(separator);
@@ -2598,10 +2719,14 @@ CarbonEmbedProvider.prototype.getUrlsRegex = function() {
  * by passing it to a callabck.
  * @param {string} url Url to get the oembed response for.
  * @param {Function} callback A callback function to call with the result.
- * @param {Object=} optArgs Optional arguments to pass with the URL.
+ * @param {Object=} opt_args Optional arguments to pass with the URL.
  */
-CarbonEmbedProvider.prototype.getEmbedForUrl = function(url, callback, optArgs) {
-  var oEmbedEndpoint = this.getOEmbedEndpointForUrl(url, optArgs);
+CarbonEmbedProvider.prototype.getEmbedForUrl = function(
+    url, callback, opt_args) {
+  var oEmbedEndpoint = this.getOEmbedEndpointForUrl(url, opt_args);
+  if (!oEmbedEndpoint) {
+    return;
+  }
   // jshint unused: false
   function jsonp(url, jsonpCallback) {
     var callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
@@ -2612,7 +2737,8 @@ CarbonEmbedProvider.prototype.getEmbedForUrl = function(url, callback, optArgs) 
     };
 
     var script = document.createElement('script');
-    script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
+    script.src = (
+        url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName);
     document.body.appendChild(script);
   }
 
@@ -2623,7 +2749,7 @@ CarbonEmbedProvider.prototype.getEmbedForUrl = function(url, callback, optArgs) 
 /**
  * Matches URL to the service and its oembed endpoint.
  * @param  {string} url URL.
- * @return {string} OEmbed endpoint for the url service.
+ * @return {string|null} OEmbed endpoint for the url service.
  * @private
  */
 CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {
@@ -2644,7 +2770,7 @@ CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {
   return null;
 };
 
-},{"../utils":33,"./abstractEmbedProvider":5}],8:[function(require,module,exports){
+},{"../utils":38,"./abstractEmbedProvider":8}],11:[function(require,module,exports){
 'use strict';
 
 var Errors = require('../errors');
@@ -2653,11 +2779,12 @@ var Errors = require('../errors');
 /**
  * ComponentFactory A factory to allow components to register regex matches
  * to be notified when a match is found in the editor.
+ * @constructor
  */
-var ComponentFactory = function () {
+var ComponentFactory = function() {
   /**
    * The registery for the regexes and its factory methods (callbacks).
-   * @type {Object}
+   * @type {Object<string, ../defs.ComponentFactoryMethodDef>}
    */
   this.regexToFactories = {};
 };
@@ -2667,14 +2794,14 @@ module.exports = ComponentFactory;
 /**
  * Registers a regex with the factory.
  * @param  {string} regex String regular expression to register for.
- * @param  {Function} factoryMethod Callback factory method for handling match.
+ * @param  {../defs.ComponentFactoryMethodDef} factoryMethod Callback factory method for handling match.
  * @param  {boolean=} optForce Forcing registering even when its already
  * registered.
  */
 ComponentFactory.prototype.registerRegex = function(
     regex, factoryMethod, optForce) {
   if (this.regexToFactories[regex] && !optForce) {
-    throw Errors.AlreadyRegisteredError(
+    throw new Errors.AlreadyRegisteredError(
         'This Regex "' + regex + '" has already been registered.');
   }
 
@@ -2685,7 +2812,7 @@ ComponentFactory.prototype.registerRegex = function(
 /**
  * Check if the string match any registered regex and return its factory method.
  * @param {string} str String to match against.
- * @return {Function} Factory method for creating the matched component.
+ * @return {../defs.ComponentFactoryMethodDef|null} Factory method for creating the matched component.
  */
 ComponentFactory.prototype.match = function(str) {
   for (var regexStr in this.regexToFactories) {
@@ -2695,17 +2822,182 @@ ComponentFactory.prototype.match = function(str) {
       return this.regexToFactories[regexStr];
     }
   }
+  return null;
 };
 
 
 /**
  * Clears all registerations.
  */
-ComponentFactory.prototype.onDestroy = function () {
+ComponentFactory.prototype.onDestroy = function() {
   this.regexToFactories = {};
 };
 
-},{"../errors":4}],9:[function(require,module,exports){
+},{"../errors":7}],12:[function(require,module,exports){
+'use strict';
+
+var AbstractExtension = require('../../core/abstract-extension');
+var Selection = require('../../selection');
+var Paragraph = require('../../paragraph');
+var opsFromHtml = require('../../core/operations/ops-from-html');
+
+
+/**
+ * An extension to handle copy-cut-paste in the editor.
+ * @param {../../editor} editor Editor instance installing this extension.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../../core/abstract-extension}
+ * @constructor
+ * @export
+ */
+var CopyCutPaste = function(editor, opt_params) {
+  /**
+   * @type {../../editor}
+   * @private
+   */
+  this.editor_ = editor;
+
+  /**
+   * @type {../../selection}
+   * @private
+   */
+  this.selection_ = Selection.getInstance();
+};
+CopyCutPaste.prototype = Object.create(AbstractExtension.prototype);
+module.exports = CopyCutPaste;
+
+/**
+ * @export
+ */
+CopyCutPaste.CLASS_NAME = 'CopyCutPaste';
+
+
+/**
+ * Handles paste event for the editor.
+ * @param  {Event} unusedEvent Copy Event.
+ * @return {boolean|undefined}
+ */
+CopyCutPaste.prototype.onCopy = function(unusedEvent) {
+  // TODO(mkhatib): Handle copying a selected component.
+};
+
+
+/**
+ * Handles paste event for the editor.
+ * @param  {Event} event Paste Event.
+ * @return {boolean|undefined}
+ */
+CopyCutPaste.prototype.onPaste = function(event) {
+  var startComponent = this.selection_.getComponentAtEnd();
+  var endComponent = this.selection_.getComponentAtEnd();
+  var pastedContent = getClipboardContent_(
+      event, /* opt_isInline */ startComponent.inline);
+  if (!pastedContent) {
+    console.warn('CopyCutPaste: Could not get pasted content.');
+    return;
+  }
+  // Delete current selection for a paste-over.
+  var ops = this.selection_.getDeleteSelectionOps();
+  this.editor_.article.transaction(ops);
+
+  // Generate and execute the operations needed to paste the content.
+  var pasteOps = opsFromHtml(pastedContent);
+  this.editor_.article.transaction(pasteOps);
+
+  // TODO(mkhatib): Move this to a helper method somewhere.
+  // Loop over the new content to execute any elements that has a registered
+  // regex and a factory method. For example, is the pasted content is an image
+  // URL turn it into an actual image.
+  var factoryMethod;
+  var that = this;
+
+  if (startComponent.getPreviousComponent()) {
+    startComponent = startComponent.getPreviousComponent();
+  }
+  if (endComponent.getNextComponent()) {
+    endComponent = endComponent.getNextComponent();
+  }
+
+  var opsCallback = function(ops) {
+    that.editor_.article.transaction(ops);
+    setTimeout(function() {
+      that.editor_.dispatchEvent(new Event('change'));
+    }, 2);
+  };
+
+  var currentComponent = startComponent;
+  while (currentComponent && currentComponent !== endComponent) {
+    var currentIsParagraph = currentComponent instanceof Paragraph;
+    if (currentIsParagraph) {
+      factoryMethod = this.editor_.componentFactory.match(
+          currentComponent.text);
+      if (factoryMethod) {
+        factoryMethod(currentComponent, opsCallback);
+      }
+    }
+
+    currentComponent = currentComponent.getNextComponent();
+  }
+
+  this.selection_.updateSelectionFromWindow();
+  return true;
+};
+
+
+/**
+ * Handles cut event for the editor.
+ * @return {boolean|undefined}
+ */
+CopyCutPaste.prototype.onCut = function(unusedEvent) {
+  // Don't handle input in the editor, we'll handle changes ourselves.
+  this.editor_.disableInput();
+  var ops = this.selection_.getDeleteSelectionOps();
+  var article = this.editor_.article;
+  var dispatchEvent = this.editor_.dispatchEvent.bind(this.editor_);
+  setTimeout(function() {
+    try {
+      article.transaction(ops);
+    } finally {
+      // Don't forget to re-enable input in editor.
+      this.editor_.enableInput();
+    }
+    dispatchEvent(new Event('change'));
+  }, 20);
+
+  return true;
+};
+
+
+/**
+ * Returns clipboard data.
+ * @param {Event} event
+ * @param {boolean=} opt_isInline Whether the content is to be inserted inline.
+ * @return {string|null}
+ * @private
+ */
+function getClipboardContent_(event, opt_isInline) {
+  if (window.clipboardData && window.clipboardData.getData) { // IE
+    return window.clipboardData.getData('Text');
+  } else if (event.clipboardData && event.clipboardData.getData) {
+    var cbData = event.clipboardData;
+    // Enforce inline paste when pasting in an inline component
+    // (e.g. figcaption).
+    if (opt_isInline) {
+      // TODO(mkhatib): This would strip away any inline formatting as well.
+      // Should probably implement a separate way.
+      var pastedContent = cbData.getData('text/plain');
+      return pastedContent.split('\n').join(' ');
+    } else {
+      return cbData.getData('text/html') || cbData.getData('text/plain');
+    }
+  }
+  return null;
+}
+
+},{"../../core/abstract-extension":3,"../../core/operations/ops-from-html":4,"../../paragraph":32,"../../selection":34}],13:[function(require,module,exports){
+module.exports.CopyCutPaste = require('./copy-cut-paste');
+
+},{"./copy-cut-paste":12}],14:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -2716,24 +3008,38 @@ var I18n = require('../i18n');
 
 
 /**
+ * @typedef {{
+ *   url: string,
+ *   provider: string,
+ *   caption: ?string,
+ *   sizes: Object,
+ *   type: ?string,
+ *   serviceName: string
+ * }} */
+var EmbeddedComponentParamsDef;
+
+
+/**
  * EmbeddedComponent main.
- * @param {Object} optParams Optional params to initialize the object.
+ * @param {EmbeddedComponentParamsDef=} opt_params Optional params to initialize the object.
  * Default:
  *   {
  *     caption: null,
  *     name: Utils.getUID()
  *   }
+ * @extends {../component}
+ * @constructor
  */
-var EmbeddedComponent = function(optParams) {
+var EmbeddedComponent = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {EmbeddedComponentParamsDef} */ (Utils.extend({
     url: null,
     provider: null,
     caption: null,
     sizes: {},
     type: EmbeddedComponent.Types.Rich,
-    serviceName: null
-  }, optParams);
+    serviceName: null,
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -2753,7 +3059,7 @@ var EmbeddedComponent = function(optParams) {
    * Embed service name (e.g. twitter).
    * @type {string}
    */
-  this.service = params.service;
+  this.serviceName = params.serviceName;
 
   /**
    * Embed type.
@@ -2763,7 +3069,7 @@ var EmbeddedComponent = function(optParams) {
 
   /**
    * Sizes of the embedded component in different container sizes.
-   * @type {object}
+   * @type {!Object}
    */
   this.sizes = params.sizes || {};
 
@@ -2771,23 +3077,23 @@ var EmbeddedComponent = function(optParams) {
    * Placeholder text to show if the EmbeddedComponent is empty.
    * @type {string}
    */
-  this.caption = params.caption;
+  this.caption = params.caption || '';
 
   /**
    * Placeholder text to show if the Figure is empty.
-   * @type {string}
+   * @type {../paragraph}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: I18n.get('placeholder.embed'),
+    placeholderText: I18n.get('placeholder.embed') || '',
     text: this.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
-    inline: true
+    inline: true,
   });
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
@@ -2864,20 +3170,20 @@ EmbeddedComponent.OVERLAY_CLASS_NAME = 'embed-overlay';
 
 /**
  * The screen sizes to render the component for.
- * @type {Array.<number>}
+ * @type {Array<number>}
  */
 EmbeddedComponent.RENDER_FOR_SCREEN_SIZES = [300, 450, 600, 900, 1200];
 
 
 /**
  * Embed types.
- * @type {Object.<string>}
+ * @enum {string}
  */
 EmbeddedComponent.Types = {
   Rich: 'rich',
   Video: 'video',
   Link: 'link',
-  Image: 'image'
+  Image: 'image',
 };
 
 
@@ -2927,17 +3233,16 @@ EmbeddedComponent.prototype.getComponentClassName = function() {
 
 /**
  * Create and initiate an embedded component from JSON.
- * @param  {Object} json JSON representation of the embedded component.
+ * @param  {EmbeddedComponentParamsDef} json JSON representation of the embedded component.
  * @return {EmbeddedComponent} EmbeddedComponent object representing JSON data.
  */
-EmbeddedComponent.fromJSON = function (json) {
+EmbeddedComponent.fromJSON = function(json) {
   return new EmbeddedComponent(json);
 };
 
 
 /**
  * Handles onInstall when the EmbeddedComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
  */
 EmbeddedComponent.onInstall = function() {
   var offScreen = document.getElementById(
@@ -2948,15 +3253,6 @@ EmbeddedComponent.onInstall = function() {
     offScreen.style.width = '3000px';
     document.body.appendChild(offScreen);
   }
-};
-
-
-/**
- * Returns the class name of this component.
- * @return {string}
- */
-EmbeddedComponent.prototype.getComponentClassName = function() {
-  return EmbeddedComponent.CLASS_NAME;
 };
 
 
@@ -2972,7 +3268,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
   /**
    * Removes the temp rendering dom from document.
-   * @param  {HTMLElement} embedDom Element to remove.
+   * @param  {!Element} embedDom Element to remove.
    */
   function cleanupRenderingDom_(embedDom) {
     return function() {
@@ -2990,7 +3286,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
     // Render the main embedded component.
     var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
+    var containerWidth = parseInt(styles.width, 10);
     var screen = (
         this.getClosestSupportedScreenSize_(containerWidth) || containerWidth);
     this.renderForScreen_(screen, this.embedDom);
@@ -3030,7 +3326,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
  * Renders the embedded component for specific screen to store the different
  * sizes for different screents.
  * @param  {number} screen Screen width to render it for.
- * @param  {HTMLElement} embedDom Element to embed in.
+ * @param  {!Element} embedDom Element to embed in.
  * @private
  */
 EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
@@ -3041,36 +3337,38 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
   }
 
   // Get oembed URL for the URL.
-  var embedProvider = Loader.load('embedProviders')[this.provider];
+  var embedProvider = /** @type {./abstractEmbedProvider} */ (
+      Loader.load('embedProviders')[this.provider]);
   var oEmbedUrl = embedProvider.getOEmbedEndpointForUrl(this.url, {
-    width: screen
+    width: screen,
   });
 
   // Add data to the hash of the iframe URL to pass it to the child iframe.
   var fullUrl = baseUrl + '#' + encodeURIComponent(JSON.stringify({
     width: screen,
     oEmbedUrl: oEmbedUrl,
-    origin: document.location.origin
+    origin: document.location.origin,
   }));
 
-  var iframe = document.createElement('iframe');
+  var iframe = /** @type {!HTMLIFrameElement} */ (
+      document.createElement('iframe'));
   iframe.src = fullUrl;
   iframe.setAttribute('frameborder', 0);
   iframe.setAttribute('width', '100%');
 
   // Set initial height of 50% of the width for visual improvement. This would
   // be updated as the iframe renders.
-  iframe.setAttribute('height', (screen/2) + 'px');
+  iframe.setAttribute('height', (screen / 2) + 'px');
 
   Utils.listen(iframe, EmbeddedComponent.EMBED_SIZE_MESSAGE_TYPE,
       function(data) {
-    this.sizes[screen] = {
-      width: parseFloat(data.width),
-      height: parseFloat(data.height)
-    };
-    this.updateSize_();
-    iframe.setAttribute('height', data.height);
-  }.bind(this));
+        this.sizes[screen] = {
+          width: parseFloat(data.width),
+          height: parseFloat(data.height),
+        };
+        this.updateSize_();
+        iframe.setAttribute('height', data.height);
+      }.bind(this));
   embedDom.appendChild(iframe);
 };
 
@@ -3083,7 +3381,7 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
 EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
   var screenSizes = [];
   for (var size in this.sizes) {
-    screenSizes.push(parseInt(size));
+    screenSizes.push(parseInt(size, 10));
   }
 
   for (var i = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES.length; i > 0; i--) {
@@ -3092,7 +3390,7 @@ EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
       screenSizes.push(standardScreenSize);
     }
   }
-  screenSizes.sort(function (a, b) {
+  screenSizes.sort(function(a, b) {
     return a - b;
   });
 
@@ -3111,10 +3409,10 @@ EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
  * @param  {number} width Width of the container to render the component in.
  * @return {string} Height to Width Ration in percentage.
  */
-EmbeddedComponent.prototype.getRatioFor_ = function (width) {
+EmbeddedComponent.prototype.getRatioFor_ = function(width) {
   var screen = this.getClosestSupportedScreenSize_(width);
   var size = this.sizes[screen];
-  return size && (size.height/size.width * 100) + '%';
+  return size && (size.height / size.width * 100) + '%';
 };
 
 
@@ -3124,9 +3422,9 @@ EmbeddedComponent.prototype.getRatioFor_ = function (width) {
  */
 EmbeddedComponent.prototype.shouldRerender = function() {
   var styles = window.getComputedStyle(this.dom);
-  var containerWidth = parseInt(styles.width);
+  var containerWidth = parseInt(styles.width, 10);
   var screen = this.getClosestSupportedScreenSize_(containerWidth);
-  var currentWidth = parseInt(this.containerDom.style.width);
+  var currentWidth = parseInt(this.containerDom.style.width, 10);
   return screen !== currentWidth;
 };
 
@@ -3137,7 +3435,7 @@ EmbeddedComponent.prototype.shouldRerender = function() {
  */
 EmbeddedComponent.prototype.rerender = function() {
   var styles = window.getComputedStyle(this.dom);
-  var containerWidth = parseInt(styles.width);
+  var containerWidth = parseInt(styles.width, 10);
   var screen = this.getClosestSupportedScreenSize_(containerWidth);
   var ratio = this.getRatioFor_(containerWidth);
 
@@ -3147,7 +3445,7 @@ EmbeddedComponent.prototype.rerender = function() {
 
   setTimeout(function() {
     this.loadEmbed_(this.oEmbedDataLoaded_.bind(this), {
-      width: this.getClosestSupportedScreenSize_(containerWidth)
+      width: this.getClosestSupportedScreenSize_(containerWidth),
     });
   }.bind(this), 200);
 };
@@ -3160,7 +3458,7 @@ EmbeddedComponent.prototype.rerender = function() {
 EmbeddedComponent.prototype.updateSize_ = function() {
   if (!Utils.isEmpty(this.sizes)) {
     var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
+    var containerWidth = parseInt(styles.width, 10);
     // Only add the ratio padding-bottom trick for fixed-ratio embeds.
     if (this.type === EmbeddedComponent.Types.Video ||
         this.type === EmbeddedComponent.Types.Image) {
@@ -3190,7 +3488,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
     var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
+    var containerWidth = parseInt(styles.width, 10);
 
     this.containerDom = document.createElement(
         EmbeddedComponent.CONTAINER_TAG_NAME);
@@ -3206,7 +3504,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
     }
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
-    this.loadEmbed_(function (oembedData) {
+    this.loadEmbed_(function(oembedData) {
       this.type = oembedData.type;
       /* jshint camelcase: false */
       this.serviceName = oembedData.provider || oembedData.provider_name;
@@ -3225,13 +3523,14 @@ EmbeddedComponent.prototype.render = function(element, options) {
             EmbeddedComponent.OVERLAY_TAG_NAME);
         this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
         this.containerDom.appendChild(this.overlayDom);
-        this.overlayDom.addEventListener('click', this.select.bind(this));
+        this.overlayDom.addEventListener('click', this.handleClick.bind(this));
 
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
         this.selectionDom.setAttribute('contenteditable', true);
-        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.selectionDom.addEventListener(
+            'focus', this.handleClick.bind(this));
         this.containerDom.appendChild(this.selectionDom);
 
         this.captionParagraph.dom.setAttribute('contenteditable', true);
@@ -3244,7 +3543,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
       this.oEmbedDataLoaded_(oembedData);
     }.bind(this), {
-      width: this.getClosestSupportedScreenSize_(containerWidth)
+      width: this.getClosestSupportedScreenSize_(containerWidth),
     });
 
   }
@@ -3274,18 +3573,19 @@ EmbeddedComponent.prototype.getJSONModel = function() {
     sizes: this.sizes,
     caption: this.captionParagraph.text,
     type: this.type,
-    serviceName: this.serviceName
+    serviceName: this.serviceName,
   };
 
   return embed;
 };
 
 
+
 /**
  * Handles clicking on the embedded component to update the selection.
  */
-EmbeddedComponent.prototype.select = function (offset) {
-  Component.prototype.select.call(this, offset);
+EmbeddedComponent.prototype.handleClick = function() {
+  this.select();
 
   // TODO(mkhatib): Unselect the component when the embed plays to allow the
   // user to select it again and delete it.
@@ -3293,37 +3593,36 @@ EmbeddedComponent.prototype.select = function (offset) {
 };
 
 
-
 /**
  * Returns the operations to execute a deletion of the embedded component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
  * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<../defs.OperationDef>} List of operations needed to be executed.
  */
-EmbeddedComponent.prototype.getDeleteOps = function (
-    optIndexOffset, optCursorAfterOp) {
+EmbeddedComponent.prototype.getDeleteOps = function(
+    opt_indexOffset, opt_cursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: this.getComponentClassName(),
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         url: this.url,
         provider: this.provider,
         caption: this.caption,
         sizes: this.sizes,
         type: this.type,
-        serviceName: this.serviceName
-      }
-    }
+        serviceName: this.serviceName,
+      },
+    },
   }];
 
   // If this is the only child of the layout delete the layout as well.
@@ -3338,11 +3637,11 @@ EmbeddedComponent.prototype.getDeleteOps = function (
 /**
  * Returns the operations to execute inserting a embedded component.
  * @param {number} index Index to insert the embedded component at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the embedded component.
+ * @return {Array<../defs.OperationDef>} Operations for inserting the embedded component.
  */
-EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+EmbeddedComponent.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -3357,14 +3656,14 @@ EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
         sizes: this.sizes,
         caption: this.caption,
         type: this.type,
-        serviceName: this.serviceName
-      }
+        serviceName: this.serviceName,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -3373,13 +3672,14 @@ EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
  * Returns the length of the embedded component content.
  * @return {number} Length of the embedded component content.
  */
-EmbeddedComponent.prototype.getLength = function () {
+EmbeddedComponent.prototype.getLength = function() {
   return 1;
 };
 
-},{"../component":2,"../i18n":20,"../loader":25,"../paragraph":27,"../utils":33}],10:[function(require,module,exports){
+},{"../component":2,"../i18n":25,"../loader":30,"../paragraph":32,"../utils":38}],15:[function(require,module,exports){
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Utils = require('../utils');
 var Errors = require('../errors');
 var Loader = require('../loader');
@@ -3390,21 +3690,22 @@ var I18n = require('../i18n');
 /**
  * EmbeddingExtension allows embedding different kind of components using
  * different providers.
- * @param {Object} optParams Config params.
+ * @param {../editor} editor Editor instance installing this extension.
+ * @param {Object=} opt_params Config params.
+ * @extends {../core/abstract-extension}
  * @constructor
  */
-var EmbeddingExtension = function (optParams) {
+var EmbeddingExtension = function(editor, opt_params) {
   var params = Utils.extend({
-    editor: null,
     embedProviders: null,
-    ComponentClass: null
-  }, optParams);
+    ComponentClass: null,
+  }, opt_params);
 
   /**
    * A reference to the editor this extension is enabled in.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = params.editor;
+  this.editor = editor;
 
   /**
    * Maps the different providers with their instances.
@@ -3414,10 +3715,13 @@ var EmbeddingExtension = function (optParams) {
 
   /**
    * The component class to use for embedding.
-   * @type {Component}
+   * @type {function(new:./embeddedComponent, Object=)}
    */
   this.ComponentClass = params.ComponentClass;
+
+  this.init();
 };
+EmbeddingExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = EmbeddingExtension;
 
 
@@ -3437,26 +3741,19 @@ EmbeddingExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Instantiate an instance of the extension and configure it.
- * @param  {Editor} editor Instance of the editor installing this extension.
+ * @param  {../editor} unusedEditor Instance of the editor installing this extension.
  * @param  {Object} config Configuration for the extension.
  * @static
  */
-EmbeddingExtension.onInstall = function (editor, config) {
-  if (!config.embedProviders || ! config.ComponentClass) {
-    throw Errors.ConfigrationError(
+EmbeddingExtension.onInstall = function(unusedEditor, config) {
+  if (!config.embedProviders || !config.ComponentClass) {
+    throw new Errors.ConfigrationError(
         'EmbeddingExtension needs "embedProviders" and "ComponentClass"');
   }
-
-  var extension = new EmbeddingExtension({
-    embedProviders: config.embedProviders,
-    ComponentClass: config.ComponentClass,
-    editor: editor
-  });
 
   // Register the embedProviders with the loader to allow components to
   // access them. Force this?
   Loader.register('embedProviders', config.embedProviders, true);
-  extension.init();
 };
 
 
@@ -3469,7 +3766,7 @@ EmbeddingExtension.prototype.init = function() {
   /**
    * Callback wrapper to allow passing provider for the callback.
    * @param  {string} provider Provider name.
-   * @return {Function} Regex match handler.
+   * @return {../defs.ComponentFactoryMethodDef} Regex match handler.
    */
   var handleRegexMatchProvider = function(provider) {
     return function(matchedComponent, opsCallback) {
@@ -3490,33 +3787,35 @@ EmbeddingExtension.prototype.init = function() {
   var toolbeltButtons = [{
     label: I18n.get('button.video'),
     icon: I18n.get('button.icon.video'),
-    placeholder: I18n.get('placeholder.video')
+    placeholder: I18n.get('placeholder.video'),
   }, {
     label: I18n.get('button.photo'),
     icon: I18n.get('button.icon.photo'),
-    placeholder: I18n.get('placeholder.photo')
+    placeholder: I18n.get('placeholder.photo'),
   }, {
     label: I18n.get('button.post'),
     icon: I18n.get('button.icon.post'),
-    placeholder: I18n.get('placeholder.post')
+    placeholder: I18n.get('placeholder.post'),
   }, {
     label: I18n.get('button.gif'),
     icon: I18n.get('button.icon.gif'),
-    placeholder: I18n.get('placeholder.gif')
+    placeholder: I18n.get('placeholder.gif'),
   }, {
     label: I18n.get('button.quiz'),
     icon: I18n.get('button.icon.quiz'),
-    placeholder: I18n.get('placeholder.quiz')
+    placeholder: I18n.get('placeholder.quiz'),
   }];
 
   for (var i = 0; i < toolbeltButtons.length; i++) {
     var insertVideoButton = new Button({
       label: toolbeltButtons[i].label,
       icon: toolbeltButtons[i].icon,
-      data: { placeholder: toolbeltButtons[i].placeholder }
+      data: {
+        placeholder: toolbeltButtons[i].placeholder,
+      },
     });
     insertVideoButton.addEventListener(
-        'click', this.handleInsertClicked.bind(this));
+        'click', this.handleInsertClicked.bind(this), false);
     this.toolbelt.addButton(insertVideoButton);
   }
 };
@@ -3527,7 +3826,7 @@ EmbeddingExtension.prototype.handleInsertClicked = function(event) {
   var placeholder = button.data.placeholder;
   var newP = new Paragraph({
     placeholderText: placeholder,
-    section: this.editor.selection.getSectionAtStart()
+    section: this.editor.selection.getSectionAtStart(),
   });
 
   var index = this.editor.selection.getComponentAtStart().getIndexInSection();
@@ -3538,8 +3837,8 @@ EmbeddingExtension.prototype.handleInsertClicked = function(event) {
 
 /**
  * Handles regex match by instantiating a component.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  * @param  {string} provider Embed provider name.
  */
 EmbeddingExtension.prototype.handleRegexMatch = function(
@@ -3548,7 +3847,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   var ops = [];
   var embeddedComponent = new this.ComponentClass({
     url: matchedComponent.text,
-    provider: provider
+    provider: provider,
   });
   embeddedComponent.section = matchedComponent.section;
 
@@ -3561,7 +3860,7 @@ EmbeddingExtension.prototype.handleRegexMatch = function(
   opsCallback(ops);
 };
 
-},{"../errors":4,"../i18n":20,"../loader":25,"../paragraph":27,"../toolbars/button":30,"../utils":33}],11:[function(require,module,exports){
+},{"../core/abstract-extension":3,"../errors":7,"../i18n":25,"../loader":30,"../paragraph":32,"../toolbars/button":35,"../utils":38}],16:[function(require,module,exports){
 'use strict';
 
 var AbstractEmbedProvider = require('./abstractEmbedProvider');
@@ -3570,15 +3869,16 @@ var Utils = require('../utils');
 
 /**
  * Provides an Embed Provider using Embedly APIs.
- * @param {Object=} optParams Config params.
+ * @param {Object=} opt_params Config params.
  *   required: apiKey
+ * @implements {./abstractEmbedProvider}
  * @constructor
  */
-var EmbedlyProvider = function (optParams) {
+var EmbedlyProvider = function(opt_params) {
   var params = Utils.extend({
     endpoint: 'https://api.embed.ly/1/oembed',
     apiKey: null,
-  }, optParams);
+  }, opt_params);
 
   /**
    * Embedly oembed endpoint.
@@ -3592,7 +3892,6 @@ var EmbedlyProvider = function (optParams) {
    */
   this.apiKey = params.apiKey;
 
-  AbstractEmbedProvider.call(this, params);
 };
 EmbedlyProvider.prototype = Object.create(AbstractEmbedProvider.prototype);
 module.exports = EmbedlyProvider;
@@ -3610,11 +3909,11 @@ EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING = '^((https?://(www\.flickr\.com/pho
  * by passing it to a callabck.
  * @param {string} url Url to get the oembed response for.
  * @param {Function} callback A callback function to call with the result.
- * @param {Object=} optArgs Optional arguments to pass with the URL.
+ * @param {Object=} opt_args Optional arguments to pass with the URL.
  */
 EmbedlyProvider.prototype.getEmbedForUrl = function(
-    url, callback, optArgs) {
-  var endpoint = this.getOEmbedEndpointForUrl(url, optArgs);
+    url, callback, opt_args) {
+  var endpoint = this.getOEmbedEndpointForUrl(url, opt_args);
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (xhttp.readyState == 4) {
@@ -3630,15 +3929,15 @@ EmbedlyProvider.prototype.getEmbedForUrl = function(
 /**
  * Returns the URL to call for oembed response.
  * @param {string} url URL to create the url for.
- * @param {Object} optArgs Arguments to pass with the URL.
+ * @param {Object=} opt_args Arguments to pass with the URL.
  * @return {string}
  */
-EmbedlyProvider.prototype.getOEmbedEndpointForUrl = function(url, optArgs) {
+EmbedlyProvider.prototype.getOEmbedEndpointForUrl = function(url, opt_args) {
   var urlParams = Utils.extend({
     key: this.apiKey,
     // luxe: 1,
-    url: url
-  }, optArgs);
+    url: url,
+  }, opt_args);
   var queryParts = [];
   for (var name in urlParams) {
     queryParts.push([name, urlParams[name]].join('='));
@@ -3655,9 +3954,10 @@ EmbedlyProvider.prototype.getUrlsRegex = function() {
   return EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING;
 };
 
-},{"../utils":33,"./abstractEmbedProvider":5}],12:[function(require,module,exports){
+},{"../utils":38,"./abstractEmbedProvider":8}],17:[function(require,module,exports){
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Paragraph = require('../paragraph');
 var Selection = require('../selection');
 var Utils = require('../utils');
@@ -3668,21 +3968,24 @@ var I18n = require('../i18n');
 
 /**
  * Editor formatting logic is an extension to the editor.
- * @param {Object} optParams Optional params to initialize the Formatting object.
+ * @param {../editor} editor Editor instance installing this extension.
+ * @param {Object=} opt_params Optional params to initialize the Formatting object.
  * Default:
  *   {
  *     enableInline: true,
  *     enableBlock: true
  *   }
+ * @extends {../core/abstract-extension}
+ * @constructor
  */
-var Formatting = function(optParams) {
+var Formatting = function(editor, opt_params) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // TODO: Use these configurations to disable/enable toolbars.
     enableInline: true,
-    enableBlock: true
-  }, optParams);
+    enableBlock: true,
+  }, opt_params);
 
   /**
    * Whether inline formatting toolbar is enabled.
@@ -3698,11 +4001,13 @@ var Formatting = function(optParams) {
 
   /**
    * Editor reference.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
+  this.init();
 };
+Formatting.prototype = Object.create(AbstractExtension.prototype);
 module.exports = Formatting;
 
 
@@ -3726,27 +4031,30 @@ Formatting.ACTIVE_ACTION_CLASS = 'active';
  */
 Formatting.Types = {
   BLOCK: 'block',
-  INLINE: 'inline'
+  INLINE: 'inline',
 };
 
 
 /**
  * Enable block formatting toolbar on these types of paragraphs.
- * @type {Array.<String>}
+ * @type {Array<string>}
  */
 Formatting.BLOCK_ENABLED_ON = [
-    Paragraph.Types.Paragraph,
-    Paragraph.Types.MainHeader,
-    Paragraph.Types.SecondaryHeader,
-    Paragraph.Types.ThirdHeader,
-    Paragraph.Types.Quote,
-    Paragraph.Types.Code
+  Paragraph.Types.Paragraph,
+  Paragraph.Types.MainHeader,
+  Paragraph.Types.SecondaryHeader,
+  Paragraph.Types.ThirdHeader,
+  Paragraph.Types.Quote,
+  Paragraph.Types.Code,
 ];
 
 
 /**
  * Actions allowed on the toolbars.
- * @type {Object}
+ * @type {{
+ *    Block: Array<../defs.FormattingActionDef>,
+ *    Inline: Array<../defs.FormattingActionDef>,
+ * }}
  */
 Formatting.Actions = {
 
@@ -3755,57 +4063,57 @@ Formatting.Actions = {
   Block: [{
     label: 'h1',
     value: Paragraph.Types.MainHeader,
-    shortcuts: ['alt+cmd+1', 'alt+ctrl+1']
+    shortcuts: ['alt+cmd+1', 'alt+ctrl+1'],
   }, {
     label: 'h2',
     value: Paragraph.Types.SecondaryHeader,
-    shortcuts: ['alt+cmd+2', 'alt+ctrl+2']
+    shortcuts: ['alt+cmd+2', 'alt+ctrl+2'],
   }, {
     label: 'h3',
     value: Paragraph.Types.ThirdHeader,
-    shortcuts: ['alt+cmd+3', 'alt+ctrl+3']
+    shortcuts: ['alt+cmd+3', 'alt+ctrl+3'],
   }, {
     label: '”',
     value: Paragraph.Types.Quote,
-    shortcuts: ['alt+cmd+4', 'alt+ctrl+4']
+    shortcuts: ['alt+cmd+4', 'alt+ctrl+4'],
   }, {
     label: '{}',
     value: Paragraph.Types.Code,
-    shortcuts: ['alt+cmd+5', 'alt+ctrl+5']
+    shortcuts: ['alt+cmd+5', 'alt+ctrl+5'],
   }],
 
   Inline: [{
     label: 'B',
     value: 'strong',
     tagNames: ['strong', 'b'],
-    shortcuts: ['ctrl+b', 'cmd+b']
+    shortcuts: ['ctrl+b', 'cmd+b'],
   }, {
     label: 'I',
     value: 'em',
     tagNames: ['em', 'i'],
-    shortcuts: ['ctrl+i', 'cmd+i']
+    shortcuts: ['ctrl+i', 'cmd+i'],
   }, {
     label: 'U',
     value: 'u',
     tagNames: ['u'],
-    shortcuts: ['ctrl+u', 'cmd+u']
+    shortcuts: ['ctrl+u', 'cmd+u'],
   }, {
     label: 'S',
     value: 's',
     tagNames: ['strike', 's'],
-    shortcuts: ['ctrl+s', 'cmd+s']
+    shortcuts: ['ctrl+s', 'cmd+s'],
   }, {
     label: 'a',
     value: 'a',
     attrs: {
       href: {
         required: true,
-        placeholder: 'What is the URL?'
-      }
+        placeholder: 'What is the URL?',
+      },
     },
     tagNames: ['a'],
-    shortcuts: ['ctrl+k', 'cmd+k']
-  }]
+    shortcuts: ['ctrl+k', 'cmd+k'],
+  }],
 };
 
 
@@ -3825,35 +4133,21 @@ Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
 
 /**
  * Initializes the formatting extensions.
- * @param  {Editor} editor Editor instance this installed on.
  */
-Formatting.onInstall = function(editor) {
+Formatting.onInstall = function() {
   // Ugly hack because we can't load I18n strings on load time.
   // TODO(mkhatib): Figure out a better way to handle this.
   var a = Formatting.getActionForTagName('a');
   a.attrs.href.placeholder = I18n.get('placeholder.href');
-
-  var formattingExtension = new Formatting();
-  formattingExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-Formatting.onDestroy = function() {
-  // pass
 };
 
 
 /**
  * Initializes the formatting extension.
- * @param  {Editor} editor The parent editor for the extension.
  */
-Formatting.prototype.init = function(editor) {
-  this.editor = editor;
-  this.blockToolbar = editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
-  this.inlineToolbar = editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
+Formatting.prototype.init = function() {
+  this.blockToolbar = this.editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
+  this.inlineToolbar = this.editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
 
   // Inline toolbar used for formatting inline elements (bold, italic...).
   this.initInlineToolbarButtons();
@@ -3868,13 +4162,12 @@ Formatting.prototype.init = function(editor) {
   // when selection or cursor change.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this));
+      this.handleSelectionChangedEvent.bind(this), false);
 };
 
 
 /**
  * Creates inline formatting toolbar.
- * @return {HTMLElement} Toolbar Element.
  */
 Formatting.prototype.initInlineToolbarButtons = function() {
   var actions = Formatting.Actions.Inline;
@@ -3884,10 +4177,10 @@ Formatting.prototype.initInlineToolbarButtons = function() {
       name: actions[i].value,
       label: actions[i].label,
       data: actions[i],
-      fields: fields || []
+      fields: fields || [],
     });
     button.addEventListener(
-        'click', this.handleInlineFormatterClicked.bind(this));
+        'click', this.handleInlineFormatterClicked.bind(this), false);
     this.inlineToolbar.addButton(button);
   }
 };
@@ -3902,10 +4195,10 @@ Formatting.prototype.initBlockToolbarButtons = function() {
     var button = new Button({
       name: actions[i].value,
       label: actions[i].label,
-      data: actions[i]
+      data: actions[i],
     });
     button.addEventListener(
-        'click', this.handleBlockFormatterClicked.bind(this));
+        'click', this.handleBlockFormatterClicked.bind(this), false);
     this.blockToolbar.addButton(button);
   }
 };
@@ -3914,7 +4207,7 @@ Formatting.prototype.initBlockToolbarButtons = function() {
 /**
  * Registers shortcuts to handle formatting.
  */
-Formatting.prototype.registerFormattingShortcuts_ = function () {
+Formatting.prototype.registerFormattingShortcuts_ = function() {
   for (var formatType in Formatting.Actions) {
     var actions = Formatting.Actions[formatType];
     for (var i = 0; i < actions.length; i++) {
@@ -3931,7 +4224,7 @@ Formatting.prototype.registerFormattingShortcuts_ = function () {
 /**
  * Creates extra fields for the action.
  * @param  {Object} action Action to create the button for.
- * @return {HTMLElement} div contianer containing extra fields.
+ * @return {Array<!../toolbars/textField>} div contianer containing extra fields.
  */
 Formatting.prototype.createExtraFields = function(action) {
   var fields = [];
@@ -3944,10 +4237,10 @@ Formatting.prototype.createExtraFields = function(action) {
     var field = new TextField({
       placeholder: attr.placeholder,
       required: attr.required,
-      name: key
+      name: key,
     });
     field.addEventListener(
-        'keyup', this.handleInlineInputFieldKeyUp.bind(this));
+        'keyup', this.handleInlineInputFieldKeyUp.bind(this), false);
     fields.push(field);
   }
 
@@ -3957,6 +4250,7 @@ Formatting.prototype.createExtraFields = function(action) {
 
 /**
  * Applies a format with attributes from the active button and fields.
+ * @param {../toolbars/button} button
  */
 Formatting.prototype.applyFormatWithAttrs = function(button) {
   var activeFormatter = button.data.value;
@@ -3999,12 +4293,12 @@ Formatting.prototype.didSelectionActuallyChanged_ = function() {
   this.lastSelection_ = {
     start: {
       component: selection.start.component,
-      offset: selection.start.offset
+      offset: selection.start.offset,
     },
     end: {
       component: selection.end.component,
-      offset: selection.end.offset
-    }
+      offset: selection.end.offset,
+    },
   };
   return true;
 };
@@ -4037,7 +4331,7 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
         // Don't show the inline toolbar when multiple paragraphs are selected.
         startComp === endComp) {
     // Otherwise, show the inline toolbar.
-    setTimeout(function(){
+    setTimeout(function() {
       var wSelection = window.getSelection();
       if (wSelection.isCollapsed) {
         return;
@@ -4069,11 +4363,9 @@ Formatting.prototype.reloadInlineToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getComponentAtStart();
   var formatter = paragraph.getSelectedFormatter(selection);
-  var activeAction = null;
   var attrs = {};
   var button = null;
   if (formatter) {
-    activeAction = this.getFormatterForValue(formatter.type);
     attrs = formatter.attrs;
     button = this.inlineToolbar.getButtonByName(formatter.type);
   }
@@ -4102,7 +4394,7 @@ Formatting.prototype.handleBlockFormatterClicked = function(event) {
 
 /**
  * Creates the actual operations needed to execute block formatting.
- * @param  {string} Formatter to format the paragraph with.
+ * @param  {string} clickedFormatter Formatter to format the paragraph with.
  */
 Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
@@ -4136,17 +4428,17 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
   selection.setCursor({
     offset: prevCursorOffset,
-    component: section.components[prevCompIndex]
+    component: section.components[prevCompIndex],
   });
 };
 
 
 /**
  * Applies an inline formatter to a paragraph.
- * @param  {Paragraph} paragraph A paragraph object to apply to format to.
- * @param  {Selection} selection The current selection to apply format to.
- * @param  {Object} format Format object describing the format.
- * @return {Array.<Object>} A list of operations describing the change.
+ * @param  {../paragraph} paragraph A paragraph object to apply to format to.
+ * @param  {../selection} selection The current selection to apply format to.
+ * @param  {../defs.InlineFormattingDef} format Format object describing the format.
+ * @return {Array<../defs.OperationDef>} A list of operations describing the change.
  */
 Formatting.prototype.format = function(paragraph, selection, format) {
   var ops = [], newDo, newUndo, newOp;
@@ -4199,13 +4491,13 @@ Formatting.prototype.format = function(paragraph, selection, format) {
           type: existingFormat.type,
           from: existingFormat.from,
           to: format.from,
-          attrs: format.attrs
+          attrs: format.attrs,
         });
         newDo.formats.push({
           type: existingFormat.type,
           from: format.to,
           to: existingFormat.to,
-          attrs: format.attrs
+          attrs: format.attrs,
         });
 
         newUndo = Utils.clone(newDo);
@@ -4216,7 +4508,7 @@ Formatting.prototype.format = function(paragraph, selection, format) {
         newDo.formats.push({
           type: existingFormat.type,
           from: Math.min(existingFormat.from, format.from),
-          to: Math.max(existingFormat.to, format.to)
+          to: Math.max(existingFormat.to, format.to),
         });
 
         newUndo = Utils.clone(newDo);
@@ -4240,7 +4532,7 @@ Formatting.prototype.format = function(paragraph, selection, format) {
 
   newOp = {
     do: newDo,
-    undo: newUndo
+    undo: newUndo,
   };
   ops.push(newOp);
 
@@ -4280,17 +4572,17 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
 /**
  * Creates the actual operations needed to execute inline formatting.
  * @param  {string} clickedFormatter formatter value string.
- * @param {Array.<Object>} optAttrs Attributes to add to the formatting.
+ * @param {../defs.FormattingActionAttrsDef=} opt_attrs Attributes to add to the formatting.
  */
 Formatting.prototype.handleInlineFormatting = function(
-    clickedFormatter, optAttrs) {
+    clickedFormatter, opt_attrs) {
   var selection = this.editor.article.selection;
   var currentParagraph = selection.getComponentAtStart();
   var format = {
     type: clickedFormatter,
     from: selection.start.offset,
     to: selection.end.offset,
-    attrs: optAttrs
+    attrs: opt_attrs,
   };
 
   // If there's no selection no need to format.
@@ -4312,6 +4604,9 @@ Formatting.prototype.handleInlineFormatting = function(
  */
 Formatting.prototype.handleKeyboardShortcut = function(event) {
   var shortcutId = this.editor.shortcutsManager.getShortcutId(event);
+  if (!shortcutId) {
+    return true;
+  }
 
   var inlineFormatter = this.getInlineFormatterForShortcut(shortcutId);
   if (inlineFormatter) {
@@ -4332,7 +4627,7 @@ Formatting.prototype.handleKeyboardShortcut = function(event) {
 /**
  * Returns the matched inline formatter for the shortcut.
  * @param  {string} shortcutId Shortcut ID to find the formatter for.
- * @return {Object|null} Inline formatter for the shortcut.
+ * @return {../defs.FormattingActionDef|null} Inline formatter for the shortcut.
  */
 Formatting.prototype.getInlineFormatterForShortcut = function(shortcutId) {
   var inlineFormatters = Formatting.Actions.Inline;
@@ -4348,7 +4643,7 @@ Formatting.prototype.getInlineFormatterForShortcut = function(shortcutId) {
 /**
  * Returns the matched block formatter for the shortcut.
  * @param  {string} shortcutId Shortcut ID to find the formatter for.
- * @return {Object|null} Block formatter for the shortcut.
+ * @return {../defs.FormattingActionDef|null} Block formatter for the shortcut.
  */
 Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
   var blockFormatters = Formatting.Actions.Block;
@@ -4364,7 +4659,7 @@ Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
 /**
  * Returns the action with the specified value;
  * @param  {string} value The value to return action for.
- * @return {Object} Action formatter object.
+ * @return {../defs.FormattingActionDef|null} Action formatter object.
  */
 Formatting.prototype.getFormatterForValue = function(value) {
   var blockFormatters = Formatting.Actions.Block;
@@ -4387,7 +4682,7 @@ Formatting.prototype.getFormatterForValue = function(value) {
 /**
  * Returns the action with the specified tag name;
  * @param  {string} tagName Tag name to find a matched action.
- * @return {Object} Action formatter object.
+ * @return {../defs.FormattingActionDef|null} Action formatter object.
  */
 Formatting.getActionForTagName = function(tagName) {
   tagName = tagName && tagName.toLowerCase();
@@ -4404,15 +4699,15 @@ Formatting.getActionForTagName = function(tagName) {
 /**
  * Returns a formats array that represents the inline formats for the node.
  * @param  {Element} node HTML Element to return the formats for.
- * @return {Array.<Object>} Formats array.
+ * @return {Array<../defs.InlineFormattingDef>} Formats array.
  */
 Formatting.generateFormatsForNode = function(node) {
   var formats = [];
   var offset = 0;
   var children = node.childNodes;
   for (var i = 0; i < children.length; i++) {
-    var inlineEl = children[i];
-    var action = Formatting.getActionForTagName(inlineEl.tagName);
+    var inlineEl = /** @type {Element} */ (children[i]);
+    var action = Formatting.getActionForTagName(inlineEl.nodeName);
     if (action) {
       var attrs = {};
       for (var attr in action.attrs) {
@@ -4422,7 +4717,7 @@ Formatting.generateFormatsForNode = function(node) {
         type: action.value,
         from: offset,
         to: offset + Utils.getTextFromElement(inlineEl).length,
-        attrs: attrs
+        attrs: attrs,
       });
     }
     offset += inlineEl.textContent.length;
@@ -4431,7 +4726,7 @@ Formatting.generateFormatsForNode = function(node) {
   return formats;
 };
 
-},{"../i18n":20,"../paragraph":27,"../selection":29,"../toolbars/button":30,"../toolbars/textField":31,"../utils":33}],13:[function(require,module,exports){
+},{"../core/abstract-extension":3,"../i18n":25,"../paragraph":32,"../selection":34,"../toolbars/button":35,"../toolbars/textField":36,"../utils":38}],18:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
@@ -4441,8 +4736,26 @@ var I18n = require('../i18n');
 
 
 /**
+ * @typedef {{
+ *   src: string,
+ *   caption: (?string|undefined),
+ *   width: (?string|undefined),
+ * }} */
+var GiphyComponentParamsDef;
+
+
+/**
+ * @typedef {{
+ *   data: {
+ *     image_original_url: string,
+ *   }
+ * }}
+ */
+var GiphyJsonResponseDef;
+
+/**
  * GiphyComponent main.
- * @param {Object} optParams Optional params to initialize the GiphyComponent object.
+ * @param {GiphyComponentParamsDef=} opt_params Optional params to initialize the GiphyComponent object.
  * Default:
  *   {
  *     src: '',
@@ -4450,14 +4763,16 @@ var I18n = require('../i18n');
  *     width: '100%'
  *     name: Utils.getUID()
  *   }
+ * @extends {../component}
+ * @constructor
  */
-var GiphyComponent = function(optParams) {
+var GiphyComponent = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {GiphyComponentParamsDef} */ (Utils.extend({
     src: '',
     caption: null,
     width: '100%',
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -4467,17 +4782,18 @@ var GiphyComponent = function(optParams) {
    */
   this.src = params.src;
 
-  this.width = params.width;
+  /** @type {string} */
+  this.width = params.width || '';
 
   /**
    * Placeholder text to show if the GiphyComponent is empty.
    * @type {string}
    */
-  this.caption = params.caption;
+  this.caption = params.caption || '';
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(GiphyComponent.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
@@ -4519,7 +4835,7 @@ GiphyComponent.CAPTION_TAG_NAME = 'figcaption';
 
 /**
  * Regex strings list that for matching Giphy search terms.
- * @type {Array.<string>}
+ * @type {string}
  */
 GiphyComponent.GIPHY_SEARCH_REGEX = '^\\+giphy\\s(.+[a-zA-Z])$';
 
@@ -4527,7 +4843,7 @@ GiphyComponent.GIPHY_SEARCH_REGEX = '^\\+giphy\\s(.+[a-zA-Z])$';
 /**
  * Giphy endpoint for random search.
  * Ref: https://github.com/Giphy/GiphyAPI
- * @type {String.<string>}
+ * @type {string}
  */
 GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
       'api_key=dc6zaTOxFJmzC&' +
@@ -4536,17 +4852,17 @@ GiphyComponent.GIPHY_RANDOM_ENDPOINT = 'https://api.giphy.com/v1/gifs/random?' +
 
 /**
  * Create and initiate a giphy object from JSON.
- * @param  {Object} json JSON representation of the giphy.
+ * @param  {GiphyComponentParamsDef} json JSON representation of the giphy.
  * @return {GiphyComponent} GiphyComponent object representing the JSON data.
  */
-GiphyComponent.fromJSON = function (json) {
+GiphyComponent.fromJSON = function(json) {
   return new GiphyComponent(json);
 };
 
 
 /**
  * Handles onInstall when the GiphyComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {../editor} editor Instance of the editor that installed the module.
  */
 GiphyComponent.onInstall = function(editor) {
   GiphyComponent.registerRegexes_(editor);
@@ -4557,7 +4873,7 @@ GiphyComponent.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create giphy component from if matched.
- * @param  {Editor} editor The editor to register regexes with.
+ * @param  {../editor} editor The editor to register regexes with.
  * @private
  */
 GiphyComponent.registerRegexes_ = function(editor) {
@@ -4569,10 +4885,10 @@ GiphyComponent.registerRegexes_ = function(editor) {
 
 /**
  * Creates a figure component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
+GiphyComponent.handleMatchedRegex = function(matchedComponent, opsCallback) {
   var giphyQuery = matchedComponent.text.split(/\s/).slice(1).join('+');
 
   var atIndex = matchedComponent.getIndexInSection();
@@ -4585,10 +4901,12 @@ GiphyComponent.handleMatchedRegex = function (matchedComponent, opsCallback) {
       var src;
       /* jshint ignore:start */
       // Get the image url from the random search response.
-      src = JSON.parse(xhttp.responseText)['data']['image_original_url'];
+      var json = /** @type {GiphyJsonResponseDef} */ (
+          JSON.parse(xhttp.responseText));
+      src = json['data']['image_original_url'];
       /* jshint ignore:end */
       // If result is found for the query, create a component.
-      if  (src) {
+      if (src) {
         var figure = new GiphyComponent({src: src});
         figure.section = matchedComponent.section;
 
@@ -4626,7 +4944,7 @@ GiphyComponent.prototype.getJSONModel = function() {
     name: this.name,
     src: this.src,
     width: this.width,
-    caption: this.caption
+    caption: this.caption,
   };
 
   return image;
@@ -4650,12 +4968,13 @@ GiphyComponent.prototype.render = function(element, options) {
     }
 
     if (this.editMode) {
-      this.dom.addEventListener('click', this.select.bind(this));
+      this.dom.addEventListener('click', this.handleClick.bind(this), false);
       this.selectionDom = document.createElement('div');
       this.selectionDom.innerHTML = '&nbsp;';
       this.selectionDom.className = 'selection-pointer';
       this.selectionDom.setAttribute('contenteditable', true);
-      this.selectionDom.addEventListener('focus', this.select.bind(this));
+      this.selectionDom.addEventListener(
+          'focus', this.handleClick.bind(this), false);
       this.dom.appendChild(this.selectionDom);
     }
   }
@@ -4663,32 +4982,41 @@ GiphyComponent.prototype.render = function(element, options) {
 
 
 /**
- * Returns the operations to execute a deletion of the giphy component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * Handle a click on the component.
+ * @param  {Event} unusedEvent
  */
-GiphyComponent.prototype.getDeleteOps = function (
-    optIndexOffset, optCursorAfterOp) {
+GiphyComponent.prototype.handleClick = function(unusedEvent) {
+  this.select(0);
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the giphy component.
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<../defs.OperationDef>} List of operations needed to be executed.
+ */
+GiphyComponent.prototype.getDeleteOps = function(
+    opt_indexOffset, opt_cursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'GiphyComponent',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         src: this.src,
         caption: this.caption,
-        width: this.width
-      }
-    }
+        width: this.width,
+      },
+    },
   }];
 
   // If this is the only child of the layout delete the layout as well
@@ -4704,11 +5032,11 @@ GiphyComponent.prototype.getDeleteOps = function (
 /**
  * Returns the operations to execute inserting a GiphyComponent.
  * @param {number} index Index to insert the GiphyComponent at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the GiphyComponent.
+ * @return {Array<../defs.OperationDef>} Operations for inserting the GiphyComponent.
  */
-GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+GiphyComponent.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -4720,14 +5048,14 @@ GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
       attrs: {
         src: this.src,
         width: this.width,
-        caption: this.caption
-      }
+        caption: this.caption,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -4736,13 +5064,14 @@ GiphyComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
  * Returns the length of the GiphyComponent content.
  * @return {number} Length of the GiphyComponent content.
  */
-GiphyComponent.prototype.getLength = function () {
+GiphyComponent.prototype.getLength = function() {
   return 1;
 };
 
-},{"../component":2,"../i18n":20,"../loader":25,"../utils":33}],14:[function(require,module,exports){
+},{"../component":2,"../i18n":25,"../loader":30,"../utils":38}],19:[function(require,module,exports){
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Selection = require('../selection');
 var Toolbar = require('../toolbars/toolbar');
 var Button = require('../toolbars/button');
@@ -4758,22 +5087,28 @@ var GiphyComponent = require('./giphyComponent');
 /**
  * LayoutingExtension extension for the editor.
  *   Adds an extendable toolbar for components to add buttons to.
+ * @param {../editor} editor Editor instance this installed on.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../core/abstract-extension}
+ * @constructor
  */
-var LayoutingExtension = function () {
+var LayoutingExtension = function(editor, opt_params) {
 
   /**
    * The editor this toolbelt belongs to.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
   /**
    * The layouting toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbar = null;
 
+  this.init();
 };
+LayoutingExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = LayoutingExtension;
 
 
@@ -4785,35 +5120,14 @@ LayoutingExtension.CLASS_NAME = 'LayoutingExtension';
 
 
 /**
- * Initializes the toolbelt extensions.
- * @param  {Editor} editor Editor instance this installed on.
- */
-LayoutingExtension.onInstall = function(editor) {
-  var toolbeltExtension = new LayoutingExtension();
-  toolbeltExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-LayoutingExtension.onDestroy = function() {
-  // pass
-};
-
-
-/**
  * Initiates the toolbelt extension.
- * @param  {Editor} editor The editor to initialize the extension for.
  */
-LayoutingExtension.prototype.init = function(editor) {
-  this.editor = editor;
-
+LayoutingExtension.prototype.init = function() {
   // Create a new toolbar for the toolbelt.
   this.toolbar = new Toolbar({
     name: LayoutingExtension.TOOLBAR_NAME,
     classNames: [LayoutingExtension.TOOLBAR_CLASS_NAME],
-    rtl: this.editor.rtl
+    rtl: this.editor.rtl,
   });
 
   // TODO(mkhatib): Use Icons for buttons here.
@@ -4821,23 +5135,23 @@ LayoutingExtension.prototype.init = function(editor) {
   var buttons = [{
     label: I18n.get('button.layout.single'),
     icon: I18n.get('button.layout.icon.single'),
-    name: 'layout-single-column'
+    name: 'layout-single-column',
   }, {
     label: I18n.get('button.layout.bleed'),
     icon: I18n.get('button.layout.icon.bleed'),
-    name: 'layout-bleed'
+    name: 'layout-bleed',
   }, {
     label: I18n.get('button.layout.staged'),
     icon: I18n.get('button.layout.icon.staged'),
-    name: 'layout-staged'
+    name: 'layout-staged',
   }, {
     label: I18n.get('button.layout.left'),
     icon: I18n.get('button.layout.icon.left'),
-    name: 'layout-float-left'
+    name: 'layout-float-left',
   }, {
     label: I18n.get('button.layout.right'),
     icon: I18n.get('button.layout.icon.right'),
-    name: 'layout-float-right'
+    name: 'layout-float-right',
   }];
 
   for (var i = 0; i < buttons.length; i++) {
@@ -4845,10 +5159,12 @@ LayoutingExtension.prototype.init = function(editor) {
       label: buttons[i].label,
       name: buttons[i].name,
       icon: buttons[i].icon,
-      data: { name: buttons[i].name }
+      data: {
+        name: buttons[i].name,
+      },
     });
     button.addEventListener(
-        'click', this.handleLayoutButtonClick.bind(this));
+        'click', this.handleLayoutButtonClick.bind(this), false);
     this.toolbar.addButton(button);
   }
 
@@ -4858,7 +5174,7 @@ LayoutingExtension.prototype.init = function(editor) {
   // Listen to selection changes.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this));
+      this.handleSelectionChangedEvent.bind(this), false);
 };
 
 
@@ -4892,7 +5208,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
     this.toolbar.setActiveButton(e.detail.target);
-    var currentLayout = selectedComponent.section;
+    var currentLayout = /** @type {../layout} */ (selectedComponent.section);
     var clickedLayout = e.detail.target.name;
     var componentIndexInLayout = selectedComponent.getIndexInSection();
     var isComponentAtStartOfLayout = componentIndexInLayout === 0;
@@ -4903,7 +5219,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
       // the layout type.
       if (currentLayout.getLength() === 1) {
         Utils.arrays.extend(ops, currentLayout.getUpdateOps({
-          type: clickedLayout
+          type: clickedLayout,
         }));
       }
 
@@ -4918,7 +5234,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
         newLayout = new Layout({
           type: clickedLayout,
           section: currentLayout.section,
-          components: []
+          components: [],
         });
         Utils.arrays.extend(ops, newLayout.getInsertOps(insertLayoutAtIndex));
         Utils.arrays.extend(ops, selectedComponent.getDeleteOps());
@@ -4935,7 +5251,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
         newLayout = new Layout({
           type: clickedLayout,
           section: currentLayout.section,
-          components: []
+          components: [],
         });
 
         Utils.arrays.extend(
@@ -4965,9 +5281,12 @@ LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
-    var activeLayout = selectedComponent.section.type;
+    var activeLayout = /** @type {../layout} */ (
+        selectedComponent.section).type;
     var activeLayoutButton = this.toolbar.getButtonByName(activeLayout);
-    this.toolbar.setActiveButton(activeLayoutButton);
+    if (activeLayoutButton) {
+      this.toolbar.setActiveButton(activeLayoutButton);
+    }
 
     this.toolbar.setPositionToTopOf(selectedComponent.dom);
     this.toolbar.setVisible(true);
@@ -4976,17 +5295,10 @@ LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   }
 };
 
-
-/**
- * Handles new button added to toolbelt to show the insert button.
- */
-LayoutingExtension.prototype.handleButtonAdded = function () {
-  this.insertButton.setVisible(true);
-};
-
-},{"../figure":19,"../i18n":20,"../layout":23,"../loader":25,"../selection":29,"../toolbars/button":30,"../toolbars/toolbar":32,"../utils":33,"./embeddedComponent":9,"./giphyComponent":13}],15:[function(require,module,exports){
+},{"../core/abstract-extension":3,"../figure":24,"../i18n":25,"../layout":28,"../loader":30,"../selection":34,"../toolbars/button":35,"../toolbars/toolbar":37,"../utils":38,"./embeddedComponent":14,"./giphyComponent":18}],20:[function(require,module,exports){
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Utils = require('../utils');
 var Attachment = require('./attachment');
 var Figure = require('../figure');
@@ -4996,14 +5308,12 @@ var I18n = require('../i18n');
 
 /**
  * Allows users to take selfies and insert them into the article.
- * @param {Object=} optParams Optional parameters.
+ * @param  {../editor} editor Editor installing this extension.
+ * @param {Object=} opt_params Optional parameters.
+ * @constructor
  */
-var SelfieExtension = function(optParams) {
-
-  var params = Utils.extend({
-    // TODO(mkhatib): Add config params for size and shutter sound.
-    editor: null,
-  }, optParams);
+var SelfieExtension = function(editor, opt_params) {
+  // TODO(mkhatib): Add config params for size and shutter sound.
 
   // Create offscreen canvas to use as video buffer from the webcam.
   // TODO(mkhatib): Maybe actually insert it as a Figure when /selfie
@@ -5020,30 +5330,32 @@ var SelfieExtension = function(optParams) {
 
   /* jshint ignore:start */
   Webcam.set({
-    width: 320,
-    height: 240,
-    dest_width: 1280,
-    dest_height: 720,
-    crop_width: 1280,
-    crop_height: 720,
-    image_format: 'jpeg',
-    jpeg_quality: 90
+    'width': 320,
+    'height': 240,
+    'dest_width': 1280,
+    'dest_height': 720,
+    'crop_width': 1280,
+    'crop_height': 720,
+    'image_format': 'jpeg',
+    'jpeg_quality': 90,
   });
   /* jshint ignore:end */
 
   /**
    * Editor instance this extension was installed on.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = params.editor;
+  this.editor = editor;
 
   /**
    * Toolbelt toolbar instance.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbelt = this.editor.getToolbar(SelfieExtension.TOOLBELT_TOOLBAR_NAME);
 
+  this.init();
 };
+SelfieExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = SelfieExtension;
 
 
@@ -5070,7 +5382,7 @@ SelfieExtension.COMMAND_REGEX = '^\\+selfie$';
 
 /**
  * Event to fire when the selfie is taken.
- * @type {String}
+ * @type {string}
  */
 SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
@@ -5084,19 +5396,14 @@ SelfieExtension.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 /**
  * Initiate an extension instance.
- * @param  {Editor} editor Editor installing this extension.
+ * @param  {../editor} unusedEditor Editor installing this extension.
  */
-SelfieExtension.onInstall = function (editor) {
+SelfieExtension.onInstall = function(unusedEditor) {
   if (!Webcam) {
     console.error('SelfieExtension depends on Webcam.js being loaded. Make' +
       ' sure to include it in your app.');
     return;
   }
-
-  var extension = new SelfieExtension({
-    editor: editor
-  });
-  extension.init();
 };
 
 
@@ -5110,9 +5417,10 @@ SelfieExtension.prototype.init = function() {
 
   var selfieButton = new Button({
     label: I18n.get('button.selfie'),
-    icon: I18n.get('button.icon.selfie')
+    icon: I18n.get('button.icon.selfie'),
   });
-  selfieButton.addEventListener('click', this.handleInsertClicked.bind(this));
+  selfieButton.addEventListener(
+      'click', this.handleInsertClicked.bind(this), false);
   this.toolbelt.addButton(selfieButton);
 };
 
@@ -5120,14 +5428,14 @@ SelfieExtension.prototype.init = function() {
 /**
  * Takes a selfie from the webcam and make a callback with the operations
  * to execute to insert it.
- * @param  {Function} opsCallback Callback to call with the operations to insert
+ * @param  {function(Array<../defs.OperationDef>)} opsCallback Callback to call with the operations to insert
  * the selfie.
  */
 SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
   var that = this;
   var ops = [];
   Webcam.attach('#' + SelfieExtension.CAM_PREVIEW_ELEMENT_ID);
-  Webcam.on('live', function () {
+  Webcam.on('live', function() {
     setTimeout(function() {
       Webcam.snap(function(dataUri) {
         var selection = that.editor.article.selection;
@@ -5150,15 +5458,15 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
           dataUri: dataUri,
           figure: selection.getSectionAtStart().getComponentByName(figure.name),
           editor: that.editor,
-          insertedOps: insertFigureOps
+          insertedOps: insertFigureOps,
         });
 
         // Dispatch an attachment added event to allow clients to upload the
         // file.
         var newEvent = new CustomEvent(
           SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME, {
-            detail: { attachment: attachment }
-        });
+            detail: {attachment: attachment},
+          });
         that.editor.dispatchEvent(newEvent);
       });
 
@@ -5171,8 +5479,8 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
 
 /**
  * Handles regex match by instantiating a component.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {../paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<../defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
 SelfieExtension.prototype.handleMatchedRegex = function(
     matchedComponent, opsCallback) {
@@ -5198,20 +5506,21 @@ SelfieExtension.prototype.handleInsertClicked = function() {
   });
 };
 
-},{"../figure":19,"../i18n":20,"../toolbars/button":30,"../utils":33,"./attachment":6}],16:[function(require,module,exports){
+},{"../core/abstract-extension":3,"../figure":24,"../i18n":25,"../toolbars/button":35,"../utils":38,"./attachment":9}],21:[function(require,module,exports){
 'use strict';
 
 
 /**
  * Shortcut manager that manages the registeration and delivery of shortcuts
  * events triggered on the editor.
- * @param {Editor} editor The editor to manage the shortcuts for.
+ * @param {../editor} editor The editor to manage the shortcuts for.
+ * @constructor
  */
 var ShortcutsManager = function(editor) {
 
   /**
    * The editor to manage the shortcuts for.
-   * @type {Editor}
+   * @type {../editor}
    */
   this.editor = editor;
 
@@ -5237,13 +5546,13 @@ ShortcutsManager.META_KEYS = [16, 17, 91];
 /**
  * Generates a shortcut ID string for the keyboard event.
  * @param  {Event} event Keyboard event.
- * @return {string} Generated shortcut ID (e.g. cmd+shift+a).
+ * @return {string|null} Generated shortcut ID (e.g. cmd+shift+a).
  */
 ShortcutsManager.prototype.getShortcutId = function(event) {
   var keys = [];
   var keyCode = event.keyCode || event.which;
   if (ShortcutsManager.META_KEYS.indexOf(keyCode) !== -1) {
-    return false;
+    return null;
   }
 
   if (event.metaKey) {
@@ -5279,7 +5588,7 @@ ShortcutsManager.prototype.getShortcutId = function(event) {
  */
 ShortcutsManager.prototype.isShortcutEvent = function(event) {
   var keyCode = event.keyCode || event.which;
-  return ((event.metaKey || event.ctrlKey) && keyCode &&
+  return !!((event.metaKey || event.ctrlKey) && keyCode &&
           (ShortcutsManager.META_KEYS.indexOf(keyCode) === -1));
 };
 
@@ -5323,7 +5632,8 @@ ShortcutsManager.prototype.handleKeyDownEvent = function(event) {
 ShortcutsManager.prototype.register = function(shortcutId, handler, optForce) {
   // If the shortcut already registered throw an error.
   if (this.registery[shortcutId] && !optForce) {
-    throw '"' + shortcutId + '" shortcut has already been registered.';
+    throw new Error(
+      '"' + shortcutId + '" shortcut has already been registered.');
   }
 
   this.registery[shortcutId] = handler;
@@ -5337,9 +5647,10 @@ ShortcutsManager.prototype.onDestroy = function() {
   this.registery = {};
 };
 
-},{}],17:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Selection = require('../selection');
 var Toolbar = require('../toolbars/toolbar');
 var Button = require('../toolbars/button');
@@ -5347,37 +5658,45 @@ var Button = require('../toolbars/button');
 
 /**
  * Toolbelt extension for the editor.
- *   Adds an extendable toolbar for components to add buttons to.
+ * Adds an extendable toolbar for components to add buttons to.
+ *
+ * @param  {../editor} editor Editor instance this installed on.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../core/abstract-extension}
+ * @constructor
  */
-var Toolbelt = function () {
+var Toolbelt = function(editor, opt_params) {
 
   /**
    * The editor this toolbelt belongs to.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
   /**
    * The toolbelt toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbar = null;
 
   /**
    * The editor's block toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.blockToolbar = null;
 
   /**
    * The insert button to show the toolbelt when clicked.
-   * @type {Toolbar}
+   * @type {!../toolbars/button}
    */
-  this.insertButton = new Button({ label: '+' });
+  this.insertButton = new Button({label: '+'});
   this.insertButton.setVisible(false);
   this.insertButton.addEventListener(
-      'click', this.handleInsertClick.bind(this));
+      'click', this.handleInsertClick.bind(this), false);
+
+  this.init();
 };
+Toolbelt.prototype = Object.create(AbstractExtension.prototype);
 module.exports = Toolbelt;
 
 
@@ -5389,29 +5708,9 @@ Toolbelt.CLASS_NAME = 'Toolbelt';
 
 
 /**
- * Initializes the toolbelt extensions.
- * @param  {Editor} editor Editor instance this installed on.
- */
-Toolbelt.onInstall = function(editor) {
-  var toolbeltExtension = new Toolbelt();
-  toolbeltExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-Toolbelt.onDestroy = function() {
-  // pass
-};
-
-
-/**
  * Initiates the toolbelt extension.
- * @param  {Editor} editor The editor to initialize the extension for.
  */
-Toolbelt.prototype.init = function(editor) {
-  this.editor = editor;
+Toolbelt.prototype.init = function() {
   this.blockToolbar = this.editor.getToolbar(Toolbelt.BLOCK_TOOLBAR_NAME);
   this.blockToolbar.addButton(this.insertButton);
 
@@ -5419,10 +5718,10 @@ Toolbelt.prototype.init = function(editor) {
   this.toolbar = new Toolbar({
     name: Toolbelt.TOOLBELT_TOOLBAR_NAME,
     classNames: [Toolbelt.TOOLBELT_TOOLBAR_CLASS_NAME],
-    rtl: this.editor.rtl
+    rtl: this.editor.rtl,
   });
   this.toolbar.addEventListener(
-      'button-added', this.handleButtonAdded.bind(this));
+      'button-added', this.handleButtonAdded.bind(this), false);
 
   // Register the toolbelt toolbar with the editor.
   this.editor.registerToolbar(Toolbelt.TOOLBELT_TOOLBAR_NAME, this.toolbar);
@@ -5430,7 +5729,7 @@ Toolbelt.prototype.init = function(editor) {
   // Listen to selection changes.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this));
+      this.handleSelectionChangedEvent.bind(this), false);
 };
 
 
@@ -5475,13 +5774,14 @@ Toolbelt.prototype.handleSelectionChangedEvent = function() {
 /**
  * Handles new button added to toolbelt to show the insert button.
  */
-Toolbelt.prototype.handleButtonAdded = function () {
+Toolbelt.prototype.handleButtonAdded = function() {
   this.insertButton.setVisible(true);
 };
 
-},{"../selection":29,"../toolbars/button":30,"../toolbars/toolbar":32}],18:[function(require,module,exports){
+},{"../core/abstract-extension":3,"../selection":34,"../toolbars/button":35,"../toolbars/toolbar":37}],23:[function(require,module,exports){
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Button = require('../toolbars/button');
 var Utils = require('../utils');
 var Figure = require('../figure');
@@ -5491,13 +5791,15 @@ var I18n = require('../i18n');
 
 /**
  * An upload button that extends Button to style the upload button.
- * @param {Object=} optParams Optional parameters.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../toolbars/button}
+ * @constructor
  */
-var UploadButton = function (optParams) {
+var UploadButton = function(opt_params) {
   var params = Utils.extend({
     label: 'Upload',
     icon: '',
-  }, optParams);
+  }, opt_params);
 
   Button.call(this, params);
 
@@ -5505,13 +5807,14 @@ var UploadButton = function (optParams) {
 
   /**
    * Upload button input element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.uploadButtonDom = document.createElement(UploadButton.TAG_NAME);
   this.uploadButtonDom.setAttribute('type', 'file');
   this.uploadButtonDom.setAttribute('name', this.name);
   this.uploadButtonDom.setAttribute('multiple', true);
-  this.uploadButtonDom.addEventListener('change', this.handleChange.bind(this));
+  this.uploadButtonDom.addEventListener(
+      'change', this.handleChange.bind(this), false);
 
   this.dom.appendChild(this.uploadButtonDom);
 };
@@ -5537,7 +5840,8 @@ UploadButton.TAG_NAME = 'input';
  * @param {Event} event File event containing the selected files.
  */
 UploadButton.prototype.handleChange = function(event) {
-  var eventDetails = { target: this, files: event.target.files };
+  var fileEl = /** @type {HTMLInputElement} */ (event.target);
+  var eventDetails = {target: this, files: fileEl.files};
   var newEvent = new CustomEvent('change', {detail: eventDetails});
   this.dispatchEvent(newEvent);
   event.target.value = '';
@@ -5546,20 +5850,27 @@ UploadButton.prototype.handleChange = function(event) {
 
 /**
  * Upload Extension enables upload button on the toolbelt.
+ * @param  {../editor} editor Editor instance this installed on.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../core/abstract-extension}
+ * @constructor
  */
-var UploadExtension = function () {
+var UploadExtension = function(editor, opt_params) {
   /**
    * The editor this toolbelt belongs to.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
   /**
    * The toolbelt toolbar.
-   * @type {Toolbar}
+   * @type {../toolbars/toolbar}
    */
   this.toolbelt = null;
+
+  this.init();
 };
+UploadExtension.prototype = Object.create(AbstractExtension.prototype);
 module.exports = UploadExtension;
 
 
@@ -5585,37 +5896,17 @@ UploadExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
- * Initializes the upload extensions.
- * @param  {Editor} editor Editor instance this installed on.
- */
-UploadExtension.onInstall = function(editor) {
-  var uploadExtension = new UploadExtension();
-  uploadExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-UploadExtension.onDestroy = function() {
-  // pass
-};
-
-
-/**
  * Initialize the upload button and listener.
- * @param  {Editor} editor The editor to enable the extension on.
  */
-UploadExtension.prototype.init = function(editor) {
-  this.editor = editor;
+UploadExtension.prototype.init = function() {
   this.toolbelt = this.editor.getToolbar(
       UploadExtension.TOOLBELT_TOOLBAR_NAME);
 
   var uploadButton = new UploadButton({
     label: I18n.get('button.upload'),
-    icon: I18n.get('button.icon.upload')
+    icon: I18n.get('button.icon.upload'),
   });
-  uploadButton.addEventListener('change', this.handleUpload.bind(this));
+  uploadButton.addEventListener('change', this.handleUpload.bind(this), false);
   this.toolbelt.addButton(uploadButton);
 };
 
@@ -5645,14 +5936,14 @@ UploadExtension.prototype.handleUpload = function(event) {
       file: file,
       figure: selection.getComponentAtStart(),
       editor: that.editor,
-      insertedOps: insertFigureOps
+      insertedOps: insertFigureOps,
     });
 
     // Dispatch an attachment added event to allow clients to upload the file.
     var newEvent = new CustomEvent(
       UploadExtension.ATTACHMENT_ADDED_EVENT_NAME, {
-        detail: { attachment: attachment }
-    });
+        detail: {attachment: attachment},
+      });
     that.editor.dispatchEvent(newEvent);
   };
 
@@ -5665,8 +5956,8 @@ UploadExtension.prototype.handleUpload = function(event) {
 
 /**
  * Read file data URL.
- * @param  {File} file File picked by the user.
- * @param  {Function} callback Callback function when the reading is complete.
+ * @param  {!File} file File picked by the user.
+ * @param  {function(string, File)} callback Callback function when the reading is complete.
  */
 UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   var reader = new FileReader();
@@ -5678,7 +5969,7 @@ UploadExtension.prototype.readFileAsDataUrl_ = function(file, callback) {
   reader.readAsDataURL(file);
 };
 
-},{"../figure":19,"../i18n":20,"../toolbars/button":30,"../utils":33,"./attachment":6}],19:[function(require,module,exports){
+},{"../core/abstract-extension":3,"../figure":24,"../i18n":25,"../toolbars/button":35,"../utils":38,"./attachment":9}],24:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -5689,8 +5980,19 @@ var I18n = require('./i18n');
 
 
 /**
+ * @typedef {{
+ *   src: string,
+ *   caption: (?string|undefined),
+ *   captionPlaceholder: (?string|undefined),
+ *   width: (?string|undefined),
+ *   height: (?string|undefined),
+ * }} */
+var FigureComponentParamsDef;
+
+
+/**
  * Figure main.
- * @param {Object} optParams Optional params to initialize the Figure object.
+ * @param {FigureComponentParamsDef=} opt_params Optional params to initialize the Figure object.
  * Default:
  *   {
  *     src: '',
@@ -5698,16 +6000,18 @@ var I18n = require('./i18n');
  *     width: '100%'
  *     name: Utils.getUID()
  *   }
+ * @extends {./component}
+ * @constructor
  */
-var Figure = function(optParams) {
+var Figure = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {FigureComponentParamsDef} */ (Utils.extend({
     src: '',
     caption: null,
     captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
     height: null,
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -5727,11 +6031,11 @@ var Figure = function(optParams) {
    * Width of the figure.
    * @type {string}
    */
-  this.width = params.width;
+  this.width = params.width || '100%';
 
   /**
    * Height of the figure.
-   * @type {string}
+   * @type {string|null|undefined}
    */
   this.height = params.height;
 
@@ -5739,30 +6043,30 @@ var Figure = function(optParams) {
    * Placeholder text to show if the Figure is empty.
    * @type {string}
    */
-  this.caption = params.caption;
+  this.caption = params.caption || '';
 
   /**
    * Text to place as placeholder for caption.
    * @type {string}
    */
-  this.captionPlaceholder = params.captionPlaceholder;
+  this.captionPlaceholder = params.captionPlaceholder || '';
 
   /**
    * Placeholder text to show if the Figure is empty.
-   * @type {string}
+   * @type {./paragraph}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: params.captionPlaceholder,
+    placeholderText: params.captionPlaceholder || '',
     name: this.name + '-caption',
-    text: params.caption,
+    text: params.caption || '',
     paragraphType: Paragrarph.Types.Caption,
-    parentComponent: this,
-    inline: true
+    parentComponent: /** @type {./component} */ (this),
+    inline: true,
   });
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
@@ -5817,26 +6121,26 @@ Figure.CAPTION_TAG_NAME = 'figcaption';
 
 /**
  * Regex strings list that for matching image URLs.
- * @type {Array.<string>}
+ * @type {Array<string>}
  */
 Figure.IMAGE_URL_REGEXS = [
-    'https?://(.*)\.(jpg|png|gif|jpeg)$'
+  'https?://(.*)\.(jpg|png|gif|jpeg)$',
 ];
 
 
 /**
  * Create and initiate a figure object from JSON.
- * @param  {Object} json JSON representation of the figure.
+ * @param  {FigureComponentParamsDef} json JSON representation of the figure.
  * @return {Figure} Figure object representing the JSON data.
  */
-Figure.fromJSON = function (json) {
+Figure.fromJSON = function(json) {
   return new Figure(json);
 };
 
 
 /**
  * Handles onInstall when Paragrarph module is installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {./editor} editor Instance of the editor that installed the module.
  */
 Figure.onInstall = function(editor) {
   Figure.registerRegexes_(editor);
@@ -5845,7 +6149,7 @@ Figure.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create image from if matched.
- * @param  {Editor} editor The editor to register the regex with.
+ * @param  {./editor} editor The editor to register the regex with.
  */
 Figure.registerRegexes_ = function(editor) {
   for (var i = 0; i < Figure.IMAGE_URL_REGEXS.length; i++) {
@@ -5858,10 +6162,10 @@ Figure.registerRegexes_ = function(editor) {
 
 /**
  * Creates a figure component from a link.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {./paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<./defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-Figure.handleMatchedRegex = function (matchedComponent, opsCallback) {
+Figure.handleMatchedRegex = function(matchedComponent, opsCallback) {
   var src = matchedComponent.text;
   var atIndex = matchedComponent.getIndexInSection();
   var ops = [];
@@ -5897,7 +6201,7 @@ Figure.prototype.getJSONModel = function() {
     name: this.name,
     width: this.width,
     height: this.height,
-    caption: this.captionParagraph.text
+    caption: this.captionParagraph.text,
   };
 
   if (!this.isDataUrl) {
@@ -5910,14 +6214,14 @@ Figure.prototype.getJSONModel = function() {
 
 /**
  * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
+ * @param  {!Element} element Element to render component in.
+ * @param  {Object=} opt_options Options for rendering.
  *   options.insertBefore - To render the component before another element.
  * @override
  */
-Figure.prototype.render = function(element, options) {
+Figure.prototype.render = function(element, opt_options) {
   if (!this.isRendered) {
-    Component.prototype.render.call(this, element, options);
+    Component.prototype.render.call(this, element, opt_options);
 
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
@@ -5928,7 +6232,7 @@ Figure.prototype.render = function(element, options) {
       if (this.width && this.height) {
         this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
         this.imgContainerDom.style.paddingBottom = (
-            (parseInt(this.height)/parseInt(this.width) * 100) + '%');
+            (parseInt(this.height, 10) / parseInt(this.width, 10) * 100) + '%');
       }
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
@@ -5938,25 +6242,27 @@ Figure.prototype.render = function(element, options) {
 
     if (this.editMode) {
       if (this.src) {
-        this.imgDom.addEventListener('click', this.select.bind(this));
+        this.imgDom.addEventListener(
+            'click', this.handleClick.bind(this), false);
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
         this.selectionDom.setAttribute('contenteditable', true);
-        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.selectionDom.addEventListener(
+            'focus', this.handleClick.bind(this), false);
         this.dom.appendChild(this.selectionDom);
       }
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
 
       if (this.imgDom && (!this.width || !this.height)) {
-        this.imgDom.addEventListener('load', function () {
+        this.imgDom.addEventListener('load', function() {
           if (this.editMode) {
             var styles = window.getComputedStyle(this.imgDom);
-            this.width = styles.width;
-            this.height = styles.height;
+            this.width = Utils.getSizeWithUnit(styles.width);
+            this.height = Utils.getSizeWithUnit(styles.height);
           }
-        }.bind(this));
+        }.bind(this), false);
       }
     }
   }
@@ -5964,31 +6270,39 @@ Figure.prototype.render = function(element, options) {
 
 
 /**
- * Returns the operations to execute a deletion of the image component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
- * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * Handles clicking on the embedded component to update the selection.
  */
-Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
+Figure.prototype.handleClick = function() {
+  this.select();
+};
+
+
+/**
+ * Returns the operations to execute a deletion of the image component.
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
+ * component for insertion point.
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<./defs.OperationDef>} List of operations needed to be executed.
+ */
+Figure.prototype.getDeleteOps = function(opt_indexOffset, opt_cursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'Figure',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         src: this.src,
         caption: this.captionParagraph.text,
-        width: this.width
-      }
-    }
+        width: this.width,
+      },
+    },
   }];
 
   // If this is the only child of the layout delete the layout as well.
@@ -6003,11 +6317,11 @@ Figure.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
 /**
  * Returns the operations to execute inserting a figure.
  * @param {number} index Index to insert the figure at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the figure.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the figure.
  */
-Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+Figure.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -6019,14 +6333,14 @@ Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
       attrs: {
         src: this.src,
         width: this.width,
-        caption: this.captionParagraph.text
-      }
+        caption: this.captionParagraph.text,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -6035,7 +6349,7 @@ Figure.prototype.getInsertOps = function (index, optCursorBeforeOp) {
  * Returns the length of the figure content.
  * @return {number} Length of the figure content.
  */
-Figure.prototype.getLength = function () {
+Figure.prototype.getLength = function() {
   return 1;
 };
 
@@ -6075,7 +6389,7 @@ Figure.prototype.updateCaption = function(caption) {
   this.captionParagraph.setText(caption);
 };
 
-},{"./component":2,"./i18n":20,"./loader":25,"./paragraph":27,"./utils":33}],20:[function(require,module,exports){
+},{"./component":2,"./i18n":25,"./loader":30,"./paragraph":32,"./utils":38}],25:[function(require,module,exports){
 'use strict';
 
 var I18n = {};
@@ -6157,102 +6471,111 @@ I18n.set = function(locale, id, string) {
 /**
  * Returns the string for the specific ID.
  * @param  {string} id String ID.
- * @param  {string} optLocale Optional Locale - default to currentLocale.
- * @return {string|null} The string for that locale if found.
+ * @param  {string=} opt_locale Optional Locale - default to currentLocale.
+ * @return {string|undefined} The string for that locale if found.
  */
-I18n.get = function(id, optLocale) {
-  var locale = optLocale || I18n.currentLocale;
+I18n.get = function(id, opt_locale) {
+  var locale = opt_locale || I18n.currentLocale;
   if (!I18n.LANG_STRING_MAP[locale] ||
       !I18n.LANG_STRING_MAP[locale][id]) {
     locale = I18n.getFallbackLocale();
   }
-  return I18n.LANG_STRING_MAP[locale][id];
+  try {
+    return I18n.LANG_STRING_MAP[locale][id];
+  } catch (e) {
+    console.error(e);
+    return;
+  }
 };
 
-},{}],21:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 'use strict';
 
 var I18n = require('../i18n');
 
+/* eslint max-len: 0 */
+
 // Caption placeholders.
-I18n.set('ar', 'placeholder.figure'  , 'اكتب وصف للصورة (اختياري)');
-I18n.set('ar', 'placeholder.embed'   , 'اكتب وصف للتضمين (اختياري)');
-I18n.set('ar', 'placeholder.href'    , 'ما هو الرابط؟');
-I18n.set('ar', 'placeholder.video'   , 'ألصق رابط يوتيوب، فاين، فيديو فيسبوك، ساوند كلاود أو غيرها...');
-I18n.set('ar', 'placeholder.photo'   , 'ألصق رابط لصورة، صورة فيسبوك، إنستغرام أو غيرها...');
-I18n.set('ar', 'placeholder.post'    , 'ألصق رابط لفيسبوك، تويتر، جيتهاب جيست أو غيرها...');
-I18n.set('ar', 'placeholder.gif'     , 'اكتب +جيفي <نص إنجليزي للبحث> واضغط زر الإدخال أو ألصق رابط من جيفي...');
-I18n.set('ar', 'placeholder.quiz'    , 'ألصق رابط من qzzr.com أو slideshare أو غيرها...');
+I18n.set('ar', 'placeholder.figure' , 'اكتب وصف للصورة (اختياري)');
+I18n.set('ar', 'placeholder.embed' , 'اكتب وصف للتضمين (اختياري)');
+I18n.set('ar', 'placeholder.href' , 'ما هو الرابط؟');
+I18n.set('ar', 'placeholder.video' , 'ألصق رابط يوتيوب، فاين، فيديو فيسبوك، ساوند كلاود أو غيرها...');
+I18n.set('ar', 'placeholder.photo' , 'ألصق رابط لصورة، صورة فيسبوك، إنستغرام أو غيرها...');
+I18n.set('ar', 'placeholder.post' , 'ألصق رابط لفيسبوك، تويتر، جيتهاب جيست أو غيرها...');
+I18n.set('ar', 'placeholder.gif' , 'اكتب +جيفي <نص إنجليزي للبحث> واضغط زر الإدخال أو ألصق رابط من جيفي...');
+I18n.set('ar', 'placeholder.quiz' , 'ألصق رابط من qzzr.com أو slideshare أو غيرها...');
 
 // Toolbelt Buttons.
 I18n.set('ar', 'button.upload' , 'تحميل صورة');
-I18n.set('ar', 'button.video'  , 'أدخل فيديو');
-I18n.set('ar', 'button.photo'  , 'أدخل صورة برابط');
-I18n.set('ar', 'button.post'   , 'تضمين منشور');
-I18n.set('ar', 'button.gif'    , 'أدخل GIF');
-I18n.set('ar', 'button.quiz'   , 'أدخل عرض');
+I18n.set('ar', 'button.video' , 'أدخل فيديو');
+I18n.set('ar', 'button.photo' , 'أدخل صورة برابط');
+I18n.set('ar', 'button.post' , 'تضمين منشور');
+I18n.set('ar', 'button.gif' , 'أدخل GIF');
+I18n.set('ar', 'button.quiz' , 'أدخل عرض');
 I18n.set('ar', 'button.selfie' , 'نفصورة!');
 
 // Layouting Toolbar Buttons.
-I18n.set('ar', 'button.layout.single'   , 'خانة');
-I18n.set('ar', 'button.layout.bleed'    , 'رف');
-I18n.set('ar', 'button.layout.staged'   , 'مسرح');
-I18n.set('ar', 'button.layout.left'     , 'شمال');
-I18n.set('ar', 'button.layout.right'    , 'يمين');
+I18n.set('ar', 'button.layout.single' , 'خانة');
+I18n.set('ar', 'button.layout.bleed' , 'رف');
+I18n.set('ar', 'button.layout.staged' , 'مسرح');
+I18n.set('ar', 'button.layout.left' , 'شمال');
+I18n.set('ar', 'button.layout.right' , 'يمين');
 
 I18n.set('ar', 'regex.giphy', '^\\+جيفي\\s(.+[a-zA-Z])$');
 I18n.set('ar', 'regex.selfie', '^\\+(?:نفصور[ة|ه]|سي?لفي)$');
 
-},{"../i18n":20}],22:[function(require,module,exports){
+},{"../i18n":25}],27:[function(require,module,exports){
 'use strict';
 
 var I18n = require('../i18n');
 
+/* eslint max-len: 0 */
+
 // Caption placeholders.
-I18n.set('en', 'placeholder.figure'  , 'Enter caption for image (optional)');
-I18n.set('en', 'placeholder.embed'   , 'Enter caption for embed (optional)');
-I18n.set('en', 'placeholder.href'    , 'What is the URL?');
-I18n.set('en', 'placeholder.video'   , 'Paste a link for YouTube, Vine, FB Video, SoundCloud and others.');
-I18n.set('en', 'placeholder.photo'   , 'Paste a link for a photo, FB photo, Instagram and others.');
-I18n.set('en', 'placeholder.post'    , 'Paste a link for a Facebook post, Tweet, Github Gist and others.');
-I18n.set('en', 'placeholder.gif'     , 'Type /giphy <search-term> (enter) or paste a link to giphy or gif image url.');
-I18n.set('en', 'placeholder.quiz'    , 'Paste a link to qzzr.com or slideshare or others.');
+I18n.set('en', 'placeholder.figure' , 'Enter caption for image (optional)');
+I18n.set('en', 'placeholder.embed' , 'Enter caption for embed (optional)');
+I18n.set('en', 'placeholder.href' , 'What is the URL?');
+I18n.set('en', 'placeholder.video' , 'Paste a link for YouTube, Vine, FB Video, SoundCloud and others.');
+I18n.set('en', 'placeholder.photo' , 'Paste a link for a photo, FB photo, Instagram and others.');
+I18n.set('en', 'placeholder.post' , 'Paste a link for a Facebook post, Tweet, Github Gist and others.');
+I18n.set('en', 'placeholder.gif' , 'Type /giphy <search-term> (enter) or paste a link to giphy or gif image url.');
+I18n.set('en', 'placeholder.quiz' , 'Paste a link to qzzr.com or slideshare or others.');
 
 // Toolbelt Buttons.
 I18n.set('en', 'button.upload' , 'Upload Photo');
-I18n.set('en', 'button.video'  , 'Insert Video');
-I18n.set('en', 'button.photo'  , 'Insert Photo by URL');
-I18n.set('en', 'button.post'   , 'Embed Post');
-I18n.set('en', 'button.gif'    , 'Insert GIF');
-I18n.set('en', 'button.quiz'   , 'Insert Quiz or Slides');
+I18n.set('en', 'button.video' , 'Insert Video');
+I18n.set('en', 'button.photo' , 'Insert Photo by URL');
+I18n.set('en', 'button.post' , 'Embed Post');
+I18n.set('en', 'button.gif' , 'Insert GIF');
+I18n.set('en', 'button.quiz' , 'Insert Quiz or Slides');
 I18n.set('en', 'button.selfie' , 'Selfie!');
 
 I18n.set('en', 'button.icon.upload' , 'fa fa-upload');
-I18n.set('en', 'button.icon.video'  , 'fa fa-youtube-play');
-I18n.set('en', 'button.icon.photo'  , 'fa fa-picture-o');
-I18n.set('en', 'button.icon.post'   , 'fa fa-twitter');
-I18n.set('en', 'button.icon.gif'    , 'fa fa-child');
-I18n.set('en', 'button.icon.quiz'   , 'fa fa-question');
+I18n.set('en', 'button.icon.video' , 'fa fa-youtube-play');
+I18n.set('en', 'button.icon.photo' , 'fa fa-picture-o');
+I18n.set('en', 'button.icon.post' , 'fa fa-twitter');
+I18n.set('en', 'button.icon.gif' , 'fa fa-child');
+I18n.set('en', 'button.icon.quiz' , 'fa fa-question');
 I18n.set('en', 'button.icon.selfie' , 'fa fa-camera');
 
 // Layouting Toolbar Buttons.
-I18n.set('en', 'button.layout.single'   , 'Column');
-I18n.set('en', 'button.layout.bleed'    , 'Shelf');
-I18n.set('en', 'button.layout.staged'   , 'Stage');
-I18n.set('en', 'button.layout.left'     , 'Left');
-I18n.set('en', 'button.layout.right'    , 'Right');
+I18n.set('en', 'button.layout.single' , 'Column');
+I18n.set('en', 'button.layout.bleed' , 'Shelf');
+I18n.set('en', 'button.layout.staged' , 'Stage');
+I18n.set('en', 'button.layout.left' , 'Left');
+I18n.set('en', 'button.layout.right' , 'Right');
 
-I18n.set('en', 'button.layout.icon.single'   , 'fa fa-align-justify');
-I18n.set('en', 'button.layout.icon.bleed'    , 'fa fa-arrows-h');
-I18n.set('en', 'button.layout.icon.staged'   , 'fa fa-desktop');
-I18n.set('en', 'button.layout.icon.left'     , 'fa fa-align-left');
-I18n.set('en', 'button.layout.icon.right'    , 'fa fa-align-right');
+I18n.set('en', 'button.layout.icon.single' , 'fa fa-align-justify');
+I18n.set('en', 'button.layout.icon.bleed' , 'fa fa-arrows-h');
+I18n.set('en', 'button.layout.icon.staged' , 'fa fa-desktop');
+I18n.set('en', 'button.layout.icon.left' , 'fa fa-align-left');
+I18n.set('en', 'button.layout.icon.right' , 'fa fa-align-right');
 
 I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
 I18n.set('en', 'regex.selfie', '^\\+selfie$');
 
 
-},{"../i18n":20}],23:[function(require,module,exports){
+},{"../i18n":25}],28:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -6260,29 +6583,44 @@ var Section = require('./section');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
 
+
+/**
+ * @typedef {{
+ *  tagName: (string|undefined),
+ *  type: (string|undefined),
+ *  components: (Array<!./component>|undefined),
+ * }}
+ */
+var LayoutParamsDef;
+
+
 /**
  * Layout main.
- * @param {Object} optParams Optional params to initialize the Layout object.
+ * @param {LayoutParamsDef=} opt_params Optional params to initialize the Layout object.
  * Default:
  *   {
  *     components: [Paragraph],
  *     tagName: 'div',
  *     type: 'layout-single-column'
  *   }
+ * @extends {./section}
+ * @constructor
  */
-var Layout = function(optParams) {
+var Layout = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {LayoutParamsDef} */ (Utils.extend({
     tagName: Layout.LAYOUT_TAG_NAME,
     type: Layout.Types.SingleColumn,
     components: [new Paragrarph({
-      paragraphType: Paragrarph.Types.Paragraph
-    })]
-  }, optParams);
+      paragraphType: Paragrarph.Types.Paragraph,
+    })],
+  }, opt_params));
 
   Section.call(this, params);
 
-  this.type = params.type;
+  /** @type {string} */
+  this.type = params.type || '';
+
   this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
@@ -6294,6 +6632,7 @@ module.exports = Layout;
 /**
  * String name for the component class.
  * @type {string}
+ * @const
  */
 Layout.CLASS_NAME = 'Layout';
 Loader.register(Layout.CLASS_NAME, Layout);
@@ -6302,29 +6641,30 @@ Loader.register(Layout.CLASS_NAME, Layout);
 /**
  * Unordered Layout component container element tag name.
  * @type {string}
+ * @const
  */
 Layout.LAYOUT_TAG_NAME = 'div';
 
 
 /**
  * Layout types.
- * @type {Object}
+ * @enum {string}
  */
 Layout.Types = {
   SingleColumn: 'layout-single-column',
   Bleed: 'layout-bleed',
   Staged: 'layout-staged',
   FloatLeft: 'layout-float-left',
-  FloatRight: 'layout-float-right'
+  FloatRight: 'layout-float-right',
 };
 
 
 /**
  * Create and initiate a list object from JSON.
- * @param  {Object} json JSON representation of the list.
+ * @param {./defs.LayoutJsonDef} json JSON representation of the list.
  * @return {Layout} Layout object representing the JSON data.
  */
-Layout.fromJSON = function (json) {
+Layout.fromJSON = function(json) {
   var components = [];
   for (var i = 0; i < json.components.length; i++) {
     var className = json.components[i].component;
@@ -6336,7 +6676,7 @@ Layout.fromJSON = function (json) {
     tagName: json.tagName,
     name: json.name,
     type: json.type,
-    components: components
+    components: components,
   });
 };
 
@@ -6359,16 +6699,37 @@ Layout.prototype.getComponentClassName = function() {
 
 
 /**
+ * Returns first component in the section.
+ * @return {./component} Returns first component.
+ * @override
+ */
+Layout.prototype.getFirstComponent = function() {
+  return this.components[0];
+};
+
+
+/**
+ * Returns last component in the section.
+ * @return {./component} Returns last component.
+ * @override
+ */
+Layout.prototype.getLastComponent = function() {
+  return this.components[this.components.length - 1];
+};
+
+
+
+/**
  * Returns the operations to execute a deletion of list component.
  * @param  {number=} optIndexOffset An offset to add to the index of the
  * component for insertion point.
- * @return {Array.<Object>} Layout of operations needed to be executed.
+ * @return {Array<./defs.OperationDef>} Layout of operations needed to be executed.
  */
-Layout.prototype.getDeleteOps = function (optIndexOffset) {
+Layout.prototype.getDeleteOps = function(optIndexOffset) {
   var ops = [{
     do: {
       op: 'deleteComponent',
-      component: this.name
+      component: this.name,
     },
     undo: {
       op: 'insertComponent',
@@ -6379,15 +6740,15 @@ Layout.prototype.getDeleteOps = function (optIndexOffset) {
       attrs: {
         components: this.components,
         tagName: this.tagName,
-        type: this.type
-      }
-    }
+        type: this.type,
+      },
+    },
   }];
 
   if (this.section.getLength() < 2) {
     var newLayout = new Layout({
       name: this.name,
-      components: []
+      components: [],
     });
     newLayout.section = this.section;
     Utils.arrays.extend(ops, newLayout.getInsertOps(0));
@@ -6400,9 +6761,9 @@ Layout.prototype.getDeleteOps = function (optIndexOffset) {
 /**
  * Returns the operations to execute inserting a list.
  * @param {number} index Index to insert the list at.
- * @return {Array.<Object>} Operations for inserting the list.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the list.
  */
-Layout.prototype.getInsertOps = function (index) {
+Layout.prototype.getInsertOps = function(index) {
   return [{
     do: {
       op: 'insertComponent',
@@ -6414,13 +6775,13 @@ Layout.prototype.getInsertOps = function (index) {
       attrs: {
         components: this.components,
         tagName: this.tagName,
-        type: this.type
-      }
+        type: this.type,
+      },
     },
     undo: {
       op: 'deleteComponent',
-      component: this.name
-    }
+      component: this.name,
+    },
   }];
 };
 
@@ -6428,9 +6789,9 @@ Layout.prototype.getInsertOps = function (index) {
 /**
  * Returns the operations to execute splitting a list.
  * @param {number} atIndex Index to split the list at.
- * @return {Array.<Object>} Operations for splitting the list.
+ * @return {Array<./defs.OperationDef>} Operations for splitting the list.
  */
-Layout.prototype.getSplitOps = function (atIndex) {
+Layout.prototype.getSplitOps = function(atIndex) {
   var ops = [];
   var i = atIndex;
   var indexOffset = 0;
@@ -6441,7 +6802,7 @@ Layout.prototype.getSplitOps = function (atIndex) {
   var newLayout = new Layout({
     tagName: this.tagName,
     section: this.section,
-    components: []
+    components: [],
   });
   Utils.arrays.extend(ops, newLayout.getInsertOps(
       this.getIndexInSection() + 1));
@@ -6469,8 +6830,8 @@ Layout.prototype.getUpdateOps = function(
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
       attrs: {
-        type: attrs.type
-      }
+        type: attrs.type,
+      },
     },
     undo: {
       op: 'updateComponent',
@@ -6478,9 +6839,9 @@ Layout.prototype.getUpdateOps = function(
       cursorOffset: optCursorOffset,
       selectRange: optSelectRange,
       attrs: {
-        type: this.type
-      }
-    }
+        type: this.type,
+      },
+    },
   }];
 };
 
@@ -6512,7 +6873,7 @@ Layout.prototype.updateAttributes = function(attrs) {
  * Returns the length of the list content.
  * @return {number} Length of the list content.
  */
-Layout.prototype.getLength = function () {
+Layout.prototype.getLength = function() {
   return this.components.length;
 };
 
@@ -6527,7 +6888,7 @@ Layout.prototype.getJSONModel = function() {
     tagName: this.tagName,
     type: this.type,
     component: Layout.CLASS_NAME,
-    components: []
+    components: [],
   };
 
   for (var i = 0; i < this.components.length; i++) {
@@ -6537,7 +6898,7 @@ Layout.prototype.getJSONModel = function() {
   return layout;
 };
 
-},{"./loader":25,"./paragraph":27,"./section":28,"./utils":33}],24:[function(require,module,exports){
+},{"./loader":30,"./paragraph":32,"./section":33,"./utils":38}],29:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
@@ -6545,23 +6906,35 @@ var Section = require('./section');
 var Paragrarph = require('./paragraph');
 var Loader = require('./loader');
 
+
+/**
+ * @typedef {{
+ *   tagName: (string|undefined),
+ *   components: (Array<!./component>|undefined),
+ * }}
+ */
+var ListParamsDef;
+
+
 /**
  * List main.
- * @param {Object} optParams Optional params to initialize the List object.
+ * @param {Object=} opt_params Optional params to initialize the List object.
  * Default:
  *   {
  *     components: [Paragraph],
  *     tagName: 'ul'
  *   }
+ * @extends {./section}
+ * @constructor
  */
-var List = function(optParams) {
+var List = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {ListParamsDef} */ (Utils.extend({
     tagName: List.UNORDERED_LIST_TAG,
     components: [new Paragrarph({
-      paragraphType: Paragrarph.Types.ListItem
-    })]
-  }, optParams);
+      paragraphType: Paragrarph.Types.ListItem,
+    })],
+  }, opt_params));
 
   Section.call(this, params);
 };
@@ -6607,10 +6980,10 @@ List.ORDERED_LIST_REGEX = '^(?:1\\.|-|_|\\))\\s?(.*)';
 
 /**
  * Create and initiate a list object from JSON.
- * @param  {Object} json JSON representation of the list.
+ * @param  {./defs.ListJsonDef} json JSON representation of the list.
  * @return {List} List object representing the JSON data.
  */
-List.fromJSON = function (json) {
+List.fromJSON = function(json) {
   var components = [];
   for (var i = 0; i < json.components.length; i++) {
     var className = json.components[i].component;
@@ -6621,14 +6994,14 @@ List.fromJSON = function (json) {
   return new List({
     tagName: json.tagName,
     name: json.name,
-    components: components
+    components: components,
   });
 };
 
 
 /**
  * Handles onInstall when List module is installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
+ * @param  {./editor} editor Instance of the editor that installed the module.
  */
 List.onInstall = function(editor) {
   List.registerRegexes_(editor);
@@ -6637,7 +7010,7 @@ List.onInstall = function(editor) {
 
 /**
  * Registers regular experessions to create image from if matched.
- * @param  {Editor} editor The editor to register the regex with.
+ * @param  {./editor} editor The editor to register the regex with.
  */
 List.registerRegexes_ = function(editor) {
   editor.registerRegex(List.UNORDERED_LIST_REGEX, List.handleULMatchedRegex);
@@ -6647,12 +7020,12 @@ List.registerRegexes_ = function(editor) {
 
 /**
  * Returns list of operations to create a list from a matched regex.
- * @param  {Component} component Matched regex component.
+ * @param  {./component} component Matched regex component.
  * @param  {string} text Text for creating the list item.
  * @param  {string} listType UL or OL.
- * @return {Array.<Object>} List of operations to create a list.
+ * @return {Array<./defs.OperationDef>} List of operations to create a list.
  */
-List.createListOpsForMatchedRegex_ = function (component, text, listType) {
+List.createListOpsForMatchedRegex_ = function(component, text, listType) {
   var atIndex = component.getIndexInSection();
   var ops = [];
   var list = new List({
@@ -6660,8 +7033,8 @@ List.createListOpsForMatchedRegex_ = function (component, text, listType) {
     section: component.section,
     components: [new Paragrarph({
       text: text,
-      paragraphType: Paragrarph.Types.ListItem
-    })]
+      paragraphType: Paragrarph.Types.ListItem,
+    })],
   });
 
   // Delete current matched component with its text.
@@ -6672,7 +7045,7 @@ List.createListOpsForMatchedRegex_ = function (component, text, listType) {
 
   var newLi = new Paragrarph({
     paragraphType: Paragrarph.Types.ListItem,
-    section: list
+    section: list,
   });
 
   // Add the new component created from the text.
@@ -6684,10 +7057,10 @@ List.createListOpsForMatchedRegex_ = function (component, text, listType) {
 
 /**
  * Creates an unordered list component from matched regex component.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {./paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<./defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-List.handleULMatchedRegex = function (matchedComponent, opsCallback) {
+List.handleULMatchedRegex = function(matchedComponent, opsCallback) {
   var regex = new RegExp(List.UNORDERED_LIST_REGEX);
   var matches = regex.exec(matchedComponent.text);
   var text = matches[1];
@@ -6699,10 +7072,10 @@ List.handleULMatchedRegex = function (matchedComponent, opsCallback) {
 
 /**
  * Creates an ordered list component from matched regex component.
- * @param {Component} matchedComponent Component that matched registered regex.
- * @param {Function} opsCallback Callback to send list of operations to exectue.
+ * @param {./paragraph} matchedComponent Component that matched registered regex.
+ * @param {function(Array<./defs.OperationDef>)} opsCallback Callback to send list of operations to exectue.
  */
-List.handleOLMatchedRegex = function (matchedComponent, opsCallback) {
+List.handleOLMatchedRegex = function(matchedComponent, opsCallback) {
   var regex = new RegExp(List.ORDERED_LIST_REGEX);
   var matches = regex.exec(matchedComponent.text);
   var text = matches[1];
@@ -6723,29 +7096,29 @@ List.prototype.getComponentClassName = function() {
 
 /**
  * Returns the operations to execute a deletion of list component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
  * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<./defs.OperationDef>} List of operations needed to be executed.
  */
-List.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
+List.prototype.getDeleteOps = function(opt_indexOffset, opt_cursorAfterOp) {
   return [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'List',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         components: this.components,
-        tagName: this.tagName
-      }
-    }
+        tagName: this.tagName,
+      },
+    },
   }];
 };
 
@@ -6753,11 +7126,11 @@ List.prototype.getDeleteOps = function (optIndexOffset, optCursorAfterOp) {
 /**
  * Returns the operations to execute inserting a list.
  * @param {number} index Index to insert the list at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the list.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the list.
  */
-List.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+List.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -6768,14 +7141,14 @@ List.prototype.getInsertOps = function (index, optCursorBeforeOp) {
       index: index,
       attrs: {
         components: this.components,
-        tagName: this.tagName
-      }
+        tagName: this.tagName,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -6783,9 +7156,9 @@ List.prototype.getInsertOps = function (index, optCursorBeforeOp) {
 /**
  * Returns the operations to execute splitting a list.
  * @param {number} atIndex Index to split the list at.
- * @return {Array.<Object>} Operations for splitting the list.
+ * @return {Array<./defs.OperationDef>} Operations for splitting the list.
  */
-List.prototype.getSplitOps = function (atIndex) {
+List.prototype.getSplitOps = function(atIndex) {
   var ops = [];
   var i = atIndex;
   for (i = atIndex; i < this.components.length; i++) {
@@ -6795,7 +7168,7 @@ List.prototype.getSplitOps = function (atIndex) {
   var newList = new List({
     tagName: this.tagName,
     section: this.section,
-    components: []
+    components: [],
   });
   Utils.arrays.extend(ops, newList.getInsertOps(
       this.getIndexInSection() + 1));
@@ -6815,7 +7188,7 @@ List.prototype.getSplitOps = function (atIndex) {
  * Returns the length of the list content.
  * @return {number} Length of the list content.
  */
-List.prototype.getLength = function () {
+List.prototype.getLength = function() {
   return this.components.length;
 };
 
@@ -6829,7 +7202,7 @@ List.prototype.getJSONModel = function() {
     name: this.name,
     tagName: this.tagName,
     component: List.CLASS_NAME,
-    components: []
+    components: [],
   };
 
   for (var i = 0; i < this.components.length; i++) {
@@ -6839,7 +7212,7 @@ List.prototype.getJSONModel = function() {
   return section;
 };
 
-},{"./loader":25,"./paragraph":27,"./section":28,"./utils":33}],25:[function(require,module,exports){
+},{"./loader":30,"./paragraph":32,"./section":33,"./utils":38}],30:[function(require,module,exports){
 'use strict';
 
 var Errors = require('./errors');
@@ -6851,7 +7224,10 @@ var Errors = require('./errors');
  */
 var Loader = (function() {
 
-  var Loader = function () {
+  /**
+   * @constructor
+   */
+  var Loader = function() {
     /**
      * The registery for the components and its modules.
      * @type {Object}
@@ -6869,7 +7245,7 @@ var Loader = (function() {
    */
   Loader.prototype.register = function(name, module, optForce) {
     if (this.registery[name] && !optForce) {
-      throw Errors.AlreadyRegisteredError(
+      throw new Errors.AlreadyRegisteredError(
           'The module name "' + name + '" has already been registered.');
     }
 
@@ -6888,20 +7264,24 @@ var Loader = (function() {
 
   var instance = new Loader();
   return {
-    register: function (name, module, optForce) {
+    register: function(name, module, optForce) {
       instance.register(name, module, optForce);
     },
 
-    load: function (name) {
+    load: function(name) {
       return instance.load(name);
-    }
-
+    },
   };
 })();
 module.exports = Loader;
 
-},{"./errors":4}],26:[function(require,module,exports){
+},{"./errors":7}],31:[function(require,module,exports){
 'use strict';
+
+// Explicitly require this so closure-compiler doesn't ignore the file because
+// of --dependency_mode=STRICT option.
+// This is only needed if using Closure Compiler.
+// require('./defs');
 
 // TODO(mkhatib): Figure out a better way to load translations lazily.
 module.exports.I18n = require('./i18n');
@@ -6935,24 +7315,42 @@ module.exports.Loader = require('./loader');
 // them part of the whole editor Javascript.
 module.exports.GiphyComponent = require('./extensions/giphyComponent');
 module.exports.EmbeddedComponent = require('./extensions/embeddedComponent');
-module.exports.AbstractEmbedProvider = require('./extensions/abstractEmbedProvider');
+module.exports.AbstractEmbedProvider = require(
+    './extensions/abstractEmbedProvider');
 module.exports.EmbedlyProvider = require('./extensions/embedlyProvider');
-module.exports.CarbonEmbedProvider = require('./extensions/carbonEmbedProvider');
+module.exports.CarbonEmbedProvider = require(
+    './extensions/carbonEmbedProvider');
 module.exports.EmbeddingExtension = require('./extensions/embeddingExtension');
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
 module.exports.LayoutingExtension = require('./extensions/layoutingExtension');
 
-},{"./article":1,"./editor":3,"./extensions/abstractEmbedProvider":5,"./extensions/carbonEmbedProvider":7,"./extensions/embeddedComponent":9,"./extensions/embeddingExtension":10,"./extensions/embedlyProvider":11,"./extensions/giphyComponent":13,"./extensions/layoutingExtension":14,"./extensions/selfieExtension":15,"./figure":19,"./i18n":20,"./i18n/ar":21,"./i18n/en":22,"./layout":23,"./list":24,"./loader":25,"./paragraph":27,"./section":28,"./selection":29}],27:[function(require,module,exports){
+},{"./article":1,"./editor":6,"./extensions/abstractEmbedProvider":8,"./extensions/carbonEmbedProvider":10,"./extensions/embeddedComponent":14,"./extensions/embeddingExtension":15,"./extensions/embedlyProvider":16,"./extensions/giphyComponent":18,"./extensions/layoutingExtension":19,"./extensions/selfieExtension":20,"./figure":24,"./i18n":25,"./i18n/ar":26,"./i18n/en":27,"./layout":28,"./list":29,"./loader":30,"./paragraph":32,"./section":33,"./selection":34}],32:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
 var Component = require('./component');
 var Loader = require('./loader');
 
+
+/**
+ * @typedef {{
+ *    text: (string|undefined),
+ *    placeholderText: (string|undefined),
+ *    paragraphType: (string|undefined),
+ *    formats: (?Array<./defs.InlineFormattingDef>|undefined),
+ *    name: (string|undefined),
+ *    parentComponent: (./component|undefined),
+ *    inline: (boolean|undefined),
+ *    section: (?./section|undefined),
+ * }}
+ */
+var ParagraphParamsDef;
+
+
 /**
  * Paragraph main.
- * @param {Object} optParams Optional params to initialize the Paragraph object.
+ * @param {ParagraphParamsDef=} opt_params Optional params to initialize the Paragraph object.
  * Default:
  *   {
  *     text: '',
@@ -6961,10 +7359,12 @@ var Loader = require('./loader');
  *     formats: [],
  *     name: Utils.getUID()
  *   }
+ * @extends {./component}
+ * @constructor
  */
-var Paragraph = function(optParams) {
+var Paragraph = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {ParagraphParamsDef} */ (Utils.extend({
     // Text rendered in this paragraph.
     text: '',
     // If you want to show a placeholder if there was no text.
@@ -6973,7 +7373,7 @@ var Paragraph = function(optParams) {
     paragraphType: Paragraph.Types.Paragraph,
     // List of inline formats for the paragraph.
     formats: [],
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -6981,35 +7381,35 @@ var Paragraph = function(optParams) {
    * Internal model text in this paragraph.
    * @type {string}
    */
-  this.text = params.text;
+  this.text = params.text || '';
 
   /**
    * Placeholder text to show if the paragraph is empty.
    * @type {string}
    */
-  this.placeholderText = params.placeholderText;
+  this.placeholderText = params.placeholderText || '';
 
   /**
    * Inline formats for the paragraph.
-   * @type {Array.<Object>}
+   * @type {Array<./defs.InlineFormattingDef>}
    */
-  this.formats = params.formats;
+  this.formats = params.formats || [];
 
   /**
    * Paragraph type.
    * @type {string}
    */
-  this.paragraphType = params.paragraphType;
+  this.paragraphType = params.paragraphType || Paragraph.Types.Paragraph;
 
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(this.paragraphType);
   this.dom.setAttribute('name', this.name);
 
-  this.setText(params.text);
+  this.setText(this.text);
 
   if (this.formats) {
     this.updateInnerDom_();
@@ -7036,7 +7436,7 @@ Paragraph.EMPTY_PARAGRAPH_CLASS = 'empty-paragraph';
 
 /**
  * Differet types of a paragraph.
- * @type {Enum}
+ * @enum {string}
  */
 Paragraph.Types = {
   Paragraph: 'p',
@@ -7046,26 +7446,25 @@ Paragraph.Types = {
   Quote: 'blockquote',
   Code: 'pre',
   Caption: 'figcaption',
-  ListItem: 'li'
+  ListItem: 'li',
 };
 
 
 /**
  * Create and initiate a paragraph object from JSON.
- * @param  {Object} json JSON representation of the paragraph.
+ * @param  {ParagraphParamsDef} json JSON representation of the paragraph.
  * @return {Paragraph} Paragraph object representing the JSON data.
  */
-Paragraph.fromJSON = function (json) {
+Paragraph.fromJSON = function(json) {
   return new Paragraph(json);
 };
 
 
 /**
  * Called when the module is installed on in an editor.
- * @param  {Editor} editor Editor instance which installed the module.
+ * @param  {./editor} unusedEditor Editor instance which installed the module.
  */
-Paragraph.onInstall = function (editor) {
-  // jshint unused: false
+Paragraph.onInstall = function(unusedEditor) {
 };
 
 
@@ -7084,9 +7483,9 @@ Paragraph.prototype.getComponentClassName = function() {
  */
 Paragraph.prototype.isHeader = function() {
   return [
-      Paragraph.Types.MainHeader,
-      Paragraph.Types.SecondaryHeader,
-      Paragraph.Types.ThirdHeader
+    Paragraph.Types.MainHeader,
+    Paragraph.Types.SecondaryHeader,
+    Paragraph.Types.ThirdHeader,
   ].indexOf(this.paragraphType) !== -1;
 };
 
@@ -7109,8 +7508,8 @@ Paragraph.prototype.setText = function(text) {
 
     // Remove zero-width whitespace when there are other characters.
     if (this.text.length > 1) {
-      this.text = this.text.replace('\u200B', '').
-          replace(/^\s/, '\xa0');
+      this.text = this.text.replace('\u200B', '')
+          .replace(/^\s/, '\xa0');
     }
   }
   if (!this.text.replace(/\s/, '').length) {
@@ -7134,6 +7533,7 @@ Paragraph.prototype.getWordAt_ = function(index) {
   if (start < end) {
     return this.text.substring(start, end);
   }
+  return '';
 };
 
 
@@ -7190,7 +7590,10 @@ Paragraph.prototype.insertCharactersAt = function(chars, index) {
  * @param  {number} count Number of characters to remove.
  */
 Paragraph.prototype.removeCharactersAt = function(index, count) {
-  var texts = [this.text.substring(0, index), this.text.substring(index + count)];
+  var texts = [
+    this.text.substring(0, index),
+    this.text.substring(index + count),
+  ];
   var updatedText = texts.join('');
 
   this.shiftFormatsFrom_(index, -1 * count);
@@ -7232,7 +7635,7 @@ Paragraph.prototype.shiftFormatsFrom_ = function(startIndex, shift) {
  * attached to this paragraph.
  * @private
  */
-Paragraph.prototype.updateInnerDom_ = function () {
+Paragraph.prototype.updateInnerDom_ = function() {
   if (!this.formats.length) {
     this.setText(this.text);
     return;
@@ -7249,7 +7652,8 @@ Paragraph.prototype.updateInnerDom_ = function () {
       newDom.appendChild(document.createTextNode(text));
     }
     formatClose = this.formats[i].to;
-    var formatEl = document.createElement(this.formats[i].type);
+    var type = /** @type {string} */ (this.formats[i].type);
+    var formatEl = document.createElement(type);
     for (var attr in this.formats[i].attrs) {
       formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
     }
@@ -7277,7 +7681,7 @@ Paragraph.prototype.isPlaceholder = function() {
 
 /**
  * Applies a list of formats to this paragraph.
- * @param  {Array.<Object>} formats A list of format objects to apply.
+ * @param  {Array<./defs.InlineFormattingDef>} formats A list of format objects to apply.
  */
 Paragraph.prototype.applyFormats = function(formats) {
   for (var i = 0; i < formats.length; i++) {
@@ -7288,8 +7692,8 @@ Paragraph.prototype.applyFormats = function(formats) {
 
 /**
  * Returns the currently selected formatter in the range.
- * @param {Selection} selection Selection to get formatter at.
- * @return {Object|null} Currently selected formatter.
+ * @param {./selection} selection Selection to get formatter at.
+ * @return {./defs.InlineFormattingDef|null} Currently selected formatter.
  */
 Paragraph.prototype.getSelectedFormatter = function(selection) {
   for (var i = 0; i < this.formats.length; i++) {
@@ -7308,12 +7712,13 @@ Paragraph.prototype.getSelectedFormatter = function(selection) {
 /**
  * Applies a format to this paragraph. This could add, remove or subtract from
  * the formats on the paragraph.
- * @param  {Object} format A format objects to apply.
+ * @param {./defs.InlineFormattingDef} format A format objects to apply.
+ * @param {boolean=} opt_clear Whether to force clear format.
  */
-Paragraph.prototype.format = function(format, clear) {
+Paragraph.prototype.format = function(format, opt_clear) {
   // See the range already formatted in a similar type.
-  format = Utils.clone(format);
-  var originalExistingFormats = this.getFormattedRanges(format, !clear);
+  format = /** @type {./defs.InlineFormattingDef} */ (Utils.clone(format));
+  var originalExistingFormats = this.getFormattedRanges(format, !opt_clear);
   if (originalExistingFormats && originalExistingFormats.length) {
     var existingFormats = Utils.clone(originalExistingFormats);
     for (var i = 0; i < existingFormats.length; i++) {
@@ -7330,12 +7735,12 @@ Paragraph.prototype.format = function(format, clear) {
         this.formats.splice(index, 1);
       } else if (format.to === existingFormat.to || (
           format.to > existingFormat.to &&
-          format.from < existingFormat.to && clear)) {
+          format.from < existingFormat.to && opt_clear)) {
         existingFormat.to = format.from;
         this.formats[index] = existingFormat;
       } else if (format.from === existingFormat.from || (
           format.from < existingFormat.from &&
-          format.to > existingFormat.from && clear)) {
+          format.to > existingFormat.from && opt_clear)) {
         existingFormat.from = format.to;
         this.formats[index] = existingFormat;
       }
@@ -7347,12 +7752,15 @@ Paragraph.prototype.format = function(format, clear) {
         this.formats.splice(index, 1);
 
         this.addNewFormatting({
-            type: existingFormat.type, from: existingFormat.from, to: format.from });
+          type: existingFormat.type,
+          from: existingFormat.from,
+          to: format.from,
+        });
 
         this.addNewFormatting({
-            type: existingFormat.type, from: format.to, to: existingFormat.to });
+          type: existingFormat.type, from: format.to, to: existingFormat.to});
       } else {
-        if (!clear) {
+        if (!opt_clear) {
           existingFormat.from = Math.min(existingFormat.from, format.from);
           existingFormat.to = Math.max(existingFormat.to, format.to);
           this.formats[index] = existingFormat;
@@ -7367,14 +7775,14 @@ Paragraph.prototype.format = function(format, clear) {
       this.addNewFormatting(format);
     } else {
       // Clear all formats touching the range and apply the new format.
-      if (!clear) {
+      if (!opt_clear) {
         this.format(format, true);
         this.format(format);
       }
     }
   }
 
-  if (!clear) {
+  if (!opt_clear) {
     this.normalizeFormats_();
   }
   this.updateInnerDom_();
@@ -7408,14 +7816,14 @@ Paragraph.prototype.normalizeFormats_ = function() {
  * Returns formats representing the range given.
  * @param  {number} from Where to start.
  * @param  {number} to Where to end.
- * @return {Array.<Object>} List of formats representing that range formats.
+ * @return {Array<./defs.InlineFormattingDef>} List of formats representing that range formats.
  */
 Paragraph.prototype.getFormatsForRange = function(from, to) {
   var finalFormats = [];
   var rangeFormats = this.getFormattedRanges({
     from: from,
     to: to,
-    type: null
+    type: null,
   }, false);
 
   rangeFormats = Utils.clone(rangeFormats);
@@ -7439,9 +7847,9 @@ Paragraph.prototype.getFormatsForRange = function(from, to) {
 
 /**
  * Finds if the paragraph has formatted regions in the format range.
- * @param  {Object} format The format to check in its range.
+ * @param  {./defs.InlineFormattingDef} format The format to check in its range.
  * @param  {boolean=} matchType Whether to check for type match.
- * @return {Array.<Object>} List of formats that overlap the format.
+ * @return {Array<./defs.InlineFormattingDef>} List of formats that overlap the format.
  */
 Paragraph.prototype.getFormattedRanges = function(format, matchType) {
   var matchingFormats = [];
@@ -7485,12 +7893,13 @@ Paragraph.prototype.getFormattedRanges = function(format, matchType) {
   } else {
     return matchingFormats;
   }
+  return matchingFormats;
 };
 
 
 /**
  * Adds and sorts the formatting to be in the correct order.
- * @param {Object} format The new formatter to add.
+ * @param {./defs.InlineFormattingDef} format The new formatter to add.
  */
 Paragraph.prototype.addNewFormatting = function(format) {
   this.formats.push(format);
@@ -7512,7 +7921,7 @@ Paragraph.prototype.addNewFormatting = function(format) {
 
 /**
  * Creates and return a JSON representation of the model.
- * @return {Object} JSON representation of this paragraph.
+ * @return {./defs.ParagraphJsonDef} JSON representation of this paragraph.
  */
 Paragraph.prototype.getJSONModel = function() {
   var paragraph = {
@@ -7520,7 +7929,7 @@ Paragraph.prototype.getJSONModel = function() {
     name: this.name,
     text: this.text,
     placeholderText: this.placeholderText,
-    paragraphType: this.paragraphType
+    paragraphType: this.paragraphType,
   };
 
   if (this.formats && this.formats.length) {
@@ -7533,15 +7942,15 @@ Paragraph.prototype.getJSONModel = function() {
 
 /**
  * Renders a component in an element.
- * @param  {HTMLElement} element Element to render component in.
- * @param  {Object} options Options for rendering.
+ * @param  {!Element} element Element to render component in.
+ * @param  {Object=} opt_options Options for rendering.
  *   options.insertBefore - To render the component before another element.
  *   options.editMode - To render the paragraph in edit mode.
  * @override
  */
-Paragraph.prototype.render = function(element, options) {
+Paragraph.prototype.render = function(element, opt_options) {
   if (!this.isRendered) {
-    Component.prototype.render.call(this, element, options);
+    Component.prototype.render.call(this, element, opt_options);
 
     if (this.editMode) {
       this.dom.setAttribute('contenteditable', true);
@@ -7562,15 +7971,15 @@ Paragraph.prototype.render = function(element, options) {
 /**
  * Returns the operations to execute a deletion of the paragraph component.
  *   For partial deletion pass optFrom and optTo.
- * @param  {number=} optIndexOffset Optional offset to add to the index of the
+ * @param  {number=} opt_indexOffset Optional offset to add to the index of the
  * component for insertion point for the undo.
- * @param {Object=} optCursorAfterOp Where to move cursor to after deletion.
- * @param {boolean=} optKeepEmptyContainer Whether to keep the empty container
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @param {boolean=} opt_keepEmptyContainer Whether to keep the empty container
  * or delete it.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * @return {Array<./defs.OperationDef>} List of operations needed to be executed.
  */
 Paragraph.prototype.getDeleteOps = function(
-    optIndexOffset, optCursorAfterOp, optKeepEmptyContainer) {
+    opt_indexOffset, opt_cursorAfterOp, opt_keepEmptyContainer) {
   // In case of a nested-component inside another. Let the parent
   // handle its deletion (e.g. figcaption inside a figure).
   if (!this.section) {
@@ -7580,26 +7989,26 @@ Paragraph.prototype.getDeleteOps = function(
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: 'Paragraph',
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         text: this.text,
         placeholderText: this.placeholderText,
         paragraphType: this.paragraphType,
-        formats: this.formats
-      }
-    }
+        formats: this.formats,
+      },
+    },
   }];
 
   // If this is the last element in the section/layout/list delete the container
   // as well.
-  if (!optKeepEmptyContainer && this.section.getLength() < 2) {
+  if (!opt_keepEmptyContainer && this.section.getLength() < 2) {
     Utils.arrays.extend(ops, this.section.getDeleteOps());
   }
   return ops;
@@ -7609,11 +8018,11 @@ Paragraph.prototype.getDeleteOps = function(
 /**
  * Returns the operations to execute inserting a paragarph.
  * @param {number} index Index to insert the paragarph at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {./defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the paragraph.
+ * @return {Array<./defs.OperationDef>} Operations for inserting the paragraph.
  */
-Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+Paragraph.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -7626,14 +8035,14 @@ Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
         text: this.text,
         formats: this.formats,
         placeholderText: this.placeholderText,
-        paragraphType: this.paragraphType
-      }
+        paragraphType: this.paragraphType,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -7641,8 +8050,8 @@ Paragraph.prototype.getInsertOps = function (index, optCursorBeforeOp) {
 /**
  * Returns the operations to execute inserting characters in a paragraph.
  * @param {string} chars The characters to insert in a paragraph.
- * @param  {number=} index Index to insert the characters at.
- * @return {Array.<Object>} Operations for inserting characters in paragraph.
+ * @param {number} index Index to insert the characters at.
+ * @return {Array<./defs.OperationDef>} Operations for inserting characters in paragraph.
  */
 Paragraph.prototype.getInsertCharsOps = function(chars, index) {
   return [{
@@ -7651,15 +8060,15 @@ Paragraph.prototype.getInsertCharsOps = function(chars, index) {
       component: this.name,
       cursorOffset: index + chars.length,
       value: chars,
-      index: index
+      index: index,
     },
     undo: {
       op: 'removeChars',
       component: this.name,
       cursorOffset: index,
       index: index,
-      count: chars.length
-    }
+      count: chars.length,
+    },
   }];
 };
 
@@ -7667,26 +8076,26 @@ Paragraph.prototype.getInsertCharsOps = function(chars, index) {
 /**
  * Returns the operations to execute removing characters in a paragraph.
  * @param {string} chars The characters to remove in a paragraph.
- * @param  {number=} index Index to remove the characters starting at.
- * @param {number=} optDirection The directions to remove chars at.
- * @return {Array.<Object>} Operations for removing characters in paragraph.
+ * @param  {number} index Index to remove the characters starting at.
+ * @param {number=} opt_direction The directions to remove chars at.
+ * @return {Array<./defs.OperationDef>} Operations for removing characters in paragraph.
  */
-Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
+Paragraph.prototype.getRemoveCharsOps = function(chars, index, opt_direction) {
   return [{
     do: {
       op: 'removeChars',
       component: this.name,
       cursorOffset: index,
       index: index,
-      count: chars.length
+      count: chars.length,
     },
     undo: {
       op: 'insertChars',
       component: this.name,
-      cursorOffset: index - (optDirection || 0),
+      cursorOffset: index - (opt_direction || 0),
       value: chars,
-      index: index
-    }
+      index: index,
+    },
   }];
 };
 
@@ -7695,7 +8104,7 @@ Paragraph.prototype.getRemoveCharsOps = function(chars, index, optDirection) {
  * Returns operations needed to update a word at index to another.
  * @param  {string} newWord The new word to update to.
  * @param  {number} index Index of the word to update.
- * @return {Array.<Object>} Operations for updating a word.
+ * @return {Array<./defs.OperationDef>} Operations for updating a word.
  */
 Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
   var currentWord = this.getWordAt_(index);
@@ -7714,41 +8123,87 @@ Paragraph.prototype.getUpdateWordOps = function(newWord, index) {
 /**
  * Returns the operations to execute updating a paragraph attributes.
  * @param  {Object} attrs Attributes to update for the paragraph.
- * @param  {number=} optCursorOffset Optional cursor offset.
- * @param  {number=} optSelectRange Optional selecting range.
- * @param  {string=} optValue Optional value to update the component with.
- * @param  {number=} optCursorOffsetBeforeOp Optional cursor offset before
+ * @param  {number=} opt_cursorOffset Optional cursor offset.
+ * @param  {number=} opt_selectRange Optional selecting range.
+ * @param  {string=} opt_value Optional value to update the component with.
+ * @param  {number=} opt_cursorOffsetBeforeOp Optional cursor offset before
  * operation execution (to correctly undo cursor offset).
- * @return {Array.<Object>} Operations for updating a paragraph attributes.
+ * @return {Array<./defs.OperationDef>} Operations for updating a paragraph attributes.
  */
 Paragraph.prototype.getUpdateOps = function(
-    attrs, optCursorOffset, optSelectRange, optValue, optCursorOffsetBeforeOp) {
+    attrs, opt_cursorOffset, opt_selectRange, opt_value,
+    opt_cursorOffsetBeforeOp) {
   return [{
     do: {
       op: 'updateComponent',
       component: this.name,
-      cursorOffset: optCursorOffset,
-      selectRange: optSelectRange,
+      cursorOffset: opt_cursorOffset,
+      selectRange: opt_selectRange,
       formats: attrs.formats,
-      value: optValue
+      value: opt_value,
     },
     undo: {
       op: 'updateComponent',
       component: this.name,
-      cursorOffset: optCursorOffsetBeforeOp,
-      selectRange: optSelectRange,
+      cursorOffset: opt_cursorOffsetBeforeOp,
+      selectRange: opt_selectRange,
       formats: attrs.formats,
-      value: optValue ? this.text : undefined
-    }
+      value: opt_value ? this.text : undefined,
+    },
   }];
 };
+
+
+/**
+ * Generates the operations needed to split a paragraph into two at the selection.
+ * @param {./selection} selection Selection to get formatter at.
+ * @param  {number} opt_indexOffset Offset to add to paragraphs index.
+ * @return {Array<./defs.OperationDef>} List of operations to split the paragraph.
+ */
+Paragraph.prototype.getSplitOpsAt = function(selection, opt_indexOffset) {
+  var ops = [];
+  var currentComponent = selection.getComponentAtEnd();
+  var currentIndex = currentComponent.getIndexInSection();
+  var afterCursorText = currentComponent.text.substring(
+      selection.end.offset, currentComponent.text.length);
+
+  var afterCursorFormats = currentComponent.getFormatsForRange(
+      selection.start.offset, currentComponent.text.length);
+
+  Utils.arrays.extend(ops, currentComponent.getUpdateOps({
+    formats: afterCursorFormats,
+  }, selection.start.offset));
+
+  Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+      afterCursorText, selection.start.offset));
+
+  var afterCursorShiftedFormats = Utils.clone(afterCursorFormats);
+  var formatShift = -selection.start.offset;
+  for (var k = 0; k < afterCursorShiftedFormats.length; k++) {
+    afterCursorShiftedFormats[k].from += formatShift;
+    afterCursorShiftedFormats[k].to += formatShift;
+  }
+
+  var newP = new Paragraph({
+    section: /** @type {./section} */ (selection.getSectionAtEnd()),
+    text: /** @type {string} */ (afterCursorText),
+    formats: /** @type {Array<./defs.FormattingActionDef>} */ (
+        afterCursorShiftedFormats),
+    paragraphType: /** @type {string} */ (currentComponent.paragraphType),
+  });
+  Utils.arrays.extend(
+      ops, newP.getInsertOps(currentIndex + (opt_indexOffset || 0) + 1));
+
+  return ops;
+};
+
 
 
 /**
  * Returns the length of the paragraph content.
  * @return {number} Length of the paragraph content.
  */
-Paragraph.prototype.getLength = function () {
+Paragraph.prototype.getLength = function() {
   return this.text.length;
 };
 
@@ -7757,7 +8212,7 @@ Paragraph.prototype.getLength = function () {
  * Returns the length of the paragraph content.
  * @return {number} Length of the paragraph content.
  */
-Paragraph.prototype.getDomLength = function () {
+Paragraph.prototype.getDomLength = function() {
   return this.dom.innerText.length;
 };
 
@@ -7773,7 +8228,7 @@ Paragraph.prototype.isBlank = function() {
   );
 };
 
-},{"./component":2,"./loader":25,"./utils":33}],28:[function(require,module,exports){
+},{"./component":2,"./loader":30,"./utils":38}],33:[function(require,module,exports){
 'use strict';
 
 var Selection = require('./selection');
@@ -7783,24 +8238,33 @@ var Loader = require('./loader');
 
 
 /**
+ * @typedef {{
+ *   tagName: (string|undefined),
+ *   components: (Array<!./component>|undefined),
+ * }}
+ */
+var SectionParamsDef;
+
+
+/**
  * Section main.
- * @param {Object} optParams Optional params to initialize the Section object.
+ * @param {SectionParamsDef=} opt_params Optional params to initialize the Section object.
  * Default:
  *   {
  *     components: [],
  *     backgorund: {},
  *     name: Utils.getUID()
  *   }
+ * @extends {./component}
+ * @constructor
  */
-var Section = function(optParams) {
+var Section = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {SectionParamsDef} */ (Utils.extend({
     tagName: Section.TAG_NAME,
     // The components that is in this section.
     components: [],
-    // The background of this section.
-    background: {}
-  }, optParams);
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -7808,27 +8272,21 @@ var Section = function(optParams) {
    * Tag to use for the dom element for the section.
    * @type {string}
    */
-  this.tagName = params.tagName;
-
-  /**
-   * Background settings
-   * @type {Object}
-   */
-  this.background = params.background;
+  this.tagName = /** @type {string} */ (params.tagName);
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(this.tagName);
   this.dom.setAttribute('name', this.name);
 
   /**
    * The section components.
-   * @type {Array.<Component>}
+   * @type {Array<Component>}
    */
   this.components = [];
-  for (var i = 0; i < params.components.length; i++) {
+  for (var i = 0; i < (params.components || []).length; i++) {
     this.insertComponentAt(params.components[i], i);
   }
 };
@@ -7838,7 +8296,8 @@ module.exports = Section;
 
 /**
  * Element Tag name when creating the associated DOM element.
- * @type {String}
+ * @type {string}
+ * @const
  */
 Section.TAG_NAME = 'section';
 
@@ -7846,6 +8305,7 @@ Section.TAG_NAME = 'section';
 /**
  * String name for the component class.
  * @type {string}
+ * @const
  */
 Section.CLASS_NAME = 'Section';
 Loader.register(Section.CLASS_NAME, Section);
@@ -7853,10 +8313,10 @@ Loader.register(Section.CLASS_NAME, Section);
 
 /**
  * Create and initiate an Article object from JSON.
- * @param  {Object} json JSON representation of the article.
+ * @param  {./defs.ArticleJsonDef} json JSON representation of the article.
  * @return {Section} Section object representing the JSON data.
  */
-Section.fromJSON = function (json) {
+Section.fromJSON = function(json) {
   var components = [];
   for (var i = 0; i < json.components.length; i++) {
     var className = json.components[i].component;
@@ -7866,7 +8326,7 @@ Section.fromJSON = function (json) {
 
   return new Section({
     name: json.name,
-    components: components
+    components: components,
   });
 };
 
@@ -7882,9 +8342,9 @@ Section.prototype.getComponentClassName = function() {
 
 /**
  * Inserts a component in the section.
- * @param  {Component} component Component to insert.
+ * @param  {./component} component Component to insert.
  * @param  {number} index Where to insert the component.
- * @return {Component} The inserted component.
+ * @return {./component} The inserted component.
  */
 Section.prototype.insertComponentAt = function(component, index) {
   // Update component section reference to point to this section.
@@ -7901,13 +8361,13 @@ Section.prototype.insertComponentAt = function(component, index) {
       // Otherwise insert it before the next component.
       component.render(this.dom, {
         insertBefore: nextComponent.dom,
-        editMode: this.editMode
+        editMode: this.editMode,
       });
     }
     // Set the cursor to the new component.
     Selection.getInstance().setCursor({
       component: component,
-      offset: 0
+      offset: 0,
     });
   }
 
@@ -7918,12 +8378,13 @@ Section.prototype.insertComponentAt = function(component, index) {
 
 /**
  * Removes a component from a section.
- * @param  {Component} component To remove from section.
- * @return {Component} Removed component.
+ * @param  {!./component} component To remove from section.
+ * @return {!./component} Removed component.
  */
 Section.prototype.removeComponent = function(component) {
   var index = this.components.indexOf(component);
-  var removedComponent = this.components.splice(index, 1)[0];
+  var removedComponent = /** @type {./component} */ (
+      this.components.splice(index, 1)[0]);
   try {
     this.dom.removeChild(removedComponent.dom);
   } catch (e) {
@@ -7939,27 +8400,30 @@ Section.prototype.removeComponent = function(component) {
 
 
 /**
- * Returns first component in the section.
- * @return {Component} Returns first component.
+ * Returns first layout in the section.
+ * @return {./layout} Returns first layout.
  */
 Section.prototype.getFirstComponent = function() {
-  return this.components[0];
+  // TODO(mkhatib): This probably needs refactoring and we shouldn't hardcode
+  // the fact that sections need layouts inside of them. Maybe. Think some more
+  // about this.
+  return /** @type {./layout} */ (this.components[0]);
 };
 
 
 /**
- * Returns last component in the section.
- * @return {Component} Returns last component.
+ * Returns last layout in the section.
+ * @return {./layout} Returns last layout.
  */
 Section.prototype.getLastComponent = function() {
-  return this.components[this.components.length - 1];
+  return /** @type {./layout} */ (this.components[this.components.length - 1]);
 };
 
 
 /**
  * Returns components from a section between two components (exclusive).
- * @param  {Component} startComponent Starting component.
- * @param  {Component} endComponent Ending component.
+ * @param  {./component} startComponent Starting component.
+ * @param  {./component} endComponent Ending component.
  */
 Section.prototype.getComponentsBetween = function(
     startComponent, endComponent) {
@@ -8015,7 +8479,7 @@ Section.prototype.getJSONModel = function() {
   var section = {
     name: this.name,
     component: Section.CLASS_NAME,
-    components: []
+    components: [],
   };
 
   for (var i = 0; i < this.components.length; i++) {
@@ -8041,9 +8505,9 @@ Section.prototype.getLength = function() {
 
 /**
  * Called when the module is installed on in an editor.
- * @param  {Editor} editor Editor instance which installed the module.
+ * @param  {./editor} unusedEditor Editor instance which installed the module.
  */
-Section.onInstall = function (editor) {
+Section.onInstall = function(unusedEditor) {
   // jshint unused: false
 };
 
@@ -8051,7 +8515,7 @@ Section.onInstall = function (editor) {
 /**
  * Gets the component with the passed name.
  * @param  {string} name Name of the component.
- * @return {Component}
+ * @return {?Component}
  */
 Section.prototype.getComponentByName = function(name) {
   for (var i = 0; i < this.components.length; i++) {
@@ -8059,297 +8523,293 @@ Section.prototype.getComponentByName = function(name) {
       return this.components[i];
     }
   }
+  return null;
 };
 
-},{"./component":2,"./loader":25,"./selection":29,"./utils":33}],29:[function(require,module,exports){
+},{"./component":2,"./loader":30,"./selection":34,"./utils":38}],34:[function(require,module,exports){
 'use strict';
 
 var Utils = require('./utils');
+var CustomEventTarget = require('./customEventTarget');
 
 
 /**
  * Selection singletone class.
  */
-var Selection = (function() {
+var SelectionSingletonAccessor = (function() {
 
-    var SELECTED_CLASS = 'editor-selected';
+  var SELECTED_CLASS = 'editor-selected';
 
-    /** Singletone Constructor. */
-    var Selection = function() {
+    /**
+     * Singletone Constructor.
+     * @extends {./customEventTarget}
+     * @constructor
+     */
+  var EditorSelection = function() {
 
       /**
        * Selection start point.
-       * @type {Object}
+       * @type {?./defs.SelectionPointDef}
        */
-      this.start = {
-        component: null,
-        offset: null
-      };
+    this.start = null;
 
       /**
        * Selection end point.
-       * @type {Object}
+       * @type {?./defs.SelectionPointDef}
        */
-      this.end = {
-        component: null,
-        offset: null
-      };
-    };
+    this.end = null;
+  };
 
-    Selection.prototype = new Utils.CustomEventTarget();
+  EditorSelection.prototype = new CustomEventTarget();
 
     /**
      * Differet types of selection events.
-     * @type {Enum}
+     * @enum {string}
      */
-    Selection.Events = {
-      SELECTION_CHANGED: 'selection-changed'
-    };
+  EditorSelection.Events = {
+    SELECTION_CHANGED: 'selection-changed',
+  };
 
     /**
      * Resets selection start and end point.
      */
-    Selection.prototype.reset = function() {
-      this.start = {
-        component: null,
-        offset: null
-      };
-
-      this.end = {
-        component: null,
-        offset: null
-      };
-    };
+  EditorSelection.prototype.reset = function() {
+    this.start = null;
+    this.end = null;
+  };
 
     /**
      * Returns the component object at the start of the selection.
-     * @return {Component} The component object at the start of selection.
+     * @return {?./component} The component object at the start of selection.
      */
-    Selection.prototype.getComponentAtStart = function() {
-      if (this.start) {
-        return this.start.component;
-      }
-    };
+  EditorSelection.prototype.getComponentAtStart = function() {
+    if (this.start) {
+      return this.start.component;
+    }
+    return null;
+  };
 
 
     /**
      * Returns the component object at the end of the selection.
-     * @return {Component} The component object at the end of selection.
+     * @return {?./component} The component object at the end of selection.
      */
-    Selection.prototype.getComponentAtEnd = function() {
-      if (this.end) {
-        return this.end.component;
-      }
-    };
+  EditorSelection.prototype.getComponentAtEnd = function() {
+    if (this.end) {
+      return this.end.component;
+    }
+    return null;
+  };
 
 
     /**
      * Returns the list of components in the selection.
-     * @return {Array.<Component>} List of components selected.
+     * @return {Array<./component>} List of components selected.
      */
-    Selection.prototype.getSelectedComponents = function() {
-      var startComponent = this.start.component;
-      var endComponent = this.end.component;
-      var inBetweenComponents = this.getSectionAtStart().getComponentsBetween(
+  EditorSelection.prototype.getSelectedComponents = function() {
+    var startComponent = this.start.component;
+    var endComponent = this.end.component;
+    var inBetweenComponents = this.getSectionAtStart().getComponentsBetween(
           startComponent, endComponent);
-      var selectedComponents = [startComponent];
-      Utils.arrays.extend(selectedComponents, inBetweenComponents);
-      if (startComponent !== endComponent) {
-        selectedComponents.push(endComponent);
-      }
-      return selectedComponents;
-    };
+    var selectedComponents = [startComponent];
+    Utils.arrays.extend(selectedComponents, inBetweenComponents);
+    if (startComponent !== endComponent) {
+      selectedComponents.push(endComponent);
+    }
+    return selectedComponents;
+  };
 
 
     /**
      * Returns the section object at the start of the selection.
-     * @return {Section} The section object at the start of selection.
+     * @return {?./section} The section object at the start of selection.
      */
-    Selection.prototype.getSectionAtStart = function() {
-      if (this.getComponentAtStart()) {
-        return this.getComponentAtStart().section;
-      }
-    };
+  EditorSelection.prototype.getSectionAtStart = function() {
+    if (this.getComponentAtStart()) {
+      return this.getComponentAtStart().section;
+    }
+    return null;
+  };
 
 
     /**
      * Returns the section object at the end of the selection.
-     * @return {Section} The section object at the end of selection.
+     * @return {?./section} The section object at the end of selection.
      */
-    Selection.prototype.getSectionAtEnd = function() {
-      if (this.getComponentAtEnd()) {
-        return this.getComponentAtEnd().section;
-      }
-    };
+  EditorSelection.prototype.getSectionAtEnd = function() {
+    if (this.getComponentAtEnd()) {
+      return this.getComponentAtEnd().section;
+    }
+    return null;
+  };
 
 
     /**
      * Selects a range.
-     * @param {Object} start An object with `component` and `offset`.
-     * @param {Object} end An object with `component` and `offset`.
+     * @param {!./defs.SelectionPointDef} start An object with `component` and `offset`.
+     * @param {!./defs.SelectionPointDef} end An object with `component` and `offset`.
      */
-    Selection.prototype.select = function(start, end) {
+  EditorSelection.prototype.select = function(start, end) {
       // Update start and end points to the cursor value.
-      this.start = {
-        component: start.component,
-        offset: start.offset
-      };
+    this.start = {
+      component: start.component,
+      offset: start.offset,
+    };
 
-      this.end = {
-        component: end.component,
-        offset: end.offset
-      };
+    this.end = {
+      component: end.component,
+      offset: end.offset,
+    };
 
       // Reflect the update to the cursor to the browser selection.
-      this.updateWindowSelectionFromModel();
-    };
+    this.updateWindowSelectionFromModel();
+  };
 
 
     /**
      * Sets the cursor on the selection.
-     * @param {Object} cursor An object with `component` and `offset`.
+     * @param {!./defs.SelectionPointDef} cursor An object with `component` and `offset`.
      */
-    Selection.prototype.setCursor = function(cursor) {
+  EditorSelection.prototype.setCursor = function(cursor) {
       // Remove selected class from the already selected component.
-      if (this.start.component) {
-        this.start.component.dom.classList.remove(SELECTED_CLASS);
-      }
+    if (this.start && this.start.component) {
+      this.start.component.dom.classList.remove(SELECTED_CLASS);
+    }
 
       // Update start and end points to the cursor value.
-      this.start = {
-        component: cursor.component,
-        offset: cursor.offset
-      };
+    this.start = {
+      component: cursor.component,
+      offset: cursor.offset,
+    };
 
-      this.end = {
-        component: cursor.component,
-        offset: cursor.offset
-      };
+    this.end = {
+      component: cursor.component,
+      offset: cursor.offset,
+    };
 
-      if (this.start.component) {
-        this.start.component.dom.classList.add(SELECTED_CLASS);
-      }
+    if (this.start.component) {
+      this.start.component.dom.classList.add(SELECTED_CLASS);
+    }
 
       // Reflect the update to the cursor to the browser selection.
-      this.updateWindowSelectionFromModel();
-    };
+    this.updateWindowSelectionFromModel();
+  };
 
 
     /**
      * Calculates the offset from node starts instead of parents.
-     * @param  {HTMLElement} parent Parent HTML element.
+     * @param  {!Element} parent Parent HTML element.
      * @param  {number} parentOffset Offset relative to the parent element.
-     * @param  {HTMLElement} node Offset to calculate offset relative to.
+     * @param  {!Element} node Offset to calculate offset relative to.
      * @return {number} The offset relative to the node.
      */
-    Selection.prototype.calculateOffsetFromNode = function (
+  EditorSelection.prototype.calculateOffsetFromNode = function(
         parent, parentOffset, node) {
 
-      var offset = 0;
-      for (var i = 0; i < parent.childNodes.length; i++) {
-        var currentNode = parent.childNodes[i];
-        if (currentNode === node) {
-          break;
-        }
-        offset += Utils.getTextFromElement(currentNode).length;
+    var offset = 0;
+    for (var i = 0; i < parent.childNodes.length; i++) {
+      var currentNode = parent.childNodes[i];
+      if (currentNode === node) {
+        break;
       }
-      return offset;
-    };
+      offset += Utils.getTextFromElement(currentNode).length;
+    }
+    return offset;
+  };
 
     /**
      * Updates the window selection from the selection model.
      */
-    Selection.prototype.updateWindowSelectionFromModel = function() {
-      var range = document.createRange();
-      var startNode = this.start.component.dom;
-      var startOffset = this.start.offset;
-      var endNode = this.end.component.dom;
-      var endOffset = this.end.offset;
+  EditorSelection.prototype.updateWindowSelectionFromModel = function() {
+    var range = document.createRange();
+    var startNode = this.start.component.dom;
+    var startOffset = this.start.offset;
+    var endNode = this.end.component.dom;
+    var endOffset = this.end.offset;
 
       // Select the #text node instead of the parent element.
-      if (this.start.offset > 0) {
-        startNode = this.getTextNodeAtOffset_(
-            this.start.component.dom, startOffset);
-        var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
+    if (this.start.offset > 0) {
+      startNode = this.getTextNodeAtOffset_(startNode, startOffset);
+      var startPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
             this.start.component.dom, // Component node
             startNode); // Start node to calculate new offset from
-        startOffset = this.start.offset - startPrevSiblingsOffset;
-      }
+      startOffset = this.start.offset - startPrevSiblingsOffset;
+    }
 
-      try {
-        range.setStart(startNode, startOffset);
-      } catch (e) {
-        if (e.code === e.INDEX_SIZE_ERR) {
-          range.setStart(startNode, startNode.length);
-        }
+    try {
+      range.setStart(startNode, startOffset);
+    } catch (e) {
+      if (e.code === e.INDEX_SIZE_ERR) {
+        range.setStart(startNode, startNode.textContent.length);
       }
+    }
 
-      endNode = this.end.component.dom;
+    endNode = this.end.component.dom;
       // Select the #text node instead of the parent element.
-      if (this.end.offset > 0) {
-        endNode = this.getTextNodeAtOffset_(
+    if (this.end.offset > 0) {
+      endNode = this.getTextNodeAtOffset_(
             this.end.component.dom, endOffset);
-        var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
+      var endPrevSiblingsOffset = this.calculatePreviousSiblingsOffset_(
             this.end.component.dom, // Component node
             endNode); // Start node to calculate new offset from
-        endOffset = this.end.offset - endPrevSiblingsOffset;
+      endOffset = this.end.offset - endPrevSiblingsOffset;
+    }
+    try {
+      range.setEnd(endNode, endOffset);
+    } catch (e) {
+      if (e.code === e.INDEX_SIZE_ERR) {
+        range.setEnd(endNode, endNode.textContent.length);
       }
-      try {
-        range.setEnd(endNode, endOffset);
-      } catch (e) {
-        if (e.code === e.INDEX_SIZE_ERR) {
-          range.setEnd(endNode, endNode.length);
-        }
-      }
-      var selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
+    }
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
 
       // Scroll the selected component into view.
-      if (this.start.component.dom.scrollIntoViewIfNeeded) {
-        this.start.component.dom.scrollIntoViewIfNeeded(false);
-      }
-      var event = new Event(Selection.Events.SELECTION_CHANGED);
-      this.dispatchEvent(event);
-    };
+    if (this.start.component.dom.scrollIntoViewIfNeeded) {
+      this.start.component.dom.scrollIntoViewIfNeeded(false);
+    }
+    var event = new Event(EditorSelection.Events.SELECTION_CHANGED);
+    this.dispatchEvent(event);
+  };
 
 
     /**
      * Returns the text node at the specified offset.
-     * @param  {HTMLElement} parent Parent element.
+     * @param  {Element|Node} parent Parent element.
      * @param  {number} offset Offset relative to parent.
-     * @return {HTMLElement} TextNode at the offset.
+     * @return {!Node} TextNode at the offset.
      */
-    Selection.prototype.getTextNodeAtOffset_ = function(parent, offset) {
-      var prevOffset = 0;
+  EditorSelection.prototype.getTextNodeAtOffset_ = function(parent, offset) {
+    var prevOffset = 0;
 
-      for (var i = 0; i < parent.childNodes.length; i++) {
-        var currentNode = parent.childNodes[i];
+    for (var i = 0; i < parent.childNodes.length; i++) {
+      var currentNode = parent.childNodes[i];
 
-        var currentOffset = Utils.getTextFromElement(currentNode).length;
+      var currentOffset = Utils.getTextFromElement(currentNode).length;
         // In the wanted offset return the found node.
-        if (prevOffset + currentOffset >= offset) {
+      if (prevOffset + currentOffset >= offset) {
           // If current node is not a text node.
           // recurse(currentNode, offset-prevOffset). If it finds a node return it.
-          if (currentNode.nodeName !== '#text') {
-            currentNode = this.getTextNodeAtOffset_(
+        if (currentNode.nodeName !== '#text') {
+          currentNode = this.getTextNodeAtOffset_(
                 currentNode, offset - prevOffset);
-          }
-          return currentNode;
         }
-        prevOffset += currentOffset;
+        return currentNode;
       }
+      prevOffset += currentOffset;
+    }
 
       // Didn't find any node at the offset - return at the offset - 1 until
       // offset is 0.
-      if (offset > 0) {
-        return this.getTextNodeAtOffset_(parent, offset - 1);
-      } else {
-        var textNode = document.createTextNode('');
-        parent.appendChild(textNode);
-        return textNode;
-      }
-    };
+    if (offset > 0) {
+      return this.getTextNodeAtOffset_(parent, offset - 1);
+    } else {
+      var textNode = document.createTextNode('');
+      parent.appendChild(textNode);
+      return textNode;
+    }
+  };
 
 
     /**
@@ -8357,27 +8817,28 @@ var Selection = (function() {
      * paragraph currently selected.
      * @param  {Selection} selection Current selection.
      * @return {number} Start offset relative to parent.
+     * @private
      */
-    Selection.prototype.calculateStartOffsetFromWindowSelection_ = function (
+  EditorSelection.prototype.calculateStartOffsetFromWindowSelection_ = function(
         selection) {
       // offset from node.
-      var startNode = selection.anchorNode;
-      var startNodeOffset = selection.anchorOffset;
-      var parentNode = startNode.parentNode;
+    var startNode = selection.anchorNode;
+    var startNodeOffset = selection.anchorOffset;
+    var parentNode = startNode.parentNode;
 
-      if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
+    if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
           (startNode.nodeName === '#text' &&
-           parentNode.getAttribute('carbon') &&
+           parentNode.getAttribute && parentNode.getAttribute('carbon') &&
            parentNode.childNodes.length < 2)) {
-        return startNodeOffset;
-      }
+      return startNodeOffset;
+    }
 
       // Get the real component.
-      var node = this.getStartComponentFromWindowSelection_(selection);
-      startNodeOffset += this.calculatePreviousSiblingsOffset_(
+    var node = this.getStartComponentFromWindowSelection_(selection);
+    startNodeOffset += this.calculatePreviousSiblingsOffset_(
           node, startNode);
-      return startNodeOffset;
-    };
+    return startNodeOffset;
+  };
 
 
     /**
@@ -8386,250 +8847,342 @@ var Selection = (function() {
      * @param  {Selection} selection Current selection.
      * @return {number} End offset relative to parent.
      */
-    Selection.prototype.calculateEndOffsetFromWindowSelection_ = function (
+  EditorSelection.prototype.calculateEndOffsetFromWindowSelection_ = function(
         selection) {
-      var startNode = selection.focusNode;
-      var startNodeOffset = selection.focusOffset;
-      var parentNode = startNode.parentNode;
-      if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
+    var startNode = selection.focusNode;
+    var startNodeOffset = selection.focusOffset;
+    var parentNode = startNode.parentNode;
+    if ((startNode.getAttribute && startNode.getAttribute('carbon')) ||
           (startNode.nodeName === '#text' &&
-           parentNode.getAttribute('carbon') &&
+           parentNode.getAttribute && parentNode.getAttribute('carbon') &&
            parentNode.childNodes.length < 2)) {
-        return startNodeOffset;
-      }
+      return startNodeOffset;
+    }
 
       // Get the real component.
-      var node = this.getEndComponentFromWindowSelection_(selection);
-      startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
-      return startNodeOffset;
-    };
+    var node = this.getEndComponentFromWindowSelection_(selection);
+    startNodeOffset += this.calculatePreviousSiblingsOffset_(node, startNode);
+    return startNodeOffset;
+  };
 
 
     /**
      * Calculates previous siblings offsets sum until a node.
-     * @param  {HTMLElement} parent Parent component element.
-     * @param  {HTMLElement} node Node to stop at.
+     * @param  {Element|Node} parent Parent component element.
+     * @param  {Element|Node} node Node to stop at.
      * @return {number} Offset of the previous siblings.
      */
-    Selection.prototype.calculatePreviousSiblingsOffset_ = function (
+  EditorSelection.prototype.calculatePreviousSiblingsOffset_ = function(
         parent, node) {
 
-      var offset = 0;
-      for (var i = 0; i < parent.childNodes.length; i++) {
-        var currentNode = parent.childNodes[i];
+    var offset = 0;
+    for (var i = 0; i < parent.childNodes.length; i++) {
+      var currentNode = parent.childNodes[i];
 
         // If found the node break and return the calculated offset.
-        if (currentNode === node) {
-          break;
-        }
+      if (currentNode === node) {
+        break;
+      }
 
         // If not a text node recurse to calculate the offset from there.
-        if (currentNode.nodeName !== '#text') {
-          var currentOffset = (currentNode.textContent ||
+      if (currentNode.nodeName !== '#text') {
+        var currentOffset = (currentNode.textContent ||
               Utils.getTextFromElement(currentNode)).length;
 
-          var childOffset = this.calculatePreviousSiblingsOffset_(
+        var childOffset = this.calculatePreviousSiblingsOffset_(
               currentNode, node);
 
           // If childOffset is smaller than the whole node offset then the node
           // needed is inside the currentNode. Add childOffset to the offset so
           // far and break;
-          if (childOffset < currentOffset) {
-            offset += childOffset;
-            break;
-          }
+        if (childOffset < currentOffset) {
+          offset += childOffset;
+          break;
         }
-
-        offset += Utils.getTextFromElement(currentNode).length;
       }
-      return offset;
-    };
+
+      offset += Utils.getTextFromElement(currentNode).length;
+    }
+    return offset;
+  };
 
 
     /**
      * Retruns the start component from window selection.
      * @param  {Selection} selection Current selection.
-     * @return {HTMLElement} Start component html element.
+     * @return {!Element} Start component html element.
      */
-    Selection.prototype.getStartComponentFromWindowSelection_ = function (
+  EditorSelection.prototype.getStartComponentFromWindowSelection_ = function(
         selection) {
-        var node = selection.anchorNode;
-        while (node &&
+    var node = selection.anchorNode;
+    while (node &&
                (!node.getAttribute ||
                 (!node.getAttribute('carbon') && node.parentNode))) {
-          node = node.parentNode;
-        }
-        return node;
-    };
+      node = node.parentNode;
+    }
+    return /** @type {!Element} */ (node);
+  };
 
 
     /**
      * Retruns the end component from window selection.
      * @param  {Selection} selection Current selection.
-     * @return {HTMLElement} End component html element.
+     * @return {!Element} End component html element.
      */
-    Selection.prototype.getEndComponentFromWindowSelection_ = function (
+  EditorSelection.prototype.getEndComponentFromWindowSelection_ = function(
         selection) {
-        var node = selection.focusNode;
-        while (node &&
+    var node = selection.focusNode;
+    while (node &&
                (!node.getAttribute ||
                 (!node.getAttribute('carbon') && node.parentNode))) {
-          node = node.parentNode;
-        }
-        return node;
-    };
+      node = node.parentNode;
+    }
+    return /** @type {!Element} */ (node);
+  };
 
 
     /**
      * Updates the selection start and end point from a change on the browser
      * selection.
      */
-    Selection.prototype.updateSelectionFromWindow = function() {
-      var selection = window.getSelection();
+  EditorSelection.prototype.updateSelectionFromWindow = function() {
+    var selection = window.getSelection();
 
       // Remove selected class from the already selected component.
-      if (this.start.component) {
-        this.start.component.dom.classList.remove(SELECTED_CLASS);
-      }
+    if (this.start.component) {
+      this.start.component.dom.classList.remove(SELECTED_CLASS);
+    }
 
       // Update the selection start point.
-      var startNode = this.getStartComponentFromWindowSelection_(selection);
-      var startComponent = Utils.getReference(startNode.getAttribute('name'));
-      var startOffset = this.calculateStartOffsetFromWindowSelection_(
+    var startNode = this.getStartComponentFromWindowSelection_(selection);
+    var startComponent = Utils.getReference(startNode.getAttribute('name'));
+    var startOffset = this.calculateStartOffsetFromWindowSelection_(
           selection);
-      if (startComponent.components) {
-        startComponent = startComponent.getFirstComponent();
-        if (startOffset === 0 && startComponent.getPreviousComponent()) {
-          startComponent = startComponent.getPreviousComponent();
-          startOffset = startComponent.getLength();
-        }
+    if (startComponent.components) {
+      startComponent = startComponent.getFirstComponent();
+      if (startOffset === 0 && startComponent.getPreviousComponent()) {
+        startComponent = startComponent.getPreviousComponent();
+        startOffset = startComponent.getLength();
       }
-      var start = {
-        component: startComponent,
-        offset: startOffset
-      };
+    }
+    var start = {
+      component: startComponent,
+      offset: startOffset,
+    };
 
       // Update the selection end point.
-      var endNode = this.getEndComponentFromWindowSelection_(selection);
-      var endComponent = Utils.getReference(endNode.getAttribute('name'));
-      var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
-      if (endComponent.components) {
-        endComponent = endComponent.getFirstComponent();
-        if (endOffset === 0 && endComponent.getPreviousComponent()) {
-          endComponent = endComponent.getPreviousComponent();
-          endOffset = endComponent.getLength();
-        }
+    var endNode = this.getEndComponentFromWindowSelection_(selection);
+    var endComponent = Utils.getReference(endNode.getAttribute('name'));
+    var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
+    if (endComponent.components) {
+      endComponent = endComponent.getFirstComponent();
+      if (endOffset === 0 && endComponent.getPreviousComponent()) {
+        endComponent = endComponent.getPreviousComponent();
+        endOffset = endComponent.getLength();
       }
-      var end = {
-        component: endComponent,
-        offset: endOffset
-      };
+    }
+    var end = {
+      component: endComponent,
+      offset: endOffset,
+    };
 
-      var endIndex = end.component.getIndexInSection();
-      var startIndex = start.component.getIndexInSection();
-      var reversedSelection = ((end.component === start.component &&
+    var endIndex = end.component.getIndexInSection();
+    var startIndex = start.component.getIndexInSection();
+    var reversedSelection = ((end.component === start.component &&
           end.offset < start.offset) || startIndex > endIndex);
 
-      this.end = reversedSelection ? start : end;
-      this.start = reversedSelection ? end : start;
+    this.end = reversedSelection ? start : end;
+    this.start = reversedSelection ? end : start;
 
       // Remove selected class from the already selected component.
-      if (this.start.component === this.end.component) {
-        this.start.component.dom.classList.add(SELECTED_CLASS);
-      }
+    if (this.start.component === this.end.component) {
+      this.start.component.dom.classList.add(SELECTED_CLASS);
+    }
 
-      var event = new Event(Selection.Events.SELECTION_CHANGED);
-      this.dispatchEvent(event);
-    };
+    var event = new Event(EditorSelection.Events.SELECTION_CHANGED);
+    this.dispatchEvent(event);
+  };
 
 
     /**
      * Whether the cursor is at beginning of a component.
      * @return {boolean} True if the cursor at the beginning of component.
      */
-    Selection.prototype.isCursorAtBeginning = function() {
-      return this.start.offset === 0 && this.end.offset === 0;
-    };
+  EditorSelection.prototype.isCursorAtBeginning = function() {
+    return this.start.offset === 0 && this.end.offset === 0;
+  };
 
 
     /**
      * Whether the cursor is at ending of a component.
      * @return {boolean} True if the cursor at the ending of component.
      */
-    Selection.prototype.isCursorAtEnding = function() {
-      return (!(this.start.component.text) ||
+  EditorSelection.prototype.isCursorAtEnding = function() {
+    return (!(this.start.component.text) ||
               this.start.offset === this.start.component.getDomLength() &&
               this.end.offset === this.end.component.getDomLength());
-    };
+  };
 
 
     /**
      * Whether the selection is a range.
      * @return {boolean} True if a range is selected.
      */
-    Selection.prototype.isRange = function() {
-      return (this.start.component != this.end.component ||
+  EditorSelection.prototype.isRange = function() {
+    return (this.start.component != this.end.component ||
               this.start.offset != this.end.offset);
-    };
+  };
 
 
-    /**
-     * Initialize selection listeners to the element.
-     * @param  {HTMLElement} element The html element to listen for selection
-     * changes on.
-     */
-    Selection.prototype.initSelectionListener = function(element) {
+  /**
+   * Generates the operations needed to delete current selection.
+   * @return {Array<./defs.OperationDef>} List of operations to delete selection.
+   */
+  EditorSelection.prototype.getDeleteSelectionOps = function() {
+    var ops = [];
+    var count;
+    var section = this.getSectionAtStart();
+    var inBetweenComponents = [];
+    if (section) {
+      inBetweenComponents = section.getComponentsBetween(
+        this.getComponentAtStart(), this.getComponentAtEnd());
+    }
+
+    for (var i = 0; i < inBetweenComponents.length; i++) {
+      Utils.arrays.extend(ops, inBetweenComponents[i].getDeleteOps(-i));
+    }
+
+    if (this.getComponentAtEnd() !== this.getComponentAtStart()) {
+      var lastComponent = this.getComponentAtEnd();
+      // TODO(mkhatib): This checks if the component is a paragraph,
+      // to avoid require(./paragraph). Find a better way to do this.
+      if (lastComponent.paragraphType || this.end.offset > 0) {
+        Utils.arrays.extend(ops, lastComponent.getDeleteOps(
+            -inBetweenComponents.length));
+      }
+
+      if (lastComponent.paragraphType) {
+        var lastParagraphOldText = lastComponent.text;
+        var lastParagraphText = lastParagraphOldText.substring(
+            this.end.offset, lastParagraphOldText.length);
+
+        var firstParagraphOldText = this.getComponentAtStart().text;
+        var firstParagraphText = firstParagraphOldText.substring(
+            this.start.offset, firstParagraphOldText.length);
+
+        var startParagraph = this.getComponentAtStart();
+        var startParagraphFormats = startParagraph.getFormatsForRange(
+            this.start.offset, firstParagraphOldText.length);
+
+        var selectRange = firstParagraphOldText.length - this.start.offset;
+        if ((startParagraphFormats && startParagraphFormats.length) ||
+            selectRange) {
+          Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+            formats: startParagraphFormats,
+          }, this.start.offset, selectRange));
+        }
+
+        if (firstParagraphText && firstParagraphText.length) {
+          Utils.arrays.extend(ops, startParagraph.getRemoveCharsOps(
+              firstParagraphText, this.start.offset));
+        }
+
+        var lastCount = lastParagraphOldText.length - lastParagraphText.length;
+        Utils.arrays.extend(ops, startParagraph.getInsertCharsOps(
+            lastParagraphText, this.start.offset));
+
+        var endParagraphFormatting = lastComponent.getFormatsForRange(
+            this.end.offset, lastParagraphOldText.length);
+        var formatShift = -lastCount + this.start.offset;
+        for (var k = 0; k < endParagraphFormatting.length; k++) {
+          endParagraphFormatting[k].from += formatShift;
+          endParagraphFormatting[k].to += formatShift;
+        }
+
+        Utils.arrays.extend(ops, startParagraph.getUpdateOps({
+          formats: endParagraphFormatting,
+        }, firstParagraphOldText.length - firstParagraphText.length));
+      }
+    } else {
+      var currentComponent = this.getComponentAtStart();
+      var selectedText = currentComponent.text.substring(
+          this.start.offset, this.end.offset);
+      count = this.end.offset - this.start.offset;
+      var currentComponentFormats = currentComponent.getFormatsForRange(
+          this.start.offset, this.end.offset);
+
+      Utils.arrays.extend(ops, currentComponent.getUpdateOps({
+        formats: currentComponentFormats,
+      }, this.start.offset, count));
+
+      Utils.arrays.extend(ops, currentComponent.getRemoveCharsOps(
+          selectedText, this.start.offset));
+    }
+
+    return ops;
+  };
+
+
+  /**
+   * Initialize selection listeners to the element.
+   * @param  {!Element} element The html element to listen for selection
+   * changes on.
+   */
+  EditorSelection.prototype.initSelectionListener = function(element) {
       // On `mouseup` the mouse could have been clicked to move the cursor.
-      element.addEventListener('mouseup',
+    element.addEventListener('mouseup',
           this.updateSelectionFromWindow.bind(this));
 
       // Clicking a key would probably also cause the cursor to move.
-      element.addEventListener('keyup',
+    element.addEventListener('keyup',
           this.updateSelectionFromWindow.bind(this));
-      element.addEventListener('keydown',
+    element.addEventListener('keydown',
           this.updateSelectionFromWindow.bind(this));
-    };
+  };
 
-    var instance;
-    return {
+  var instance;
+  return {
       /**
        * Returns the single instance of Selection.
-       * @return {Selection} The selection instance.
+       * @return {!EditorSelection} The selection instance.
        */
-      getInstance: function() {
-        if (!instance) {
-          instance = new Selection();
+    getInstance: function() {
+      if (!instance) {
+        instance = new EditorSelection();
           // Hide the constructor so the returned object can't be new'd.
-          instance.constructor = null;
-        }
-        return instance;
-      },
-      Events: Selection.Events
-    };
+        instance.constructor = null;
+      }
+      return instance;
+    },
+    Events: EditorSelection.Events,
+  };
 
 })();
-module.exports = Selection;
+module.exports = SelectionSingletonAccessor;
 
-},{"./utils":33}],30:[function(require,module,exports){
+},{"./customEventTarget":5,"./utils":38}],35:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
+var CustomEventTarget = require('../customEventTarget');
 
 
 /**
  * Button component to add to toolbars.
- * @param {Object=} optParams Optional parameters.
+ * @param {Object=} opt_params Optional parameters.
+ * @extends {../customEventTarget}
+ * @constructor
  */
-var Button = function (optParams) {
+var Button = function(opt_params) {
   var params = Utils.extend({
     label: 'New Button',
     icon: '',
     name: Utils.getUID(),
     fields: [],
-    data: {}
-  }, optParams);
+    data: {},
+  }, opt_params);
 
-  Utils.CustomEventTarget.call(this);
+  CustomEventTarget.call(this);
 
   /**
    * Name of the button.
@@ -8645,20 +9198,20 @@ var Button = function (optParams) {
 
   /**
    * Fields for the button.
-   * @type {Array.<TextField>}
+   * @type {Array<./textField>}
    */
   this.fields = [];
 
   /**
    * Button container element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Button.CONTAINER_TAG_NAME);
   this.dom.className = Button.CONTAINER_CLASS_NAME;
 
   /**
    * Button element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.buttonDom = document.createElement(Button.TAG_NAME);
   this.buttonDom.setAttribute('name', this.name);
@@ -8673,7 +9226,7 @@ var Button = function (optParams) {
 
   /**
    * Fields container element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.fieldsDom = document.createElement(Button.FIELDS_CONTAINER_TAG_NAME);
   this.fieldsDom.className = Button.FIELDS_CONTAINER_CLASS_NAME;
@@ -8681,7 +9234,7 @@ var Button = function (optParams) {
     this.addField(params.fields[i]);
   }
 };
-Button.prototype = Object.create(Utils.CustomEventTarget.prototype);
+Button.prototype = Object.create(CustomEventTarget.prototype);
 module.exports = Button;
 
 
@@ -8736,11 +9289,10 @@ Button.HIDDEN_CLASS_NAME = 'hidden';
 
 /**
  * Handles a click on the button.
- * @param {Function} handler Callback to call when the button is clicked.
  */
 Button.prototype.handleClick = function() {
   var newEvent = new CustomEvent('click', {
-      detail: { target: this }
+    detail: {target: this},
   });
   this.dispatchEvent(newEvent);
 };
@@ -8748,7 +9300,7 @@ Button.prototype.handleClick = function() {
 
 /**
  * Adds a field to the button.
- * @param {TextField} field A field to add to the button.
+ * @param {./textField} field A field to add to the button.
  */
 Button.prototype.addField = function(field) {
   field.parentButton = this;
@@ -8761,7 +9313,7 @@ Button.prototype.addField = function(field) {
  * Sets the button as active.
  * @param {boolean} isActive Whether the button is active or not.
  */
-Button.prototype.setActive = function (isActive) {
+Button.prototype.setActive = function(isActive) {
   this.isActive = isActive;
   if (this.isActive) {
     this.dom.classList.add(Button.ACTIVE_CLASS_NAME);
@@ -8780,7 +9332,7 @@ Button.prototype.setActive = function (isActive) {
  * Sets the button as visible or not.
  * @param {boolean} isVisible Whether the button should be visible or not.
  */
-Button.prototype.setVisible = function (isVisible) {
+Button.prototype.setVisible = function(isVisible) {
   this.isVisible = isVisible;
   if (this.isVisible) {
     this.dom.classList.remove(Button.HIDDEN_CLASS_NAME);
@@ -8795,16 +9347,16 @@ Button.prototype.setVisible = function (isVisible) {
  * @return {boolean} True if the button has extra fields.
  */
 Button.prototype.hasExtraFields = function() {
-  return this.fields && this.fields.length;
+  return !!(this.fields && this.fields.length);
 };
 
 
 /**
  * Returns a field with the specified name.
  * @param {string} name Field name.
- * @return {TextField|null} Returns a field with the name.
+ * @return {./textField|null} Returns a field with the name.
  */
-Button.prototype.getFieldByName = function (name) {
+Button.prototype.getFieldByName = function(name) {
   for (var i = 0; i < this.fields.length; i++) {
     if (this.fields[i].name === name) {
       return this.fields[i];
@@ -8817,32 +9369,35 @@ Button.prototype.getFieldByName = function (name) {
 /**
  * Resets the value of all fields for the button.
  */
-Button.prototype.resetFields = function () {
+Button.prototype.resetFields = function() {
   for (var i = 0; i < this.fields.length; i++) {
     this.fields[i].setValue('');
   }
 };
 
-},{"../utils":33}],31:[function(require,module,exports){
+},{"../customEventTarget":5,"../utils":38}],36:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
+var CustomEventTarget = require('../customEventTarget');
 
 
 /**
  * TextField component to add to toolbars.
- * @param {Object=} optParams Optional params.
+ * @param {Object=} opt_params Optional params.
+ * @extends {../customEventTarget}
+ * @constructor
  */
-var TextField = function (optParams) {
+var TextField = function(opt_params) {
   var params = Utils.extend({
     placeholder: 'New field',
     name: Utils.getUID(),
     required: true,
     data: {},
     value: '',
-  }, optParams);
+  }, opt_params);
 
-  Utils.CustomEventTarget.call(this);
+  CustomEventTarget.call(this);
 
   /**
    * Field name.
@@ -8870,7 +9425,7 @@ var TextField = function (optParams) {
 
   /**
    * The parent button of the field.
-   * @type {Button}
+   * @type {?./button}
    */
   this.parentButton = null;
 
@@ -8882,7 +9437,7 @@ var TextField = function (optParams) {
 
   /**
    * Input field element.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(TextField.TAG_NAME);
   this.dom.setAttribute('placeholder', this.placeholder);
@@ -8890,7 +9445,7 @@ var TextField = function (optParams) {
   this.dom.setAttribute('required', this.required);
   this.dom.addEventListener('keyup', this.handleKeyUp.bind(this));
 };
-TextField.prototype = Object.create(Utils.CustomEventTarget.prototype);
+TextField.prototype = Object.create(CustomEventTarget.prototype);
 module.exports = TextField;
 
 
@@ -8903,12 +9458,12 @@ TextField.TAG_NAME = 'input';
 
 /**
  * Handles key up event and update the value of the field.
- * @param {Function} handler Callback to call when the button is clicked.
+ * @param {!Event} event Keyboard event.
  */
 TextField.prototype.handleKeyUp = function(event) {
   this.value = this.dom.value;
   var newEvent = new CustomEvent('keyup', {
-      detail: { target: this }
+    detail: {target: this},
   });
   newEvent.keyCode = event.keyCode;
   this.dispatchEvent(newEvent);
@@ -8919,30 +9474,32 @@ TextField.prototype.handleKeyUp = function(event) {
  * Sets the value of the field.
  * @param {string} value Value to set to the field.
  */
-TextField.prototype.setValue = function (value) {
+TextField.prototype.setValue = function(value) {
   this.value = value;
   this.dom.value = value;
 };
 
-},{"../utils":33}],32:[function(require,module,exports){
+},{"../customEventTarget":5,"../utils":38}],37:[function(require,module,exports){
 'use strict';
 
 var Utils = require('../utils');
-
+var CustomEventTarget = require('../customEventTarget');
 
 /**
  * Toolbar component for adding controls to the editor.
- * @param {Object=} optParams Optional Params.
+ * @param {Object=} opt_params Optional Params.
+ * @extends {../customEventTarget}
+ * @constructor
  */
-var Toolbar = function (optParams) {
-  Utils.CustomEventTarget.call(this);
+var Toolbar = function(opt_params) {
+  CustomEventTarget.call(this);
 
   var params = Utils.extend({
     buttons: [],
     classNames: [],
     name: Utils.getUID(),
-    rtl: false
-  }, optParams);
+    rtl: false,
+  }, opt_params);
 
   /**
    * Toolbar name.
@@ -8958,7 +9515,7 @@ var Toolbar = function (optParams) {
 
   /**
    * CSS class names to add to the toolbar.
-   * @type {Array.<string>}
+   * @type {Array<string>}
    */
   this.classNames = params.classNames;
   this.classNames.push(Toolbar.TOOLBAR_CLASS_NAME);
@@ -8968,13 +9525,13 @@ var Toolbar = function (optParams) {
 
   /**
    * List of buttons on the toolbar.
-   * @type {Array.<Button>}
+   * @type {Array<!./button>}
    */
   this.buttons = [];
 
   /**
    * The current active button on the toolbar.
-   * @type {Button}
+   * @type {?./button}
    */
   this.activeButton = null;
 
@@ -8986,14 +9543,14 @@ var Toolbar = function (optParams) {
 
   /**
    * Element for rendering the toolbar.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(Toolbar.TAG_NAME);
   this.dom.className = this.classNames.join(' ');
 
   /**
    * Element for containing both the buttons and fields.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.containerDom = document.createElement(
       Toolbar.BUTTONS_CONTAINER_TAG_NAME);
@@ -9003,7 +9560,7 @@ var Toolbar = function (optParams) {
 
   /**
    * Element for containing buttons of the toolbar.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.buttonsContainer = document.createElement(
       Toolbar.BUTTONS_CONTAINER_TAG_NAME);
@@ -9012,7 +9569,7 @@ var Toolbar = function (optParams) {
 
   /**
    * Element for containing fields of the toolbar.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.fieldsContainer = document.createElement(
       Toolbar.FIELDS_CONTAINER_TAG_NAME);
@@ -9025,7 +9582,7 @@ var Toolbar = function (optParams) {
 
   document.body.appendChild(this.dom);
 };
-Toolbar.prototype = Object.create(Utils.CustomEventTarget.prototype);
+Toolbar.prototype = Object.create(CustomEventTarget.prototype);
 module.exports = Toolbar;
 
 
@@ -9108,11 +9665,11 @@ Toolbar.prototype.onDestroy = function() {
 
 /**
  * Adds a button to the toolbar.
- * @param {Button} button The button to add to the toolbar.
+ * @param {!./button} button The button to add to the toolbar.
  */
-Toolbar.prototype.addButton = function (button) {
+Toolbar.prototype.addButton = function(button) {
   var event = new CustomEvent('button-added', {
-    detail: { target: this }
+    detail: {target: this},
   });
 
   this.buttons.push(button);
@@ -9127,7 +9684,7 @@ Toolbar.prototype.addButton = function (button) {
  * Sets the toolbar to be visible or hidden.
  * @param {boolean} isVisible Whether to be visible or not.
  */
-Toolbar.prototype.setVisible = function (isVisible) {
+Toolbar.prototype.setVisible = function(isVisible) {
   this.isVisible = isVisible;
   if (this.isVisible) {
     this.dom.classList.add(Toolbar.VISIBLE_CLASS_NAME);
@@ -9141,9 +9698,9 @@ Toolbar.prototype.setVisible = function (isVisible) {
 
 /**
  * Sets the toolbar position relative to start top position of an element.
- * @param {HTMLElement} element Element to position the toolbar.
+ * @param {!Element} element Element to position the toolbar.
  */
-Toolbar.prototype.setPositionToStartTopOf = function (element) {
+Toolbar.prototype.setPositionToStartTopOf = function(element) {
   var wSelection = window.getSelection();
   var oldRange = wSelection.getRangeAt(0);
   var bounds = element.getBoundingClientRect();
@@ -9152,7 +9709,7 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
   // to include any floating that is happening to the element.
   try {
     var tempSelectionOn = element;
-    if (element.childNodes && element.childNodes[0].length) {
+    if (element.childNodes && element.childNodes.length) {
       tempSelectionOn = element.childNodes[0];
     }
     tempRange.setStart(tempSelectionOn, 0);
@@ -9186,9 +9743,9 @@ Toolbar.prototype.setPositionToStartTopOf = function (element) {
 
 /**
  * Sets the toolbar position relative to start bottom position of an element.
- * @param {HTMLElement} element Element to position the toolbar.
+ * @param {!Element} element Element to position the toolbar.
  */
-Toolbar.prototype.setPositionToStartBottomOf = function (element) {
+Toolbar.prototype.setPositionToStartBottomOf = function(element) {
   var bounds = element.getBoundingClientRect();
 
   // Offset the top bound with the scrolled amount of the page.
@@ -9205,9 +9762,9 @@ Toolbar.prototype.setPositionToStartBottomOf = function (element) {
 
 /**
  * Sets the toolbar position relative to middle top position of an element.
- * @param {HTMLElement} element Element to position the toolbar.
+ * @param {!Element} element Element to position the toolbar.
  */
-Toolbar.prototype.setPositionToTopOf = function (element) {
+Toolbar.prototype.setPositionToTopOf = function(element) {
   var bounds = element.getBoundingClientRect();
   var windowRect = document.body.getBoundingClientRect();
 
@@ -9228,7 +9785,7 @@ Toolbar.prototype.setPositionToTopOf = function (element) {
 /**
  * Sets the toolbar position relative to top of window selection.
  */
-Toolbar.prototype.setPositionTopOfSelection = function () {
+Toolbar.prototype.setPositionTopOfSelection = function() {
   var wSelection = window.getSelection();
   var range = wSelection.getRangeAt(0);
   var bounds = range.getBoundingClientRect();
@@ -9251,9 +9808,9 @@ Toolbar.prototype.setPositionTopOfSelection = function () {
 /**
  * Returns the button with the passed name.
  * @param  {string} name Name of the button to find.
- * @return {Button|null} Button with the specified name.
+ * @return {./button|null} Button with the specified name.
  */
-Toolbar.prototype.getButtonByName = function (name) {
+Toolbar.prototype.getButtonByName = function(name) {
   for (var i = 0; i < this.buttons.length; i++) {
     if (this.buttons[i].name === name) {
       return this.buttons[i];
@@ -9265,9 +9822,9 @@ Toolbar.prototype.getButtonByName = function (name) {
 
 /**
  * Sets the toolbar active button.
- * @param {Button} button To set active.
+ * @param {!./button} button To set active.
  */
-Toolbar.prototype.setActiveButton = function (button) {
+Toolbar.prototype.setActiveButton = function(button) {
   if (this.activeButton) {
     this.activeButton.setActive(false);
     this.activeButton = null;
@@ -9283,20 +9840,20 @@ Toolbar.prototype.setActiveButton = function (button) {
 /**
  * Resets the status and the values of the fields.
  */
-Toolbar.prototype.resetFields = function () {
+Toolbar.prototype.resetFields = function() {
   for (var i = 0; i < this.buttons.length; i++) {
     this.buttons[i].resetFields();
   }
 };
 
-},{"../utils":33}],33:[function(require,module,exports){
+},{"../customEventTarget":5,"../utils":38}],38:[function(require,module,exports){
 'use strict';
 
 
 /**
  * A List of keycodes that types an accent with alt.
  * TODO(mkhatib): Make sure these are all the possible accents.
- * @type {Array<number>}
+ * @type {!Object<string, string>}
  */
 var KEYCODE_ACCENT_MAP = {
   /* ALT + E = ´*/
@@ -9403,19 +9960,19 @@ Utils.GLOBAL_REFERENCE = {};
  *
  *   var newObj = Utils.extend({name: 'mk', age: 14}, {name: 'rasha'});
  *   // newObj is now {name: 'rasha', age: 14}
- * @param  {Object} firstObj
- * @param  {Object} secondObj
+ * @param  {Object} targetObj
+ * @param  {Object=} opt_srcObj
  * @return {Object} Combined new object.
  */
-Utils.extend = function(firstObj, secondObj) {
+Utils.extend = function(targetObj, opt_srcObj) {
   var tmpObj = {}, attr;
 
-  for (attr in firstObj) {
-    tmpObj[attr] = firstObj[attr];
+  for (attr in targetObj) {
+    tmpObj[attr] = targetObj[attr];
   }
 
-  for (attr in secondObj) {
-    tmpObj[attr] = secondObj[attr];
+  for (attr in opt_srcObj) {
+    tmpObj[attr] = opt_srcObj[attr];
   }
 
   return tmpObj;
@@ -9423,17 +9980,27 @@ Utils.extend = function(firstObj, secondObj) {
 
 
 /**
+ * Checks whether the object is an array.
+ * @param {*} obj
+ * @return {boolean}
+ */
+Utils.isArray = function(obj) {
+  return Object.prototype.toString.call(obj) == '[object Array]';
+};
+
+
+/**
  * Checks if the object is empty.
- * @param  {Object} obj
+ * @param  {Object|Array} obj
  * @return {boolean}
  */
 Utils.isEmpty = function(obj) {
-  if (obj === null || obj.length === 0) {
+  if (obj === null || obj === undefined) {
     return true;
   }
 
-  if (obj.length > 0) {
-    return false;
+  if (Utils.isArray(obj)) {
+    return /** @type {!Array} */ (obj).length !== 0;
   }
 
   for (var key in obj) {
@@ -9458,7 +10025,7 @@ Utils.isEmpty = function(obj) {
  * @return {Array} firstArray with second array elements added to it.
  */
 Utils.arrays.extend = function(firstArray, secondArray) {
-  for (var i in secondArray) {
+  for (var i = 0; i < secondArray.length; i++) {
     firstArray.push(secondArray[i]);
   }
 
@@ -9487,13 +10054,13 @@ Utils.getReference = function(key) {
 
 /**
  * Generates a random alphanumeric ID.
- * @param  {number} optLength Length of the ID to generate.
+ * @param  {number=} opt_length Length of the ID to generate.
  * @return {string} Random alphanumeric ID.
  */
-Utils.getUID = function(optLength) {
-  var length = optLength || 8;
+Utils.getUID = function(opt_length) {
+  var length = opt_length || 8;
   var chars = [];
-  var sourceSet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  var sourceSet = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
   for (var i = 0; i < length; i++) {
     chars.push(sourceSet.charAt(Math.floor(Math.random() * sourceSet.length)));
@@ -9506,12 +10073,17 @@ Utils.getUID = function(optLength) {
 /**
  * Returns a function, that, as long as it continues to be invoked, will not
  * be triggered. The function will be called after it stops being called for
- * N milliseconds. If `immediate` is passed, trigger the function on the
+ * N milliseconds. If `opt_immediate` is passed, trigger the function on the
  * leading edge, instead of the trailing.
  *
  * Ref: http://stackoverflow.com/a/24004942/646979
+ *
+ * @param {!function()} func
+ * @param {number} wait
+ * @param {boolean=} opt_immediate
+ * @return {!function()}
  */
-Utils.debounce = function(func, wait, immediate) {
+Utils.debounce = function(func, wait, opt_immediate) {
   // The returned function will be able to reference this due to closure.
   // Each call to the returned function will share this common timer.
   var timeout;
@@ -9520,11 +10092,11 @@ Utils.debounce = function(func, wait, immediate) {
   return function() {
     // Reference the context and args for the setTimeout function.
     var context = this,
-        args = arguments;
+      args = arguments;
 
-    // Should the function be called now? If immediate is true
+    // Should the function be called now? If opt_immediate is true
     // and not already in a timeout then the answer is: Yes.
-    var callNow = immediate && !timeout;
+    var callNow = opt_immediate && !timeout;
 
     // This is the basic debounce behaviour where you can call this
     // function several times, but it will only execute once
@@ -9535,15 +10107,15 @@ Utils.debounce = function(func, wait, immediate) {
     // Set the new timeout.
     timeout = setTimeout(function() {
       // Inside the timeout function, clear the timeout variable
-      // which will let the next execution run when in 'immediate' mode.
+      // which will let the next execution run when in 'opt_immediate' mode.
       timeout = null;
 
-      // Check if the function already ran with the immediate flag.
-      if (!immediate) {
+      // Check if the function already ran with the opt_immediate flag.
+      if (!opt_immediate) {
        // Call the original function with apply
        // apply lets you define the 'this' object as well as the arguments.
        // (both captured before setTimeout).
-       func.apply(context, args);
+        func.apply(context, args);
       }
     }, wait);
 
@@ -9570,7 +10142,7 @@ Utils.willTypeOrMoveCursor = function(event) {
     // Funcion Keys F1-F12
     112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
     // Locks
-    144, 145
+    144, 145,
   ];
 
   return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
@@ -9595,7 +10167,7 @@ Utils.willTypeCharacter = function(event) {
     // Funcion Keys F1-F12
     112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
     // Locks
-    144, 145
+    144, 145,
   ];
 
   return (NO_CHANGE_KEYS.indexOf(event.keyCode) === -1 &&
@@ -9664,7 +10236,7 @@ Utils.getAccent = function(event) {
  *   For example: getAccentedCharacter('`', 'a') => á
  * @param  {string} accent
  * @param  {string} char
- * @return {string}
+ * @return {?string}
  */
 Utils.getAccentedCharacter = function(accent, char) {
   try {
@@ -9679,7 +10251,7 @@ Utils.getAccentedCharacter = function(accent, char) {
  * Returns true if the user is on a mobile device.
  * @return {boolean}
  */
-Utils.isMobile = function () {
+Utils.isMobile = function() {
   return !!(/Mobi|iPhone|iPod|iPad|BlackBerry|Android/i.test(
                 navigator.userAgent));
 };
@@ -9689,7 +10261,7 @@ Utils.isMobile = function () {
  * Returns true if user is on firefox.
  * @return {boolean}
  */
-Utils.isFirefox = function () {
+Utils.isFirefox = function() {
   return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 };
 
@@ -9698,17 +10270,17 @@ Utils.isFirefox = function () {
  * Returns true if the user is on a mac device.
  * @return {boolean}
  */
-Utils.isMac = function () {
+Utils.isMac = function() {
   return !!(/Mac/i.test(navigator.platform));
 };
 
 
 /**
  * Returns the text property name of the element.
- * @param  {HTMLElement} element.
+ * @param  {!Element|!Node} element
  * @return {string}
  */
-Utils.getTextProperty = function (element) {
+Utils.getTextProperty = function(element) {
   var textProp;
   if (element.nodeType === Node.TEXT_NODE) {
     textProp = 'data';
@@ -9723,7 +10295,7 @@ Utils.getTextProperty = function (element) {
 
 /**
  * Sets the text property for the element.
- * @param {HTMLElement} element.
+ * @param {!Element|!Node} element
  * @param {string} value Value to set.
  */
 Utils.setTextForElement = function(element, value) {
@@ -9733,7 +10305,7 @@ Utils.setTextForElement = function(element, value) {
 
 /**
  * Gets the text inside the element.
- * @param  {HTMLElement} element
+ * @param  {!Element|!Node} element
  * @return {string}
  */
 Utils.getTextFromElement = function(element) {
@@ -9821,7 +10393,7 @@ Utils.ajax = function(url, callback, optJsonpOnFail) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (xhttp.readyState == 4) {
-      if ( xhttp.status == 200 ) {
+      if (xhttp.status == 200) {
         var json = JSON.parse(xhttp.responseText);
         callback(json);
       } else if (optJsonpOnFail) {
@@ -9836,11 +10408,11 @@ Utils.ajax = function(url, callback, optJsonpOnFail) {
 
 /**
  * Listens to a message event.
- * @param {HTMLElement} iframe to listen to.
+ * @param {HTMLIFrameElement} iframe to listen to.
  * @param {string} type Message name to listen to.
- * @param {Function} callback.
+ * @param {Function} callback
  */
-Utils.listen = function (iframe, type, callback) {
+Utils.listen = function(iframe, type, callback) {
   window.addEventListener('message', function(event) {
     if (event.source != iframe.contentWindow) {
       return;
@@ -9851,93 +10423,20 @@ Utils.listen = function (iframe, type, callback) {
     }
 
     callback(event.data);
-  }.bind(this));
+  });
 };
 
 
 /**
- * Custom Event Target base class to allow listening and firing events.
+ * Returns a string of the size with the unit.
+ * @param {string|number} size
+ * @param {string=} opt_unit
+ * @return {string}
  */
-Utils.CustomEventTarget = function() {
-  this._init();
-};
-
-
-/**
- * Initializes the custom event target.
- * @private
- */
-Utils.CustomEventTarget.prototype._init = function() {
-  this._registrations = {};
-};
-
-
-/**
- * Returns the listeners for the specific type.
- * @param  {string} type Event name.
- * @param  {boolean} useCapture
- * @return {Array.<function>} List of listeners.
- * @private
- */
-Utils.CustomEventTarget.prototype._getListeners = function(type, useCapture) {
-  var capType = (useCapture ? '1' : '0')+type;
-  if (!(capType in this._registrations)) {
-    this._registrations[capType] = [];
-  }
-  return this._registrations[capType];
-};
-
-
-/**
- * Adds event listener for object.
- * @param  {string} type Event name.
- * @param  {Function} listener Callback function.
- * @param  {boolean} useCapture
- */
-Utils.CustomEventTarget.prototype.addEventListener = function(
-    type, listener, useCapture) {
-  var listeners = this._getListeners(type, useCapture);
-  var ix = listeners.indexOf(listener);
-  if (ix === -1) {
-    listeners.push(listener);
-  }
-};
-
-
-/**
- * Removes event listener for object.
- * @param  {string} type Event name.
- * @param  {Function} listener Callback function.
- * @param  {boolean} useCapture
- */
-Utils.CustomEventTarget.prototype.removeEventListener = function(
-    type, listener, useCapture) {
-    var listeners = this._getListeners(type, useCapture);
-    var ix = listeners.indexOf(listener);
-    if (ix !== -1) {
-      listeners.splice(ix, 1);
-    }
-};
-
-
-/**
- * Removes all event listeners for object.
- */
-Utils.CustomEventTarget.prototype.clearEventListeners = function() {
-  this._registrations = {};
-};
-
-/**
- * Dispatches the event
- * @param  {Event} event Event object.
- * @return {boolean} Whether the event has not been defaultPrevented.
- */
-Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
-  var listeners = this._getListeners(event.type, false).slice();
-  for (var i= 0; i<listeners.length; i++) {
-    listeners[i].call(this, event);
-  }
-  return !event.defaultPrevented;
+Utils.getSizeWithUnit = function(size, opt_unit) {
+  var unit = opt_unit || 'px';
+  var result = String(parseFloat(size));
+  return result + unit;
 };
 
 
@@ -9947,26 +10446,26 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
  *
  * REF: http://goo.gl/VJHtSQ
  */
-(function(){
+(function() {
   var attachEvent = document.attachEvent;
   var isIE = navigator.userAgent.match(/Trident/);
 
-  var setTimeoutWrapper = function (fn) {
+  var setTimeoutWrapper = function(fn) {
     return window.setTimeout(fn, 20);
   };
 
-  var requestFrame = (function(){
+  var requestFrame = (function() {
     var raf = (
         window.requestAnimationFrame ||
         window.mozRequestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         setTimeoutWrapper);
-    return function (fn) {
+    return function(fn) {
       return raf(fn);
     };
   })();
 
-  var cancelFrame = (function(){
+  var cancelFrame = (function() {
     var cancel = (
         window.cancelAnimationFrame ||
         window.mozCancelAnimationFrame ||
@@ -9977,14 +10476,14 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
     };
   })();
 
-  function resizeListener(e){
+  function resizeListener(e) {
     var win = e.target || e.srcElement;
     if (win.__resizeRAF__) {
       cancelFrame(win.__resizeRAF__);
     }
-    win.__resizeRAF__ = requestFrame(function(){
+    win.__resizeRAF__ = requestFrame(function() {
       var trigger = win.__resizeTrigger__;
-      trigger.__resizeListeners__.forEach(function(fn){
+      trigger.__resizeListeners__.forEach(function(fn) {
         fn.call(trigger, e);
       });
     });
@@ -10002,7 +10501,7 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
    * @param {Element} element Element to listen to.
    * @param {Function} fn Callback function.
    */
-  Utils.addResizeListener = function(element, fn){
+  Utils.addResizeListener = function(element, fn) {
     if (!element.__resizeListeners__) {
       element.__resizeListeners__ = [];
       if (attachEvent) {
@@ -10039,12 +10538,12 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
    * @param  {Element} element Element to remove resize event from.
    * @param  {Function} fn Callback function.
    */
-  Utils.removeResizeListener = function(element, fn){
+  Utils.removeResizeListener = function(element, fn) {
     element.__resizeListeners__.splice(
         element.__resizeListeners__.indexOf(fn), 1);
 
     if (!element.__resizeListeners__.length) {
-      if (attachEvent){
+      if (attachEvent) {
         element.detachEvent('onresize', resizeListener);
       } else {
         var contentDocument = element.__resizeTrigger__.contentDocument;
@@ -10058,5 +10557,51 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
 
 })();
 
-},{}]},{},[26])(26)
+},{}],39:[function(require,module,exports){
+'use strict';
+
+var INLINE_ELEMENTS = [
+  'B', 'BR', 'BIG', 'I', 'SMALL', 'ABBR', 'ACRONYM',
+  'CITE', 'EM', 'STRONG', 'A', 'BDO', 'STRIKE', 'S', 'SPAN', 'SUB', 'SUP',
+  '#text', 'META'];
+
+
+function hasOnlyInlineChildNodes(elem) {
+  var children = elem.childNodes;
+  for (var i = 0; i < children.length ; i++) {
+    if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
+      return false;
+    } else if (children[i].childNodes) {
+      var subChilds = children[i].childNodes;
+      for (var k = 0; k < subChilds.length; k++) {
+        if (!isInlineElements(subChilds) ||
+            !hasOnlyInlineChildNodes(subChilds[k])) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function isInlineElements(children) {
+  var metaNodes = 0;
+  for (var i = 0; i < children.length; i++) {
+    if (children[i] && children[i].nodeName.toLowerCase() === 'meta') {
+      metaNodes++;
+    } else if (INLINE_ELEMENTS.indexOf(children[i].nodeName) === -1) {
+      return false;
+    }
+  }
+
+  if (children.length - metaNodes < 2) {
+    return true;
+  }
+}
+
+module.exports.hasOnlyInlineChildNodes = hasOnlyInlineChildNodes;
+module.exports.isInlineElements = isInlineElements;
+module.exports.INLINE_ELEMENTS = INLINE_ELEMENTS;
+
+},{}]},{},[31])(31)
 });

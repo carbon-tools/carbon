@@ -4,7 +4,7 @@
 /**
  * A List of keycodes that types an accent with alt.
  * TODO(mkhatib): Make sure these are all the possible accents.
- * @type {Array<number>}
+ * @type {!Object<string, string>}
  */
 var KEYCODE_ACCENT_MAP = {
   /* ALT + E = ´*/
@@ -111,19 +111,19 @@ Utils.GLOBAL_REFERENCE = {};
  *
  *   var newObj = Utils.extend({name: 'mk', age: 14}, {name: 'rasha'});
  *   // newObj is now {name: 'rasha', age: 14}
- * @param  {Object} firstObj
- * @param  {Object} secondObj
+ * @param  {Object} targetObj
+ * @param  {Object=} opt_srcObj
  * @return {Object} Combined new object.
  */
-Utils.extend = function(firstObj, secondObj) {
+Utils.extend = function(targetObj, opt_srcObj) {
   var tmpObj = {}, attr;
 
-  for (attr in firstObj) {
-    tmpObj[attr] = firstObj[attr];
+  for (attr in targetObj) {
+    tmpObj[attr] = targetObj[attr];
   }
 
-  for (attr in secondObj) {
-    tmpObj[attr] = secondObj[attr];
+  for (attr in opt_srcObj) {
+    tmpObj[attr] = opt_srcObj[attr];
   }
 
   return tmpObj;
@@ -131,17 +131,27 @@ Utils.extend = function(firstObj, secondObj) {
 
 
 /**
+ * Checks whether the object is an array.
+ * @param {*} obj
+ * @return {boolean}
+ */
+Utils.isArray = function(obj) {
+  return Object.prototype.toString.call(obj) == '[object Array]';
+};
+
+
+/**
  * Checks if the object is empty.
- * @param  {Object} obj
+ * @param  {Object|Array} obj
  * @return {boolean}
  */
 Utils.isEmpty = function(obj) {
-  if (obj === null || obj.length === 0) {
+  if (obj === null || obj === undefined) {
     return true;
   }
 
-  if (obj.length > 0) {
-    return false;
+  if (Utils.isArray(obj)) {
+    return /** @type {!Array} */ (obj).length !== 0;
   }
 
   for (var key in obj) {
@@ -166,7 +176,7 @@ Utils.isEmpty = function(obj) {
  * @return {Array} firstArray with second array elements added to it.
  */
 Utils.arrays.extend = function(firstArray, secondArray) {
-  for (var i in secondArray) {
+  for (var i = 0; i < secondArray.length; i++) {
     firstArray.push(secondArray[i]);
   }
 
@@ -195,13 +205,13 @@ Utils.getReference = function(key) {
 
 /**
  * Generates a random alphanumeric ID.
- * @param  {number} optLength Length of the ID to generate.
+ * @param  {number=} opt_length Length of the ID to generate.
  * @return {string} Random alphanumeric ID.
  */
-Utils.getUID = function(optLength) {
-  var length = optLength || 8;
+Utils.getUID = function(opt_length) {
+  var length = opt_length || 8;
   var chars = [];
-  var sourceSet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  var sourceSet = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
   for (var i = 0; i < length; i++) {
     chars.push(sourceSet.charAt(Math.floor(Math.random() * sourceSet.length)));
@@ -214,12 +224,17 @@ Utils.getUID = function(optLength) {
 /**
  * Returns a function, that, as long as it continues to be invoked, will not
  * be triggered. The function will be called after it stops being called for
- * N milliseconds. If `immediate` is passed, trigger the function on the
+ * N milliseconds. If `opt_immediate` is passed, trigger the function on the
  * leading edge, instead of the trailing.
  *
  * Ref: http://stackoverflow.com/a/24004942/646979
+ *
+ * @param {!function()} func
+ * @param {number} wait
+ * @param {boolean=} opt_immediate
+ * @return {!function()}
  */
-Utils.debounce = function(func, wait, immediate) {
+Utils.debounce = function(func, wait, opt_immediate) {
   // The returned function will be able to reference this due to closure.
   // Each call to the returned function will share this common timer.
   var timeout;
@@ -228,11 +243,11 @@ Utils.debounce = function(func, wait, immediate) {
   return function() {
     // Reference the context and args for the setTimeout function.
     var context = this,
-        args = arguments;
+      args = arguments;
 
-    // Should the function be called now? If immediate is true
+    // Should the function be called now? If opt_immediate is true
     // and not already in a timeout then the answer is: Yes.
-    var callNow = immediate && !timeout;
+    var callNow = opt_immediate && !timeout;
 
     // This is the basic debounce behaviour where you can call this
     // function several times, but it will only execute once
@@ -243,15 +258,15 @@ Utils.debounce = function(func, wait, immediate) {
     // Set the new timeout.
     timeout = setTimeout(function() {
       // Inside the timeout function, clear the timeout variable
-      // which will let the next execution run when in 'immediate' mode.
+      // which will let the next execution run when in 'opt_immediate' mode.
       timeout = null;
 
-      // Check if the function already ran with the immediate flag.
-      if (!immediate) {
+      // Check if the function already ran with the opt_immediate flag.
+      if (!opt_immediate) {
        // Call the original function with apply
        // apply lets you define the 'this' object as well as the arguments.
        // (both captured before setTimeout).
-       func.apply(context, args);
+        func.apply(context, args);
       }
     }, wait);
 
@@ -278,7 +293,7 @@ Utils.willTypeOrMoveCursor = function(event) {
     // Funcion Keys F1-F12
     112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
     // Locks
-    144, 145
+    144, 145,
   ];
 
   return NO_CHANGE_KEYS.indexOf(event.keyCode) === -1;
@@ -303,7 +318,7 @@ Utils.willTypeCharacter = function(event) {
     // Funcion Keys F1-F12
     112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
     // Locks
-    144, 145
+    144, 145,
   ];
 
   return (NO_CHANGE_KEYS.indexOf(event.keyCode) === -1 &&
@@ -372,7 +387,7 @@ Utils.getAccent = function(event) {
  *   For example: getAccentedCharacter('`', 'a') => á
  * @param  {string} accent
  * @param  {string} char
- * @return {string}
+ * @return {?string}
  */
 Utils.getAccentedCharacter = function(accent, char) {
   try {
@@ -387,7 +402,7 @@ Utils.getAccentedCharacter = function(accent, char) {
  * Returns true if the user is on a mobile device.
  * @return {boolean}
  */
-Utils.isMobile = function () {
+Utils.isMobile = function() {
   return !!(/Mobi|iPhone|iPod|iPad|BlackBerry|Android/i.test(
                 navigator.userAgent));
 };
@@ -397,7 +412,7 @@ Utils.isMobile = function () {
  * Returns true if user is on firefox.
  * @return {boolean}
  */
-Utils.isFirefox = function () {
+Utils.isFirefox = function() {
   return navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 };
 
@@ -406,17 +421,17 @@ Utils.isFirefox = function () {
  * Returns true if the user is on a mac device.
  * @return {boolean}
  */
-Utils.isMac = function () {
+Utils.isMac = function() {
   return !!(/Mac/i.test(navigator.platform));
 };
 
 
 /**
  * Returns the text property name of the element.
- * @param  {HTMLElement} element.
+ * @param  {!Element|!Node} element
  * @return {string}
  */
-Utils.getTextProperty = function (element) {
+Utils.getTextProperty = function(element) {
   var textProp;
   if (element.nodeType === Node.TEXT_NODE) {
     textProp = 'data';
@@ -431,7 +446,7 @@ Utils.getTextProperty = function (element) {
 
 /**
  * Sets the text property for the element.
- * @param {HTMLElement} element.
+ * @param {!Element|!Node} element
  * @param {string} value Value to set.
  */
 Utils.setTextForElement = function(element, value) {
@@ -441,7 +456,7 @@ Utils.setTextForElement = function(element, value) {
 
 /**
  * Gets the text inside the element.
- * @param  {HTMLElement} element
+ * @param  {!Element|!Node} element
  * @return {string}
  */
 Utils.getTextFromElement = function(element) {
@@ -529,7 +544,7 @@ Utils.ajax = function(url, callback, optJsonpOnFail) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (xhttp.readyState == 4) {
-      if ( xhttp.status == 200 ) {
+      if (xhttp.status == 200) {
         var json = JSON.parse(xhttp.responseText);
         callback(json);
       } else if (optJsonpOnFail) {
@@ -544,11 +559,11 @@ Utils.ajax = function(url, callback, optJsonpOnFail) {
 
 /**
  * Listens to a message event.
- * @param {HTMLElement} iframe to listen to.
+ * @param {HTMLIFrameElement} iframe to listen to.
  * @param {string} type Message name to listen to.
- * @param {Function} callback.
+ * @param {Function} callback
  */
-Utils.listen = function (iframe, type, callback) {
+Utils.listen = function(iframe, type, callback) {
   window.addEventListener('message', function(event) {
     if (event.source != iframe.contentWindow) {
       return;
@@ -559,93 +574,20 @@ Utils.listen = function (iframe, type, callback) {
     }
 
     callback(event.data);
-  }.bind(this));
+  });
 };
 
 
 /**
- * Custom Event Target base class to allow listening and firing events.
+ * Returns a string of the size with the unit.
+ * @param {string|number} size
+ * @param {string=} opt_unit
+ * @return {string}
  */
-Utils.CustomEventTarget = function() {
-  this._init();
-};
-
-
-/**
- * Initializes the custom event target.
- * @private
- */
-Utils.CustomEventTarget.prototype._init = function() {
-  this._registrations = {};
-};
-
-
-/**
- * Returns the listeners for the specific type.
- * @param  {string} type Event name.
- * @param  {boolean} useCapture
- * @return {Array.<function>} List of listeners.
- * @private
- */
-Utils.CustomEventTarget.prototype._getListeners = function(type, useCapture) {
-  var capType = (useCapture ? '1' : '0')+type;
-  if (!(capType in this._registrations)) {
-    this._registrations[capType] = [];
-  }
-  return this._registrations[capType];
-};
-
-
-/**
- * Adds event listener for object.
- * @param  {string} type Event name.
- * @param  {Function} listener Callback function.
- * @param  {boolean} useCapture
- */
-Utils.CustomEventTarget.prototype.addEventListener = function(
-    type, listener, useCapture) {
-  var listeners = this._getListeners(type, useCapture);
-  var ix = listeners.indexOf(listener);
-  if (ix === -1) {
-    listeners.push(listener);
-  }
-};
-
-
-/**
- * Removes event listener for object.
- * @param  {string} type Event name.
- * @param  {Function} listener Callback function.
- * @param  {boolean} useCapture
- */
-Utils.CustomEventTarget.prototype.removeEventListener = function(
-    type, listener, useCapture) {
-    var listeners = this._getListeners(type, useCapture);
-    var ix = listeners.indexOf(listener);
-    if (ix !== -1) {
-      listeners.splice(ix, 1);
-    }
-};
-
-
-/**
- * Removes all event listeners for object.
- */
-Utils.CustomEventTarget.prototype.clearEventListeners = function() {
-  this._registrations = {};
-};
-
-/**
- * Dispatches the event
- * @param  {Event} event Event object.
- * @return {boolean} Whether the event has not been defaultPrevented.
- */
-Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
-  var listeners = this._getListeners(event.type, false).slice();
-  for (var i= 0; i<listeners.length; i++) {
-    listeners[i].call(this, event);
-  }
-  return !event.defaultPrevented;
+Utils.getSizeWithUnit = function(size, opt_unit) {
+  var unit = opt_unit || 'px';
+  var result = String(parseFloat(size));
+  return result + unit;
 };
 
 
@@ -655,26 +597,26 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
  *
  * REF: http://goo.gl/VJHtSQ
  */
-(function(){
+(function() {
   var attachEvent = document.attachEvent;
   var isIE = navigator.userAgent.match(/Trident/);
 
-  var setTimeoutWrapper = function (fn) {
+  var setTimeoutWrapper = function(fn) {
     return window.setTimeout(fn, 20);
   };
 
-  var requestFrame = (function(){
+  var requestFrame = (function() {
     var raf = (
         window.requestAnimationFrame ||
         window.mozRequestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         setTimeoutWrapper);
-    return function (fn) {
+    return function(fn) {
       return raf(fn);
     };
   })();
 
-  var cancelFrame = (function(){
+  var cancelFrame = (function() {
     var cancel = (
         window.cancelAnimationFrame ||
         window.mozCancelAnimationFrame ||
@@ -685,14 +627,14 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
     };
   })();
 
-  function resizeListener(e){
+  function resizeListener(e) {
     var win = e.target || e.srcElement;
     if (win.__resizeRAF__) {
       cancelFrame(win.__resizeRAF__);
     }
-    win.__resizeRAF__ = requestFrame(function(){
+    win.__resizeRAF__ = requestFrame(function() {
       var trigger = win.__resizeTrigger__;
-      trigger.__resizeListeners__.forEach(function(fn){
+      trigger.__resizeListeners__.forEach(function(fn) {
         fn.call(trigger, e);
       });
     });
@@ -710,7 +652,7 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
    * @param {Element} element Element to listen to.
    * @param {Function} fn Callback function.
    */
-  Utils.addResizeListener = function(element, fn){
+  Utils.addResizeListener = function(element, fn) {
     if (!element.__resizeListeners__) {
       element.__resizeListeners__ = [];
       if (attachEvent) {
@@ -747,12 +689,12 @@ Utils.CustomEventTarget.prototype.dispatchEvent = function(event) {
    * @param  {Element} element Element to remove resize event from.
    * @param  {Function} fn Callback function.
    */
-  Utils.removeResizeListener = function(element, fn){
+  Utils.removeResizeListener = function(element, fn) {
     element.__resizeListeners__.splice(
         element.__resizeListeners__.indexOf(fn), 1);
 
     if (!element.__resizeListeners__.length) {
-      if (attachEvent){
+      if (attachEvent) {
         element.detachEvent('onresize', resizeListener);
       } else {
         var contentDocument = element.__resizeTrigger__.contentDocument;

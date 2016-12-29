@@ -1,5 +1,6 @@
 'use strict';
 
+var AbstractExtension = require('../core/abstract-extension');
 var Paragraph = require('../paragraph');
 var Selection = require('../selection');
 var Utils = require('../utils');
@@ -10,21 +11,24 @@ var I18n = require('../i18n');
 
 /**
  * Editor formatting logic is an extension to the editor.
- * @param {Object} optParams Optional params to initialize the Formatting object.
+ * @param {../editor} editor Editor instance installing this extension.
+ * @param {Object=} opt_params Optional params to initialize the Formatting object.
  * Default:
  *   {
  *     enableInline: true,
  *     enableBlock: true
  *   }
+ * @extends {../core/abstract-extension}
+ * @constructor
  */
-var Formatting = function(optParams) {
+var Formatting = function(editor, opt_params) {
 
   // Override default params with passed ones if any.
   var params = Utils.extend({
     // TODO: Use these configurations to disable/enable toolbars.
     enableInline: true,
-    enableBlock: true
-  }, optParams);
+    enableBlock: true,
+  }, opt_params);
 
   /**
    * Whether inline formatting toolbar is enabled.
@@ -40,11 +44,13 @@ var Formatting = function(optParams) {
 
   /**
    * Editor reference.
-   * @type {Editor}
+   * @type {../editor}
    */
-  this.editor = null;
+  this.editor = editor;
 
+  this.init();
 };
+Formatting.prototype = Object.create(AbstractExtension.prototype);
 module.exports = Formatting;
 
 
@@ -68,27 +74,30 @@ Formatting.ACTIVE_ACTION_CLASS = 'active';
  */
 Formatting.Types = {
   BLOCK: 'block',
-  INLINE: 'inline'
+  INLINE: 'inline',
 };
 
 
 /**
  * Enable block formatting toolbar on these types of paragraphs.
- * @type {Array.<String>}
+ * @type {Array<string>}
  */
 Formatting.BLOCK_ENABLED_ON = [
-    Paragraph.Types.Paragraph,
-    Paragraph.Types.MainHeader,
-    Paragraph.Types.SecondaryHeader,
-    Paragraph.Types.ThirdHeader,
-    Paragraph.Types.Quote,
-    Paragraph.Types.Code
+  Paragraph.Types.Paragraph,
+  Paragraph.Types.MainHeader,
+  Paragraph.Types.SecondaryHeader,
+  Paragraph.Types.ThirdHeader,
+  Paragraph.Types.Quote,
+  Paragraph.Types.Code,
 ];
 
 
 /**
  * Actions allowed on the toolbars.
- * @type {Object}
+ * @type {{
+ *    Block: Array<../defs.FormattingActionDef>,
+ *    Inline: Array<../defs.FormattingActionDef>,
+ * }}
  */
 Formatting.Actions = {
 
@@ -97,57 +106,57 @@ Formatting.Actions = {
   Block: [{
     label: 'h1',
     value: Paragraph.Types.MainHeader,
-    shortcuts: ['alt+cmd+1', 'alt+ctrl+1']
+    shortcuts: ['alt+cmd+1', 'alt+ctrl+1'],
   }, {
     label: 'h2',
     value: Paragraph.Types.SecondaryHeader,
-    shortcuts: ['alt+cmd+2', 'alt+ctrl+2']
+    shortcuts: ['alt+cmd+2', 'alt+ctrl+2'],
   }, {
     label: 'h3',
     value: Paragraph.Types.ThirdHeader,
-    shortcuts: ['alt+cmd+3', 'alt+ctrl+3']
+    shortcuts: ['alt+cmd+3', 'alt+ctrl+3'],
   }, {
     label: '”',
     value: Paragraph.Types.Quote,
-    shortcuts: ['alt+cmd+4', 'alt+ctrl+4']
+    shortcuts: ['alt+cmd+4', 'alt+ctrl+4'],
   }, {
     label: '{}',
     value: Paragraph.Types.Code,
-    shortcuts: ['alt+cmd+5', 'alt+ctrl+5']
+    shortcuts: ['alt+cmd+5', 'alt+ctrl+5'],
   }],
 
   Inline: [{
     label: 'B',
     value: 'strong',
     tagNames: ['strong', 'b'],
-    shortcuts: ['ctrl+b', 'cmd+b']
+    shortcuts: ['ctrl+b', 'cmd+b'],
   }, {
     label: 'I',
     value: 'em',
     tagNames: ['em', 'i'],
-    shortcuts: ['ctrl+i', 'cmd+i']
+    shortcuts: ['ctrl+i', 'cmd+i'],
   }, {
     label: 'U',
     value: 'u',
     tagNames: ['u'],
-    shortcuts: ['ctrl+u', 'cmd+u']
+    shortcuts: ['ctrl+u', 'cmd+u'],
   }, {
     label: 'S',
     value: 's',
     tagNames: ['strike', 's'],
-    shortcuts: ['ctrl+s', 'cmd+s']
+    shortcuts: ['ctrl+s', 'cmd+s'],
   }, {
     label: 'a',
     value: 'a',
     attrs: {
       href: {
         required: true,
-        placeholder: 'What is the URL?'
-      }
+        placeholder: 'What is the URL?',
+      },
     },
     tagNames: ['a'],
-    shortcuts: ['ctrl+k', 'cmd+k']
-  }]
+    shortcuts: ['ctrl+k', 'cmd+k'],
+  }],
 };
 
 
@@ -167,35 +176,21 @@ Formatting.INLINE_TOOLBAR_NAME = 'inline-toolbar';
 
 /**
  * Initializes the formatting extensions.
- * @param  {Editor} editor Editor instance this installed on.
  */
-Formatting.onInstall = function(editor) {
+Formatting.onInstall = function() {
   // Ugly hack because we can't load I18n strings on load time.
   // TODO(mkhatib): Figure out a better way to handle this.
   var a = Formatting.getActionForTagName('a');
   a.attrs.href.placeholder = I18n.get('placeholder.href');
-
-  var formattingExtension = new Formatting();
-  formattingExtension.init(editor);
-};
-
-
-/**
- * Call to destroy instance and cleanup dom and event listeners.
- */
-Formatting.onDestroy = function() {
-  // pass
 };
 
 
 /**
  * Initializes the formatting extension.
- * @param  {Editor} editor The parent editor for the extension.
  */
-Formatting.prototype.init = function(editor) {
-  this.editor = editor;
-  this.blockToolbar = editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
-  this.inlineToolbar = editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
+Formatting.prototype.init = function() {
+  this.blockToolbar = this.editor.getToolbar(Formatting.BLOCK_TOOLBAR_NAME);
+  this.inlineToolbar = this.editor.getToolbar(Formatting.INLINE_TOOLBAR_NAME);
 
   // Inline toolbar used for formatting inline elements (bold, italic...).
   this.initInlineToolbarButtons();
@@ -210,13 +205,12 @@ Formatting.prototype.init = function(editor) {
   // when selection or cursor change.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this));
+      this.handleSelectionChangedEvent.bind(this), false);
 };
 
 
 /**
  * Creates inline formatting toolbar.
- * @return {HTMLElement} Toolbar Element.
  */
 Formatting.prototype.initInlineToolbarButtons = function() {
   var actions = Formatting.Actions.Inline;
@@ -226,10 +220,10 @@ Formatting.prototype.initInlineToolbarButtons = function() {
       name: actions[i].value,
       label: actions[i].label,
       data: actions[i],
-      fields: fields || []
+      fields: fields || [],
     });
     button.addEventListener(
-        'click', this.handleInlineFormatterClicked.bind(this));
+        'click', this.handleInlineFormatterClicked.bind(this), false);
     this.inlineToolbar.addButton(button);
   }
 };
@@ -244,10 +238,10 @@ Formatting.prototype.initBlockToolbarButtons = function() {
     var button = new Button({
       name: actions[i].value,
       label: actions[i].label,
-      data: actions[i]
+      data: actions[i],
     });
     button.addEventListener(
-        'click', this.handleBlockFormatterClicked.bind(this));
+        'click', this.handleBlockFormatterClicked.bind(this), false);
     this.blockToolbar.addButton(button);
   }
 };
@@ -256,7 +250,7 @@ Formatting.prototype.initBlockToolbarButtons = function() {
 /**
  * Registers shortcuts to handle formatting.
  */
-Formatting.prototype.registerFormattingShortcuts_ = function () {
+Formatting.prototype.registerFormattingShortcuts_ = function() {
   for (var formatType in Formatting.Actions) {
     var actions = Formatting.Actions[formatType];
     for (var i = 0; i < actions.length; i++) {
@@ -273,7 +267,7 @@ Formatting.prototype.registerFormattingShortcuts_ = function () {
 /**
  * Creates extra fields for the action.
  * @param  {Object} action Action to create the button for.
- * @return {HTMLElement} div contianer containing extra fields.
+ * @return {Array<!../toolbars/textField>} div contianer containing extra fields.
  */
 Formatting.prototype.createExtraFields = function(action) {
   var fields = [];
@@ -286,10 +280,10 @@ Formatting.prototype.createExtraFields = function(action) {
     var field = new TextField({
       placeholder: attr.placeholder,
       required: attr.required,
-      name: key
+      name: key,
     });
     field.addEventListener(
-        'keyup', this.handleInlineInputFieldKeyUp.bind(this));
+        'keyup', this.handleInlineInputFieldKeyUp.bind(this), false);
     fields.push(field);
   }
 
@@ -299,6 +293,7 @@ Formatting.prototype.createExtraFields = function(action) {
 
 /**
  * Applies a format with attributes from the active button and fields.
+ * @param {../toolbars/button} button
  */
 Formatting.prototype.applyFormatWithAttrs = function(button) {
   var activeFormatter = button.data.value;
@@ -341,12 +336,12 @@ Formatting.prototype.didSelectionActuallyChanged_ = function() {
   this.lastSelection_ = {
     start: {
       component: selection.start.component,
-      offset: selection.start.offset
+      offset: selection.start.offset,
     },
     end: {
       component: selection.end.component,
-      offset: selection.end.offset
-    }
+      offset: selection.end.offset,
+    },
   };
   return true;
 };
@@ -379,7 +374,7 @@ Formatting.prototype.handleSelectionChangedEvent = function() {
         // Don't show the inline toolbar when multiple paragraphs are selected.
         startComp === endComp) {
     // Otherwise, show the inline toolbar.
-    setTimeout(function(){
+    setTimeout(function() {
       var wSelection = window.getSelection();
       if (wSelection.isCollapsed) {
         return;
@@ -411,11 +406,9 @@ Formatting.prototype.reloadInlineToolbarStatus = function() {
   var selection = this.editor.article.selection;
   var paragraph = selection.getComponentAtStart();
   var formatter = paragraph.getSelectedFormatter(selection);
-  var activeAction = null;
   var attrs = {};
   var button = null;
   if (formatter) {
-    activeAction = this.getFormatterForValue(formatter.type);
     attrs = formatter.attrs;
     button = this.inlineToolbar.getButtonByName(formatter.type);
   }
@@ -444,7 +437,7 @@ Formatting.prototype.handleBlockFormatterClicked = function(event) {
 
 /**
  * Creates the actual operations needed to execute block formatting.
- * @param  {string} Formatter to format the paragraph with.
+ * @param  {string} clickedFormatter Formatter to format the paragraph with.
  */
 Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
   var selection = this.editor.article.selection;
@@ -478,17 +471,17 @@ Formatting.prototype.handleBlockFormatting = function(clickedFormatter) {
 
   selection.setCursor({
     offset: prevCursorOffset,
-    component: section.components[prevCompIndex]
+    component: section.components[prevCompIndex],
   });
 };
 
 
 /**
  * Applies an inline formatter to a paragraph.
- * @param  {Paragraph} paragraph A paragraph object to apply to format to.
- * @param  {Selection} selection The current selection to apply format to.
- * @param  {Object} format Format object describing the format.
- * @return {Array.<Object>} A list of operations describing the change.
+ * @param  {../paragraph} paragraph A paragraph object to apply to format to.
+ * @param  {../selection} selection The current selection to apply format to.
+ * @param  {../defs.InlineFormattingDef} format Format object describing the format.
+ * @return {Array<../defs.OperationDef>} A list of operations describing the change.
  */
 Formatting.prototype.format = function(paragraph, selection, format) {
   var ops = [], newDo, newUndo, newOp;
@@ -541,13 +534,13 @@ Formatting.prototype.format = function(paragraph, selection, format) {
           type: existingFormat.type,
           from: existingFormat.from,
           to: format.from,
-          attrs: format.attrs
+          attrs: format.attrs,
         });
         newDo.formats.push({
           type: existingFormat.type,
           from: format.to,
           to: existingFormat.to,
-          attrs: format.attrs
+          attrs: format.attrs,
         });
 
         newUndo = Utils.clone(newDo);
@@ -558,7 +551,7 @@ Formatting.prototype.format = function(paragraph, selection, format) {
         newDo.formats.push({
           type: existingFormat.type,
           from: Math.min(existingFormat.from, format.from),
-          to: Math.max(existingFormat.to, format.to)
+          to: Math.max(existingFormat.to, format.to),
         });
 
         newUndo = Utils.clone(newDo);
@@ -582,7 +575,7 @@ Formatting.prototype.format = function(paragraph, selection, format) {
 
   newOp = {
     do: newDo,
-    undo: newUndo
+    undo: newUndo,
   };
   ops.push(newOp);
 
@@ -622,17 +615,17 @@ Formatting.prototype.handleInlineFormatterClicked = function(event) {
 /**
  * Creates the actual operations needed to execute inline formatting.
  * @param  {string} clickedFormatter formatter value string.
- * @param {Array.<Object>} optAttrs Attributes to add to the formatting.
+ * @param {../defs.FormattingActionAttrsDef=} opt_attrs Attributes to add to the formatting.
  */
 Formatting.prototype.handleInlineFormatting = function(
-    clickedFormatter, optAttrs) {
+    clickedFormatter, opt_attrs) {
   var selection = this.editor.article.selection;
   var currentParagraph = selection.getComponentAtStart();
   var format = {
     type: clickedFormatter,
     from: selection.start.offset,
     to: selection.end.offset,
-    attrs: optAttrs
+    attrs: opt_attrs,
   };
 
   // If there's no selection no need to format.
@@ -654,6 +647,9 @@ Formatting.prototype.handleInlineFormatting = function(
  */
 Formatting.prototype.handleKeyboardShortcut = function(event) {
   var shortcutId = this.editor.shortcutsManager.getShortcutId(event);
+  if (!shortcutId) {
+    return true;
+  }
 
   var inlineFormatter = this.getInlineFormatterForShortcut(shortcutId);
   if (inlineFormatter) {
@@ -674,7 +670,7 @@ Formatting.prototype.handleKeyboardShortcut = function(event) {
 /**
  * Returns the matched inline formatter for the shortcut.
  * @param  {string} shortcutId Shortcut ID to find the formatter for.
- * @return {Object|null} Inline formatter for the shortcut.
+ * @return {../defs.FormattingActionDef|null} Inline formatter for the shortcut.
  */
 Formatting.prototype.getInlineFormatterForShortcut = function(shortcutId) {
   var inlineFormatters = Formatting.Actions.Inline;
@@ -690,7 +686,7 @@ Formatting.prototype.getInlineFormatterForShortcut = function(shortcutId) {
 /**
  * Returns the matched block formatter for the shortcut.
  * @param  {string} shortcutId Shortcut ID to find the formatter for.
- * @return {Object|null} Block formatter for the shortcut.
+ * @return {../defs.FormattingActionDef|null} Block formatter for the shortcut.
  */
 Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
   var blockFormatters = Formatting.Actions.Block;
@@ -706,7 +702,7 @@ Formatting.prototype.getBlockFormatterForShortcut = function(shortcutId) {
 /**
  * Returns the action with the specified value;
  * @param  {string} value The value to return action for.
- * @return {Object} Action formatter object.
+ * @return {../defs.FormattingActionDef|null} Action formatter object.
  */
 Formatting.prototype.getFormatterForValue = function(value) {
   var blockFormatters = Formatting.Actions.Block;
@@ -729,7 +725,7 @@ Formatting.prototype.getFormatterForValue = function(value) {
 /**
  * Returns the action with the specified tag name;
  * @param  {string} tagName Tag name to find a matched action.
- * @return {Object} Action formatter object.
+ * @return {../defs.FormattingActionDef|null} Action formatter object.
  */
 Formatting.getActionForTagName = function(tagName) {
   tagName = tagName && tagName.toLowerCase();
@@ -746,15 +742,15 @@ Formatting.getActionForTagName = function(tagName) {
 /**
  * Returns a formats array that represents the inline formats for the node.
  * @param  {Element} node HTML Element to return the formats for.
- * @return {Array.<Object>} Formats array.
+ * @return {Array<../defs.InlineFormattingDef>} Formats array.
  */
 Formatting.generateFormatsForNode = function(node) {
   var formats = [];
   var offset = 0;
   var children = node.childNodes;
   for (var i = 0; i < children.length; i++) {
-    var inlineEl = children[i];
-    var action = Formatting.getActionForTagName(inlineEl.tagName);
+    var inlineEl = /** @type {Element} */ (children[i]);
+    var action = Formatting.getActionForTagName(inlineEl.nodeName);
     if (action) {
       var attrs = {};
       for (var attr in action.attrs) {
@@ -764,7 +760,7 @@ Formatting.generateFormatsForNode = function(node) {
         type: action.value,
         from: offset,
         to: offset + Utils.getTextFromElement(inlineEl).length,
-        attrs: attrs
+        attrs: attrs,
       });
     }
     offset += inlineEl.textContent.length;

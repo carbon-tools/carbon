@@ -8,24 +8,38 @@ var I18n = require('../i18n');
 
 
 /**
+ * @typedef {{
+ *   url: string,
+ *   provider: string,
+ *   caption: ?string,
+ *   sizes: Object,
+ *   type: ?string,
+ *   serviceName: string
+ * }} */
+var EmbeddedComponentParamsDef;
+
+
+/**
  * EmbeddedComponent main.
- * @param {Object} optParams Optional params to initialize the object.
+ * @param {EmbeddedComponentParamsDef=} opt_params Optional params to initialize the object.
  * Default:
  *   {
  *     caption: null,
  *     name: Utils.getUID()
  *   }
+ * @extends {../component}
+ * @constructor
  */
-var EmbeddedComponent = function(optParams) {
+var EmbeddedComponent = function(opt_params) {
   // Override default params with passed ones if any.
-  var params = Utils.extend({
+  var params = /** @type {EmbeddedComponentParamsDef} */ (Utils.extend({
     url: null,
     provider: null,
     caption: null,
     sizes: {},
     type: EmbeddedComponent.Types.Rich,
-    serviceName: null
-  }, optParams);
+    serviceName: null,
+  }, opt_params));
 
   Component.call(this, params);
 
@@ -45,7 +59,7 @@ var EmbeddedComponent = function(optParams) {
    * Embed service name (e.g. twitter).
    * @type {string}
    */
-  this.service = params.service;
+  this.serviceName = params.serviceName;
 
   /**
    * Embed type.
@@ -55,7 +69,7 @@ var EmbeddedComponent = function(optParams) {
 
   /**
    * Sizes of the embedded component in different container sizes.
-   * @type {object}
+   * @type {!Object}
    */
   this.sizes = params.sizes || {};
 
@@ -63,23 +77,23 @@ var EmbeddedComponent = function(optParams) {
    * Placeholder text to show if the EmbeddedComponent is empty.
    * @type {string}
    */
-  this.caption = params.caption;
+  this.caption = params.caption || '';
 
   /**
    * Placeholder text to show if the Figure is empty.
-   * @type {string}
+   * @type {../paragraph}
    */
   this.captionParagraph = new Paragrarph({
-    placeholderText: I18n.get('placeholder.embed'),
+    placeholderText: I18n.get('placeholder.embed') || '',
     text: this.caption,
     paragraphType: Paragrarph.Types.Caption,
     parentComponent: this,
-    inline: true
+    inline: true,
   });
 
   /**
    * DOM element tied to this object.
-   * @type {HTMLElement}
+   * @type {!Element}
    */
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
@@ -156,20 +170,20 @@ EmbeddedComponent.OVERLAY_CLASS_NAME = 'embed-overlay';
 
 /**
  * The screen sizes to render the component for.
- * @type {Array.<number>}
+ * @type {Array<number>}
  */
 EmbeddedComponent.RENDER_FOR_SCREEN_SIZES = [300, 450, 600, 900, 1200];
 
 
 /**
  * Embed types.
- * @type {Object.<string>}
+ * @enum {string}
  */
 EmbeddedComponent.Types = {
   Rich: 'rich',
   Video: 'video',
   Link: 'link',
-  Image: 'image'
+  Image: 'image',
 };
 
 
@@ -219,17 +233,16 @@ EmbeddedComponent.prototype.getComponentClassName = function() {
 
 /**
  * Create and initiate an embedded component from JSON.
- * @param  {Object} json JSON representation of the embedded component.
+ * @param  {EmbeddedComponentParamsDef} json JSON representation of the embedded component.
  * @return {EmbeddedComponent} EmbeddedComponent object representing JSON data.
  */
-EmbeddedComponent.fromJSON = function (json) {
+EmbeddedComponent.fromJSON = function(json) {
   return new EmbeddedComponent(json);
 };
 
 
 /**
  * Handles onInstall when the EmbeddedComponent module installed in an editor.
- * @param  {Editor} editor Instance of the editor that installed the module.
  */
 EmbeddedComponent.onInstall = function() {
   var offScreen = document.getElementById(
@@ -240,15 +253,6 @@ EmbeddedComponent.onInstall = function() {
     offScreen.style.width = '3000px';
     document.body.appendChild(offScreen);
   }
-};
-
-
-/**
- * Returns the class name of this component.
- * @return {string}
- */
-EmbeddedComponent.prototype.getComponentClassName = function() {
-  return EmbeddedComponent.CLASS_NAME;
 };
 
 
@@ -264,7 +268,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
   /**
    * Removes the temp rendering dom from document.
-   * @param  {HTMLElement} embedDom Element to remove.
+   * @param  {!Element} embedDom Element to remove.
    */
   function cleanupRenderingDom_(embedDom) {
     return function() {
@@ -282,7 +286,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
 
     // Render the main embedded component.
     var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
+    var containerWidth = parseInt(styles.width, 10);
     var screen = (
         this.getClosestSupportedScreenSize_(containerWidth) || containerWidth);
     this.renderForScreen_(screen, this.embedDom);
@@ -322,7 +326,7 @@ EmbeddedComponent.prototype.oEmbedDataLoaded_ = function(oembedData) {
  * Renders the embedded component for specific screen to store the different
  * sizes for different screents.
  * @param  {number} screen Screen width to render it for.
- * @param  {HTMLElement} embedDom Element to embed in.
+ * @param  {!Element} embedDom Element to embed in.
  * @private
  */
 EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
@@ -333,36 +337,38 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
   }
 
   // Get oembed URL for the URL.
-  var embedProvider = Loader.load('embedProviders')[this.provider];
+  var embedProvider = /** @type {./abstractEmbedProvider} */ (
+      Loader.load('embedProviders')[this.provider]);
   var oEmbedUrl = embedProvider.getOEmbedEndpointForUrl(this.url, {
-    width: screen
+    width: screen,
   });
 
   // Add data to the hash of the iframe URL to pass it to the child iframe.
   var fullUrl = baseUrl + '#' + encodeURIComponent(JSON.stringify({
     width: screen,
     oEmbedUrl: oEmbedUrl,
-    origin: document.location.origin
+    origin: document.location.origin,
   }));
 
-  var iframe = document.createElement('iframe');
+  var iframe = /** @type {!HTMLIFrameElement} */ (
+      document.createElement('iframe'));
   iframe.src = fullUrl;
   iframe.setAttribute('frameborder', 0);
   iframe.setAttribute('width', '100%');
 
   // Set initial height of 50% of the width for visual improvement. This would
   // be updated as the iframe renders.
-  iframe.setAttribute('height', (screen/2) + 'px');
+  iframe.setAttribute('height', (screen / 2) + 'px');
 
   Utils.listen(iframe, EmbeddedComponent.EMBED_SIZE_MESSAGE_TYPE,
       function(data) {
-    this.sizes[screen] = {
-      width: parseFloat(data.width),
-      height: parseFloat(data.height)
-    };
-    this.updateSize_();
-    iframe.setAttribute('height', data.height);
-  }.bind(this));
+        this.sizes[screen] = {
+          width: parseFloat(data.width),
+          height: parseFloat(data.height),
+        };
+        this.updateSize_();
+        iframe.setAttribute('height', data.height);
+      }.bind(this));
   embedDom.appendChild(iframe);
 };
 
@@ -375,7 +381,7 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
 EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
   var screenSizes = [];
   for (var size in this.sizes) {
-    screenSizes.push(parseInt(size));
+    screenSizes.push(parseInt(size, 10));
   }
 
   for (var i = EmbeddedComponent.RENDER_FOR_SCREEN_SIZES.length; i > 0; i--) {
@@ -384,7 +390,7 @@ EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
       screenSizes.push(standardScreenSize);
     }
   }
-  screenSizes.sort(function (a, b) {
+  screenSizes.sort(function(a, b) {
     return a - b;
   });
 
@@ -403,10 +409,10 @@ EmbeddedComponent.prototype.getClosestSupportedScreenSize_ = function(width) {
  * @param  {number} width Width of the container to render the component in.
  * @return {string} Height to Width Ration in percentage.
  */
-EmbeddedComponent.prototype.getRatioFor_ = function (width) {
+EmbeddedComponent.prototype.getRatioFor_ = function(width) {
   var screen = this.getClosestSupportedScreenSize_(width);
   var size = this.sizes[screen];
-  return size && (size.height/size.width * 100) + '%';
+  return size && (size.height / size.width * 100) + '%';
 };
 
 
@@ -416,9 +422,9 @@ EmbeddedComponent.prototype.getRatioFor_ = function (width) {
  */
 EmbeddedComponent.prototype.shouldRerender = function() {
   var styles = window.getComputedStyle(this.dom);
-  var containerWidth = parseInt(styles.width);
+  var containerWidth = parseInt(styles.width, 10);
   var screen = this.getClosestSupportedScreenSize_(containerWidth);
-  var currentWidth = parseInt(this.containerDom.style.width);
+  var currentWidth = parseInt(this.containerDom.style.width, 10);
   return screen !== currentWidth;
 };
 
@@ -429,7 +435,7 @@ EmbeddedComponent.prototype.shouldRerender = function() {
  */
 EmbeddedComponent.prototype.rerender = function() {
   var styles = window.getComputedStyle(this.dom);
-  var containerWidth = parseInt(styles.width);
+  var containerWidth = parseInt(styles.width, 10);
   var screen = this.getClosestSupportedScreenSize_(containerWidth);
   var ratio = this.getRatioFor_(containerWidth);
 
@@ -439,7 +445,7 @@ EmbeddedComponent.prototype.rerender = function() {
 
   setTimeout(function() {
     this.loadEmbed_(this.oEmbedDataLoaded_.bind(this), {
-      width: this.getClosestSupportedScreenSize_(containerWidth)
+      width: this.getClosestSupportedScreenSize_(containerWidth),
     });
   }.bind(this), 200);
 };
@@ -452,7 +458,7 @@ EmbeddedComponent.prototype.rerender = function() {
 EmbeddedComponent.prototype.updateSize_ = function() {
   if (!Utils.isEmpty(this.sizes)) {
     var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
+    var containerWidth = parseInt(styles.width, 10);
     // Only add the ratio padding-bottom trick for fixed-ratio embeds.
     if (this.type === EmbeddedComponent.Types.Video ||
         this.type === EmbeddedComponent.Types.Image) {
@@ -482,7 +488,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, options);
     var styles = window.getComputedStyle(this.dom);
-    var containerWidth = parseInt(styles.width);
+    var containerWidth = parseInt(styles.width, 10);
 
     this.containerDom = document.createElement(
         EmbeddedComponent.CONTAINER_TAG_NAME);
@@ -498,7 +504,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
     }
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
-    this.loadEmbed_(function (oembedData) {
+    this.loadEmbed_(function(oembedData) {
       this.type = oembedData.type;
       /* jshint camelcase: false */
       this.serviceName = oembedData.provider || oembedData.provider_name;
@@ -517,13 +523,14 @@ EmbeddedComponent.prototype.render = function(element, options) {
             EmbeddedComponent.OVERLAY_TAG_NAME);
         this.overlayDom.className = EmbeddedComponent.OVERLAY_CLASS_NAME;
         this.containerDom.appendChild(this.overlayDom);
-        this.overlayDom.addEventListener('click', this.select.bind(this));
+        this.overlayDom.addEventListener('click', this.handleClick.bind(this));
 
         this.selectionDom = document.createElement('div');
         this.selectionDom.innerHTML = '&nbsp;';
         this.selectionDom.className = 'selection-pointer';
         this.selectionDom.setAttribute('contenteditable', true);
-        this.selectionDom.addEventListener('focus', this.select.bind(this));
+        this.selectionDom.addEventListener(
+            'focus', this.handleClick.bind(this));
         this.containerDom.appendChild(this.selectionDom);
 
         this.captionParagraph.dom.setAttribute('contenteditable', true);
@@ -536,7 +543,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
 
       this.oEmbedDataLoaded_(oembedData);
     }.bind(this), {
-      width: this.getClosestSupportedScreenSize_(containerWidth)
+      width: this.getClosestSupportedScreenSize_(containerWidth),
     });
 
   }
@@ -566,18 +573,19 @@ EmbeddedComponent.prototype.getJSONModel = function() {
     sizes: this.sizes,
     caption: this.captionParagraph.text,
     type: this.type,
-    serviceName: this.serviceName
+    serviceName: this.serviceName,
   };
 
   return embed;
 };
 
 
+
 /**
  * Handles clicking on the embedded component to update the selection.
  */
-EmbeddedComponent.prototype.select = function (offset) {
-  Component.prototype.select.call(this, offset);
+EmbeddedComponent.prototype.handleClick = function() {
+  this.select();
 
   // TODO(mkhatib): Unselect the component when the embed plays to allow the
   // user to select it again and delete it.
@@ -585,37 +593,36 @@ EmbeddedComponent.prototype.select = function (offset) {
 };
 
 
-
 /**
  * Returns the operations to execute a deletion of the embedded component.
- * @param  {number=} optIndexOffset An offset to add to the index of the
+ * @param  {number=} opt_indexOffset An offset to add to the index of the
  * component for insertion point.
- * @param {Object} optCursorAfterOp Where to move cursor to after deletion.
- * @return {Array.<Object>} List of operations needed to be executed.
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorAfterOp Where to move cursor to after deletion.
+ * @return {Array<../defs.OperationDef>} List of operations needed to be executed.
  */
-EmbeddedComponent.prototype.getDeleteOps = function (
-    optIndexOffset, optCursorAfterOp) {
+EmbeddedComponent.prototype.getDeleteOps = function(
+    opt_indexOffset, opt_cursorAfterOp) {
   var ops = [{
     do: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorAfterOp
+      cursor: opt_cursorAfterOp,
     },
     undo: {
       op: 'insertComponent',
       componentClass: this.getComponentClassName(),
       section: this.section.name,
       component: this.name,
-      index: this.getIndexInSection() + (optIndexOffset || 0),
+      index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         url: this.url,
         provider: this.provider,
         caption: this.caption,
         sizes: this.sizes,
         type: this.type,
-        serviceName: this.serviceName
-      }
-    }
+        serviceName: this.serviceName,
+      },
+    },
   }];
 
   // If this is the only child of the layout delete the layout as well.
@@ -630,11 +637,11 @@ EmbeddedComponent.prototype.getDeleteOps = function (
 /**
  * Returns the operations to execute inserting a embedded component.
  * @param {number} index Index to insert the embedded component at.
- * @param {Object} optCursorBeforeOp Cursor before the operation executes,
+ * @param {../defs.SerializedSelectionPointDef=} opt_cursorBeforeOp Cursor before the operation executes,
  * this helps undo operations to return the cursor.
- * @return {Array.<Object>} Operations for inserting the embedded component.
+ * @return {Array<../defs.OperationDef>} Operations for inserting the embedded component.
  */
-EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
+EmbeddedComponent.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
   return [{
     do: {
       op: 'insertComponent',
@@ -649,14 +656,14 @@ EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
         sizes: this.sizes,
         caption: this.caption,
         type: this.type,
-        serviceName: this.serviceName
-      }
+        serviceName: this.serviceName,
+      },
     },
     undo: {
       op: 'deleteComponent',
       component: this.name,
-      cursor: optCursorBeforeOp
-    }
+      cursor: opt_cursorBeforeOp,
+    },
   }];
 };
 
@@ -665,6 +672,6 @@ EmbeddedComponent.prototype.getInsertOps = function (index, optCursorBeforeOp) {
  * Returns the length of the embedded component content.
  * @return {number} Length of the embedded component content.
  */
-EmbeddedComponent.prototype.getLength = function () {
+EmbeddedComponent.prototype.getLength = function() {
   return 1;
 };

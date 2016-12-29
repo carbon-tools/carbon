@@ -9,7 +9,10 @@ var Errors = require('./errors');
  */
 var Loader = (function() {
 
-  var Loader = function () {
+  /**
+   * @constructor
+   */
+  var Loader = function() {
     /**
      * The registery for the components and its modules.
      * @type {Object}
@@ -27,7 +30,7 @@ var Loader = (function() {
    */
   Loader.prototype.register = function(name, module, optForce) {
     if (this.registery[name] && !optForce) {
-      throw Errors.AlreadyRegisteredError(
+      throw new Errors.AlreadyRegisteredError(
           'The module name "' + name + '" has already been registered.');
     }
 
@@ -46,14 +49,13 @@ var Loader = (function() {
 
   var instance = new Loader();
   return {
-    register: function (name, module, optForce) {
+    register: function(name, module, optForce) {
       instance.register(name, module, optForce);
     },
 
-    load: function (name) {
+    load: function(name) {
       return instance.load(name);
-    }
-
+    },
   };
 })();
 module.exports = Loader;
