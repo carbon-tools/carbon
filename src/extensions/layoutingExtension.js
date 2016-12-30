@@ -10,7 +10,6 @@ var Layout = require('../layout');
 var Utils = require('../utils');
 var Loader = require('../loader');
 var EmbeddedComponent = require('./embedding/embeddedComponent');
-var GiphyComponent = require('./giphyComponent');
 
 
 /**
@@ -134,8 +133,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
   var newLayout;
 
   if (selectedComponent instanceof Figure ||
-      selectedComponent instanceof EmbeddedComponent ||
-      selectedComponent instanceof GiphyComponent) {
+      selectedComponent instanceof EmbeddedComponent) {
     this.toolbar.setActiveButton(e.detail.target);
     var currentLayout = /** @type {../layout} */ (selectedComponent.section);
     var clickedLayout = e.detail.target.name;
@@ -210,8 +208,7 @@ LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   // Refocus the component.
   selectedComponent.focus();
   if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
-      selectedComponent instanceof EmbeddedComponent ||
-      selectedComponent instanceof GiphyComponent) {
+      selectedComponent instanceof EmbeddedComponent) {
     var activeLayout = /** @type {../layout} */ (
         selectedComponent.section).type;
     var activeLayoutButton = this.toolbar.getButtonByName(activeLayout);

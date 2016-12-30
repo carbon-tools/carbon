@@ -64,7 +64,6 @@
           document.getElementById('editor'), {
             article: demoArticle,
             modules: [
-              carbon.GiphyComponent,
               carbon.EmbeddedComponent,
             ]
           });
@@ -78,6 +77,9 @@
           })
         },
         ComponentClass: carbon.EmbeddedComponent
+      });
+      editor.install(carbon.GiphySearch, {
+        apiKey: 'dc6zaTOxFJmzC',
       });
       editor.install(carbon.SelfieExtension);
       editor.install(carbon.LayoutingExtension);
