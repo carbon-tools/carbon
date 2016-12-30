@@ -698,7 +698,7 @@ Editor.prototype.handleKeyDownEvent = function(event) {
       // an instanceof Paragraph. Maybe find a better way to manage this.
       if (!selection.isCursorAtEnding() && currentIsParagraph &&
           !currentComponent.inline) {
-        Utils.arrays.extend(ops, currentComponent.getSplitOps(
+        Utils.arrays.extend(ops, currentComponent.getSplitOpsAt(
             selection, -inBetweenComponents.length));
       } else {
         var factoryMethod;
@@ -756,9 +756,11 @@ Editor.prototype.handleKeyDownEvent = function(event) {
           // insert the new paragraph at the top of that layout.
           // TODO(mkhatib): Maybe move this logic inside Layout to get the
           // layout that enter should insert component at (e.g. getEnterOps).
-          if (currentComponent.section instanceof Layout &&
-              currentComponent.section.type !== Layout.Types.SingleColumn) {
-            insertInSection = currentComponent.section.getNextComponent();
+          var currentSection = (
+              currentComponent.parentComponent || currentComponent).section;
+          if (currentSection instanceof Layout &&
+              currentSection.type !== Layout.Types.SingleColumn) {
+            insertInSection = nextComponent ? nextComponent.section : null;
             atIndex = 0;
 
             // If next layout is not single-column create one and insert the new
@@ -768,12 +770,12 @@ Editor.prototype.handleKeyDownEvent = function(event) {
                  insertInSection.type !== Layout.Types.SingleColumn)) {
               insertInSection = new Layout({
                 type: Layout.Types.SingleColumn,
-                section: currentComponent.section.section,
+                section: currentSection.section,
                 components: [],
               });
               Utils.arrays.extend(
                   ops, insertInSection.getInsertOps(
-                      currentComponent.section.getIndexInSection() + 1));
+                      currentSection.getIndexInSection() + 1));
             }
           }
 
