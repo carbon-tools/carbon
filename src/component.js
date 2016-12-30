@@ -141,9 +141,9 @@ Component.prototype.getNextComponent = function() {
       // If the component is the last component in its section, then return
       // the new component after this section.
       component = this.section.getNextComponent();
-      if (component && component.components) {
-        return /** @type {./section} */ (component).getFirstComponent();
-      }
+    }
+    if (component && component.components) {
+      return /** @type {./section} */ (component).getFirstComponent();
     }
     return component;
   }
@@ -162,10 +162,12 @@ Component.prototype.getPreviousComponent = function() {
     var component = this.section.components[i - 1];
     if (!component) {
       component = this.section.getPreviousComponent();
-      if (component && component.components) {
-        return /** @type {./section} */ (component).getLastComponent();
-      }
     }
+
+    if (component && component.components) {
+      return /** @type {./section} */ (component).getLastComponent();
+    }
+
     return component;
   }
   return null;
@@ -288,13 +290,21 @@ Component.prototype.getUpdateOps = function(
 
 
 /**
+ * Focus the component.
+ */
+Component.prototype.focus = function() {
+  if (this.selectionDom) {
+    this.selectionDom.focus();
+  }
+};
+
+
+/**
  * Selects the component.
  * @param  {number=} opt_offset Selection offset.
  */
 Component.prototype.select = function(opt_offset) {
-  if (this.selectionDom) {
-    this.selectionDom.focus();
-  }
+  this.focus();
   var selection = Selection.getInstance();
   selection.setCursor({
     component: this,
@@ -339,5 +349,14 @@ Component.prototype.shouldRerender = function() {
  * Ask the component to rerender itself.
  */
 Component.prototype.rerender = function() {
+  // pass.
+};
+
+
+/**
+ * Ask component to update some attributes.
+ * @param {Object=} unusedAttrs
+ */
+Component.prototype.updateAttributes = function(unusedAttrs) {
   // pass.
 };

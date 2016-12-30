@@ -207,6 +207,8 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
  */
 LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   var selectedComponent = this.editor.selection.getComponentAtStart();
+  // Refocus the component.
+  selectedComponent.focus();
   if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
       selectedComponent instanceof EmbeddedComponent ||
       selectedComponent instanceof GiphyComponent) {
