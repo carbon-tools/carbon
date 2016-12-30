@@ -418,6 +418,7 @@ var SelectionSingletonAccessor = (function() {
      */
   EditorSelection.prototype.updateSelectionFromWindow = function() {
     var selection = window.getSelection();
+    var shouldReupdateWindowSelection = false;
 
       // Remove selected class from the already selected component.
     if (this.start.component) {
@@ -426,10 +427,21 @@ var SelectionSingletonAccessor = (function() {
 
       // Update the selection start point.
     var startNode = this.getStartComponentFromWindowSelection_(selection);
+    if (!startNode) {
+      // This happen for example when clicking on elements margins and a node
+      // is not discovered and instead the click target is the editor itself.
+      // Need to research if there's a way to override this behavior
+      // otherwise we'll have to be careful with non-contenteditable regions
+      // margins. For example, for a non-contenteditable figure, margine should probably be
+      // applied to a contenteditable-div that encapsulate it.
+      console.info('[Selection] Did not update selection from window.');
+      return;
+    }
     var startComponent = Utils.getReference(startNode.getAttribute('name'));
     var startOffset = this.calculateStartOffsetFromWindowSelection_(
           selection);
     if (startComponent.components) {
+      shouldReupdateWindowSelection = true;
       startComponent = startComponent.getFirstComponent();
       if (startOffset === 0 && startComponent.getPreviousComponent()) {
         startComponent = startComponent.getPreviousComponent();
@@ -446,6 +458,7 @@ var SelectionSingletonAccessor = (function() {
     var endComponent = Utils.getReference(endNode.getAttribute('name'));
     var endOffset = this.calculateEndOffsetFromWindowSelection_(selection);
     if (endComponent.components) {
+      shouldReupdateWindowSelection = true;
       endComponent = endComponent.getFirstComponent();
       if (endOffset === 0 && endComponent.getPreviousComponent()) {
         endComponent = endComponent.getPreviousComponent();
@@ -472,6 +485,12 @@ var SelectionSingletonAccessor = (function() {
 
     var event = new Event(EditorSelection.Events.SELECTION_CHANGED);
     this.dispatchEvent(event);
+
+    // We need to remove the actual window cursor to new place
+    // when the cursor was first found in the wrong container.
+    if (shouldReupdateWindowSelection) {
+      this.updateWindowSelectionFromModel();
+    }
   };
 
 

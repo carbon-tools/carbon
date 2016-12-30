@@ -43,7 +43,6 @@ var Layout = function(opt_params) {
   /** @type {string} */
   this.type = params.type || '';
 
-  this.dom.setAttribute('contenteditable', false);
   this.dom.classList.add('carbon-layout');
   this.dom.classList.add(this.type);
 };
