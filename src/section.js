@@ -1,6 +1,5 @@
 'use strict';
 
-var Selection = require('./selection');
 var Utils = require('./utils');
 var Component = require('./component');
 var Loader = require('./loader');
@@ -133,11 +132,9 @@ Section.prototype.insertComponentAt = function(component, index) {
         editMode: this.editMode,
       });
     }
+
     // Set the cursor to the new component.
-    Selection.getInstance().setCursor({
-      component: component,
-      offset: 0,
-    });
+    component.select();
   }
 
   this.components.splice(index, 0, component);
