@@ -668,6 +668,15 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var nextIsParagraph = nextComponent instanceof Paragraph;
   var prevIsParagraph = prevComponent instanceof Paragraph;
 
+  // Hide placeholders in paragraphs while. This is due to the way we debounce
+  // updating the paragraph model until later.
+  // TODO(mkhatib): This is pretty hacky. Find a better way to do this.
+  if (Utils.willTypeCharacter(event) && currentIsParagraph &&
+      currentComponent.getLength() === 0 &&
+      currentComponent.getDomLength() !== 0) {
+    currentComponent.dom.classList.remove('show-placeholder');
+  }
+
   // On Macs we need to handle accented characters ourselves.
   // On windows, it seems this seem to work out of the box.
   // TODO(mkhatib): Test on platforms and browsers to apply this to
