@@ -870,7 +870,6 @@ Paragraph.prototype.getSplitOpsAt = function(selection, opt_indexOffset) {
 };
 
 
-
 /**
  * Returns the length of the paragraph content.
  * @return {number} Length of the paragraph content.
