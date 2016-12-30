@@ -20,7 +20,10 @@ module.exports = function(grunt) {
 
     shell: {
       deployCDN: {
-        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/*',
+        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools/<%= pkg.version %> && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/<%= pkg.version %>/*',
+      },
+      deployLatest: {
+        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools/latest && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/latest/*',
       },
     },
 
@@ -291,9 +294,10 @@ module.exports = function(grunt) {
     'karma:unit',
   ]);
 
-  grunt.registerTask('deployCDN', [
+  grunt.registerTask('deploy', [
     'build',
     'shell:deployCDN',
+    'shell:deployLatest',
   ]);
 
   grunt.registerTask('compile', ['closure-compiler:dist']);

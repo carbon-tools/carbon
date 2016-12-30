@@ -15,13 +15,21 @@ Carbon is still in early alpha and you might run into bugs. If you do, please fi
 
 You can load Carbon from our CDN (Recommended)
 ```html
-<link href="https://cdn.carbon.tools/carbon.min.css"></script>
-<script src="https://cdn.carbon.tools/carbon.min.js"></script>
+<link href="https://cdn.carbon.tools/0.2.62/carbon.min.css"></script>
+<script src="https://cdn.carbon.tools/0.2.62/carbon.min.js"></script>
 ```
+
+
+To use the latest version use `latest` (Be careful this will most likey keep breaking until Carbon APIs are stable).
+```html
+<link href="https://cdn.carbon.tools/latest/carbon.min.css"></script>
+<script src="https://cdn.carbon.tools/latest/carbon.min.js"></script>
+```
+
 
 Or you can grab carbon source code (including minified files) using bower:
 ```sh
-bower install manshar/carbon
+bower install carbon-tools/carbon
 ```
 
 And then include the main Carbon scripts and css:
