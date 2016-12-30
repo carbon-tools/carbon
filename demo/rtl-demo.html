@@ -138,10 +138,13 @@
             locale: 'ar',
             article: demoArticle,
             modules: [
-              carbon.GiphyComponent,
               carbon.EmbeddedComponent
             ]
           });
+
+      editor.install(carbon.GiphySearch, {
+        apiKey: 'dc6zaTOxFJmzC',
+      });
 
       editor.install(carbon.EmbeddingExtension, {
         embedProviders: {

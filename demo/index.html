@@ -192,18 +192,18 @@
                     ]
                   }),
                   new carbon.Paragraph({
-                    text: 'By registering a regex with the editor, your component can' +
-                        ' be notified and do custom work. For example, GiphyComponent' +
+                    text: 'By registering a regex with the editor, your extension/component can' +
+                        ' be notified and do custom work. For example, GiphySearch' +
                         ' (enabled in this demo) allows the users to insert GIFs from' +
                         ' Giphy APIs into the editor. Try it out, on a new paragraph' +
-                        ' type: "/giphy hello" (without quotes) and hit enter.',
+                        ' type: "+giphy hello" (without quotes) and hit enter.',
                     formats: [
                         {type: 'em', from: 104, to: 118},
                         {type: 'a', from: 179, to: 184, attrs: {href: 'http://giphy.com'}},
                         {type: 'strong', from: 207, to: 289},
                     ]
                   }),
-                  new carbon.GiphyComponent({
+                  new carbon.Figure({
                     src : "http://media.giphy.com/media/CnpgcGr2MQbwQ/giphy.gif",
                   }),
                   new carbon.Paragraph({
@@ -225,10 +225,13 @@
           document.getElementById('editor'), {
             article: demoArticle,
             modules: [
-              carbon.GiphyComponent,
               carbon.EmbeddedComponent,
             ]
           });
+
+      editor.install(carbon.GiphySearch, {
+        apiKey: 'dc6zaTOxFJmzC',
+      });
 
       editor.install(carbon.EmbeddingExtension, {
         embedProviders: {

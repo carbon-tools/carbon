@@ -41,7 +41,7 @@ java -jar $CLOSURE_COMPILER_PATH \
     --js src/extensions/embedding/embeddingExtension.js \
     --js src/extensions/embedding/embedlyProvider.js \
     --js src/extensions/formattingExtension.js \
-    --js src/extensions/giphyComponent.js \
+    --js src/extensions/giphy-search/giphy-search.js \
     --js src/extensions/iframeComponent.js \
     --js src/extensions/layoutingExtension.js \
     --js src/extensions/selfieExtension.js \

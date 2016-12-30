@@ -61,7 +61,7 @@ The editor has built in extensions and components enabled for every editor, thes
 
 Default: []
 
-Example: [YouTubeComponent, GiphyComponent]</td>
+Example: [YouTubeComponent, VimeoComponent]</td>
   </tr>
   <tr>
     <td>rtl</td>
@@ -173,11 +173,10 @@ The editor by default installs:
 
 * Formatting, Toolbelt and Upload Extensions
 
-Carbon also package two other components that are not installed by default, you can install them by providing them to the *modules* attribute of the editor params, or by calling `editor.install(module)` method.
+Carbon also package one other components that are not installed by default, you can install them by providing them to the *modules* attribute of the editor params, or by calling `editor.install(module)` method.
 
 ```javascript
 editor.install(carbon.YouTubeComponent);
-editor.install(carbon.GiphyComponent);
 ```
 
 ## Article Model
@@ -512,7 +511,7 @@ Developers can write custom components to extend the editor with, currently ther
 
 A custom component can register a regex to listen to with the editor. When that RegEx is matched when the user hits enter on the current paragraph the editor will notify the component that matched that regex. For example, YouTubeComponent registers a RegEx to match a YouTube link typed in a new paragraph and then replaces that paragraph with a YouTubeComponent which embeds the YouTube video in the editor!
 
-See [YouTubeComponent](https://github.com/manshar/carbon/blob/master/src/extensions/youtubeComponent.js) and [GiphyComponent](https://github.com/manshar/carbon/blob/master/src/extensions/giphyComponent.js) to learn more about extending the editor.
+See [YouTubeComponent](https://github.com/manshar/carbon/blob/master/src/extensions/youtubeComponent.js) and [GiphySearch](https://github.com/manshar/carbon/blob/master/src/extensions/giphy-search/giphy-search.js) to learn more about extending the editor.
 
 #### Editor Toolbelt
 

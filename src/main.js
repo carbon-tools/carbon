@@ -36,7 +36,7 @@ module.exports.Loader = require('./loader');
 
 // TODO(mkhatib): Find a better way to expose the classes and without making
 // them part of the whole editor Javascript.
-module.exports.GiphyComponent = require('./extensions/giphyComponent');
+module.exports.GiphySearch = require('./extensions/giphy-search/giphy-search');
 
 // Embedding extension.
 module.exports.EmbeddedComponent = require('./extensions/embedding/embeddedComponent');

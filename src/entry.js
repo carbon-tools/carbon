@@ -47,7 +47,7 @@ goog.exportSymbol('carbon.Selection', require('./selection'));
 
 
 // TODO(mkhatib): Split the following components/extensions to their own modules.
-goog.exportSymbol('carbon.GiphyComponent', require('./extensions/giphyComponent'));
+goog.exportSymbol('carbon.GiphySearch', require('./extensions/giphy-search/giphy-search'));
 goog.exportSymbol('carbon.LayoutingExtension', require('./extensions/layoutingExtension'));
 
 // Embedding Modules.
