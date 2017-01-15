@@ -13,7 +13,6 @@ var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
 var Toolbar = require('./toolbars/toolbar');
 var ToolbeltExtension = require('./extensions/toolbeltExtension');
-var UploadExtension = require('./extensions/uploadExtension');
 var I18n = require('./i18n');
 var Layout = require('./layout');
 var CustomEventTarget = require('./customEventTarget');
@@ -149,7 +148,6 @@ var Editor = function(element, opt_params) {
   // Install built-in extensions.
   this.install(FormattingExtension);
   this.install(ToolbeltExtension);
-  this.install(UploadExtension);
   this.install(CopyCutPaste);
 
   // Install user provided components and extensions.

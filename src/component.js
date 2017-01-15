@@ -29,6 +29,8 @@ var Component = function(opt_params) {
     inline: false,
     // Points to the parent component if this component is encompased within it.
     parentComponent: null,
+    // Whether this component is still an attachment and hasn't been upgraded.
+    isAttachment: false,
   }, opt_params);
 
   /**
@@ -36,6 +38,13 @@ var Component = function(opt_params) {
    * @type {./editor}
    */
   this.editor = params.editor;
+
+  /**
+   * This indicates if this component is part of an attachment that is being
+   * uploaded/embedded.
+   * @type {boolean}
+   */
+  this.isAttachment = params.isAttachment;
 
   /**
    * This indicates if this component is inline and shouldn't allow multiple

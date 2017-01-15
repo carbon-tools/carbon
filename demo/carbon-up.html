@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Editor demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./assets/normalize.css" />
+    <link rel="stylesheet" href="./assets/main.css" />
+    <link rel="stylesheet" href="../dist/carbon.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+  </head>
+  <body>
+
+    <div id="container" class="container-full">
+      <div id="editor">
+      </div>
+    </div>
+
+    <script src="libs/webcamjs/webcam.js"></script>
+    <script src="../dist/carbon.js"></script>
+    <script src="https://apis.google.com/js/client.js"></script>
+    <script src="./assets/gcs.js"></script>
+    <script type="text/javascript">
+      GCS.init({
+        clientId: '950846180877-cqmh4098gben0k46d740ibdvrp46cf14.apps.googleusercontent.com',
+        bucket: 'carbon-demo-user-uploads',
+        project: 'manshar-backend',
+        group: '',
+        apiKey: 'AIzaSyBmND_wkbPmOumUIWlO4Ew9QU52gSvfLD8'
+      });
+    </script>
+    <script>
+      var demoArticle;
+      var storedArticle = localStorage.getItem('article');
+      if (storedArticle) {
+        try {
+          demoArticle = carbon.Article.fromJSON(JSON.parse(storedArticle));
+        } catch (e) {
+          console.error('Error with the loading saved article.' +
+              'This is probably due to backward-incompatability.');
+        }
+      }
+
+      if (!demoArticle) {
+        demoArticle = new carbon.Article({
+          sections: [new carbon.Section({
+            components: [
+              new carbon.Layout({
+                components: [
+                  new carbon.Paragraph({
+                    text: 'Uploading Images with Carbon UpUp Service',
+                    paragraphType: carbon.Paragraph.Types.MainHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'This demo shows off Carbon UpUp Service for uploading and hosting files. This allows for all your assets to be uploaded easily by just signing up to a Carbon UpUp account and getting an API Key.',
+                    paragraphType: carbon.Paragraph.Types.ThirdHeader
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Try using +selfie or click the + icon to Upload a file and see the photo progress to being uploaded to UpUp.',
+                  }),
+                  new carbon.Paragraph({
+                    text: 'Signup to Carbon UpUp Developer Account on upup.carbon.tools',
+                    paragraphType: carbon.Paragraph.Types.SecondaryHeader,
+                    formats: [
+                      {type: 'a', attrs: {href: 'https://carbon-tools.appspot.com'}, from: 43, to: 60}
+                    ]
+                  }),
+                ]
+              })
+            ]
+          })]
+        });
+      }
+
+      var editor = new carbon.Editor(document.getElementById('editor'), {article: demoArticle});
+      editor.install(carbon.LayoutingExtension);
+
+      var uploadManager = new carbon.UploadManager(editor, {
+        uploaders: [new carbon.CarbonUpUploader({
+          apiKey: '',
+        })]
+      });
+      editor.install(carbon.SelfieExtension, {
+        uploadManager: uploadManager,
+      });
+      editor.install(carbon.FilePicker, {
+        uploadManager: uploadManager,
+      });
+      editor.render();
+
+      var model = document.getElementById('model-viewer');
+      editor.addEventListener('change', function(event) {
+        localStorage.setItem('article', JSON.stringify(editor.getJSONModel()));
+      });
+    </script>
+  </body>
+</html>

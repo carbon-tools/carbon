@@ -6,6 +6,7 @@ var Attachment = require('./attachment');
 var Figure = require('../figure');
 var Button = require('../toolbars/button');
 var I18n = require('../i18n');
+var dataUriToBlob = require('../utils/xhr').dataUriToBlob;
 
 
 /**
@@ -16,6 +17,9 @@ var I18n = require('../i18n');
  */
 var SelfieExtension = function(editor, opt_params) {
   // TODO(mkhatib): Add config params for size and shutter sound.
+  var params = Utils.extend({
+    uploadManager: null,
+  }, opt_params);
 
   // Create offscreen canvas to use as video buffer from the webcam.
   // TODO(mkhatib): Maybe actually insert it as a Figure when /selfie
@@ -30,7 +34,6 @@ var SelfieExtension = function(editor, opt_params) {
     document.body.appendChild(this.camDom);
   }
 
-  /* jshint ignore:start */
   Webcam.set({
     'width': 320,
     'height': 240,
@@ -41,7 +44,6 @@ var SelfieExtension = function(editor, opt_params) {
     'image_format': 'jpeg',
     'jpeg_quality': 90,
   });
-  /* jshint ignore:end */
 
   /**
    * Editor instance this extension was installed on.
@@ -54,6 +56,13 @@ var SelfieExtension = function(editor, opt_params) {
    * @type {../toolbars/toolbar}
    */
   this.toolbelt = this.editor.getToolbar(SelfieExtension.TOOLBELT_TOOLBAR_NAME);
+
+  /**
+   * Upload manager to uplaod through.
+   * @type {./uploading/upload-manager}
+   * @private
+   */
+  this.uploadManager_ = params.uploadManager;
 
   this.init();
 };
@@ -144,7 +153,7 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
         var component = selection.getComponentAtStart();
         var atIndex = component.getIndexInSection();
         // Create a figure with the file Data URL and insert it.
-        var figure = new Figure({src: dataUri});
+        var figure = new Figure({src: dataUri, isAttachment: true});
         figure.section = selection.getSectionAtStart();
         var insertFigureOps = figure.getInsertOps(atIndex);
 
@@ -155,9 +164,13 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
           opsCallback(ops);
         }
 
+        var name = 'Selfie-' + new Date();
+        var blob = dataUriToBlob(dataUri, name);
+        blob.name = name;
+
         // Create an attachment to track the figure and insertion operations.
         var attachment = new Attachment({
-          dataUri: dataUri,
+          file: blob,
           figure: selection.getSectionAtStart().getComponentByName(figure.name),
           editor: that.editor,
           insertedOps: insertFigureOps,
@@ -170,6 +183,10 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
             detail: {attachment: attachment},
           });
         that.editor.dispatchEvent(newEvent);
+
+        if (that.uploadManager_) {
+          that.uploadManager_.upload(attachment);
+        }
       });
 
       Webcam.off('live');

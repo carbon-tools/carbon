@@ -45,6 +45,23 @@ var Attachment = function(opt_params) {
    */
   this.insertedOps = params.insertedOps;
 
+
+  /**
+   * Attachment-related DOM.
+   * @type {!Element}
+   */
+  this.attachmentDom_ = document.createElement('div');
+  this.attachmentDom_.className = 'carbon-attachment-inner';
+
+  /**
+   * Uploading progress bar UI.
+   * @type {!Element}
+   */
+  this.progressDom_ = document.createElement('div');
+  this.progressDom_.className = 'carbon-attachment-progress-bar';
+
+  this.attachmentDom_.appendChild(this.progressDom_);
+  this.figure.dom.appendChild(this.attachmentDom_);
 };
 module.exports = Attachment;
 
@@ -55,8 +72,30 @@ module.exports = Attachment;
  */
 Attachment.prototype.setUploadProgress = function(progress) {
   this.progress = progress;
+  this.progressDom_.style.width = progress + '%';
+};
 
-  // TODO(mkhatib): Update UI indication of the upload progress.
+
+/**
+ * Sets upload progress for the attachment.
+ * @param {Object=} data
+ */
+Attachment.prototype.uploadComplete = function(data) {
+  this.setAttributes({
+    src: data.src,
+    caption: data.caption,
+    isAttachment: false,
+  });
+
+  this.figure.dom.removeChild(this.attachmentDom_);
+};
+
+
+/**
+ * Marks attachment as failed upload.
+ * TODO(mkhatib): Implement upload failed handler. Possibly allowing retries.
+ */
+Attachment.prototype.uploadFailed = function() {
 };
 
 

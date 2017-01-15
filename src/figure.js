@@ -14,8 +14,18 @@ var I18n = require('./i18n');
  *   captionPlaceholder: (?string|undefined),
  *   width: (?string|undefined),
  *   height: (?string|undefined),
- * }} */
+ *   isAttachment: (?boolean|undefined),
+ * }}
+ */
 var FigureComponentParamsDef;
+
+
+/**
+ * Figure placeholder when source has not persisted correctly.
+ * e.g. Upload interrepted and failed to upload.
+ */
+// eslint-disable-next-line max-len
+var FIGURE_PLACEHOLDER = 'data:image/svg+xml,%3Csvg%20width%3D%221440%22%20height%3D%221024%22%20viewBox%3D%220%200%201440%201024%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20style%3D%22background%3A%23fff%22%3E%3Ctitle%3Eimage-placeholder%3C%2Ftitle%3E%3Cdefs%3E%3Cpath%20id%3D%22a%22%20d%3D%22M0%200h1440v1024H0z%22%2F%3E%3Cmask%20id%3D%22b%22%20x%3D%220%22%20y%3D%220%22%20width%3D%221440%22%20height%3D%221024%22%20fill%3D%22%23fff%22%3E%3Cuse%20xlink%3Ahref%3D%22%23a%22%2F%3E%3C%2Fmask%3E%3C%2Fdefs%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cuse%20stroke%3D%22%23F2F2F2%22%20mask%3D%22url(%23b)%22%20stroke-width%3D%2210%22%20fill%3D%22%23FFF%22%20xlink%3Ahref%3D%22%23a%22%2F%3E%3Ccircle%20fill%3D%22%23F2F2F2%22%20cx%3D%221068.5%22%20cy%3D%22241.5%22%20r%3D%22162.5%22%2F%3E%3Cpath%20fill%3D%22%23F2F2F2%22%20d%3D%22M496.5%20303l664.5%20715-1156%201V832.02z%22%2F%3E%3Cpath%20fill%3D%22%23F2F2F2%22%20d%3D%22M998%20473l435.46%20407.243V1018H413z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E';
 
 
 /**
@@ -39,6 +49,8 @@ var Figure = function(opt_params) {
     captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
     height: null,
+    isAttachment: false,
+    placeholderImage: FIGURE_PLACEHOLDER,
   }, opt_params));
 
   Component.call(this, params);
@@ -47,7 +59,7 @@ var Figure = function(opt_params) {
    * Internal model text in this Figure.
    * @type {string}
    */
-  this.src = params.src;
+  this.src = params.src || params.placeholderImage;
 
   /**
    * Wether this figure is initialized with Data URL.
@@ -99,6 +111,8 @@ var Figure = function(opt_params) {
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+
+  this.updateIsAttachment(this.isAttachment);
 };
 Figure.prototype = Object.create(Component.prototype);
 module.exports = Figure;
@@ -230,6 +244,7 @@ Figure.prototype.getJSONModel = function() {
     width: this.width,
     height: this.height,
     caption: this.captionParagraph.text,
+    isAttachment: this.isAttachment,
   };
 
   if (!this.isDataUrl) {
@@ -329,6 +344,7 @@ Figure.prototype.getDeleteOps = function(opt_indexOffset, opt_cursorAfterOp) {
         src: this.src,
         caption: this.captionParagraph.text,
         width: this.width,
+        isAttachment: this.isAttachment,
       },
     },
   }];
@@ -362,6 +378,7 @@ Figure.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
         src: this.src,
         width: this.width,
         caption: this.captionParagraph.text,
+        isAttachment: this.isAttachment,
       },
     },
     undo: {
@@ -394,6 +411,10 @@ Figure.prototype.updateAttributes = function(attrs) {
   if (attrs.caption) {
     this.updateCaption(attrs.caption);
   }
+
+  if (attrs.isAttachment !== undefined) {
+    this.updateIsAttachment(attrs.isAttachment);
+  }
 };
 
 
@@ -415,4 +436,18 @@ Figure.prototype.updateSource = function(src) {
 Figure.prototype.updateCaption = function(caption) {
   this.caption = caption;
   this.captionParagraph.setText(caption);
+};
+
+
+/**
+ * Updates figure isAttachment attribute.
+ * @param  {boolean} isAttachment.
+ */
+Figure.prototype.updateIsAttachment = function(isAttachment) {
+  this.isAttachment = isAttachment;
+  if (this.isAttachment) {
+    this.dom.classList.add('carbon-attachment');
+  } else {
+    this.dom.classList.remove('carbon-attachment');
+  }
 };

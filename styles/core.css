@@ -217,6 +217,27 @@
   top: -99999px;
 }
 
+.carbon-attachment {
+  position: relative;
+}
+
+.carbon-attachment-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.carbon-attachment-progress-bar {
+  position: absolute;
+  top: 0;
+  height: 5px;
+  background: dodgerblue;
+  transition: width .5s ease-out;
+}
+
 @media (max-width: 500px) {
   .carbon .layout-float-left figure {
     float: none;

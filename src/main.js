@@ -48,3 +48,9 @@ module.exports.EmbeddingExtension = require('./extensions/embedding/embeddingExt
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
 module.exports.LayoutingExtension = require('./extensions/layoutingExtension');
+
+
+// Upload-related Extensions.
+module.exports.UploadManager = require('./extensions/uploading/upload-manager');
+module.exports.CarbonUpUploader = require('./extensions/uploading/carbon-up-uploader/carbon-up-uploader');
+module.exports.FilePicker = require('./extensions/file-picker/file-picker');

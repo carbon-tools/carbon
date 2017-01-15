@@ -36,6 +36,11 @@ body {
   box-sizing: border-box;
 }
 
+.container-full #editor {
+  width: 100%;
+  float: none;
+}
+
 #editor .carbon .layout-single-column,
 #editor .carbon .layout-float-left,
 #editor .carbon .layout-float-right {
