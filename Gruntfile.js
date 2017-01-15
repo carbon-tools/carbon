@@ -211,7 +211,6 @@ module.exports = function(grunt) {
       },
       livereload: {
         options: {
-          open: 'http://localhost:8000',
           base: [
             '.',
             '.tmp',

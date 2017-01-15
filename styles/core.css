@@ -238,6 +238,14 @@
   transition: width .5s ease-out;
 }
 
+.drag-drop-anchor {
+  top: -99999px;
+  position: absolute;
+  border: 2px dashed dodgerblue;
+  width: 100%;
+  pointer-events: none;
+}
+
 @media (max-width: 500px) {
   .carbon .layout-float-left figure {
     float: none;

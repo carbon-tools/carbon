@@ -85,6 +85,9 @@
       editor.install(carbon.FilePicker, {
         uploadManager: uploadManager,
       });
+      editor.install(carbon.DragDropFiles, {
+        uploadManager: uploadManager,
+      });
       editor.render();
 
       var model = document.getElementById('model-viewer');
