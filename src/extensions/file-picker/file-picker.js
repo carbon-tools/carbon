@@ -136,5 +136,7 @@ FilePicker.prototype.handleUpload = function(event) {
   var files = event.detail.files;
   var selection = this.editor.article.selection;
   var component = selection.getComponentAtStart();
-  this.uploadManager_.attachFilesAt(files, component);
+  if (this.uploadManager_) {
+    this.uploadManager_.attachFilesAt(files, component);
+  }
 };

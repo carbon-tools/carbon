@@ -145,10 +145,12 @@ SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
         var name = 'Selfie-' + new Date();
         var blob = dataUriToBlob(dataUri, name);
         blob.name = name;
+        if (that.uploadManager_) {
+          that.uploadManager_.attachFilesAt([blob], component);
+        }
         if (opsCallback) {
           opsCallback();
         }
-        that.uploadManager_.attachFilesAt([blob], component);
       });
 
       Webcam.off('live');

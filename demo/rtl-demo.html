@@ -156,8 +156,16 @@
         },
         ComponentClass: carbon.EmbeddedComponent
       });
-
-      editor.install(carbon.SelfieExtension);
+      var uploadManager = new carbon.UploadManager(editor, {});
+      editor.install(carbon.SelfieExtension, {
+        uploadManager: uploadManager,
+      });
+      editor.install(carbon.FilePicker, {
+        uploadManager: uploadManager,
+      });
+      editor.install(carbon.DragDropFiles, {
+        uploadManager: uploadManager,
+      });
       editor.install(carbon.LayoutingExtension);
       editor.render();
 

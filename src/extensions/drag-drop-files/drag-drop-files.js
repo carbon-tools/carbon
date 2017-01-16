@@ -3,7 +3,6 @@
 var AbstractExtension = require('../../core/abstract-extension');
 var Utils = require('../../utils');
 var dom = require('../../utils/dom');
-var Loader = require('../../loader');
 
 
 /**
@@ -119,7 +118,9 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
   event.stopPropagation();
   this.dropAtAnchorDom_.style.top = EDGE;
   var files = event.dataTransfer.files;
-  this.uploadManager_.attachFilesAt(files, this.componentAtPoint_);
+  if (this.uploadManager_) {
+    this.uploadManager_.attachFilesAt(files, this.componentAtPoint_);
+  }
 };
 
 
