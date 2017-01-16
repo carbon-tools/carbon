@@ -37,12 +37,14 @@ I18n.set('en', 'button.layout.bleed' , 'Shelf');
 I18n.set('en', 'button.layout.staged' , 'Stage');
 I18n.set('en', 'button.layout.left' , 'Left');
 I18n.set('en', 'button.layout.right' , 'Right');
+I18n.set('en', 'button.layout.grid' , 'Grid');
 
 I18n.set('en', 'button.layout.icon.single' , 'fa fa-align-justify');
 I18n.set('en', 'button.layout.icon.bleed' , 'fa fa-arrows-h');
 I18n.set('en', 'button.layout.icon.staged' , 'fa fa-desktop');
 I18n.set('en', 'button.layout.icon.left' , 'fa fa-align-left');
 I18n.set('en', 'button.layout.icon.right' , 'fa fa-align-right');
+I18n.set('en', 'button.layout.icon.grid' , 'fa fa-th');
 
 I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
 I18n.set('en', 'regex.selfie', '^\\+selfie$');

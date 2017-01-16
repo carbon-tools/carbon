@@ -3,8 +3,6 @@
 var AbstractExtension = require('../../core/abstract-extension');
 var Button = require('../../toolbars/button');
 var Utils = require('../../utils');
-var Figure = require('../../figure');
-var Attachment = require('../attachment');
 var I18n = require('../../i18n');
 
 
@@ -117,13 +115,6 @@ FilePicker.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
 
 
 /**
- * Event name for attachment added.
- * @type {string}
- */
-FilePicker.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
-
-
-/**
  * Initialize the upload button and listener.
  */
 FilePicker.prototype.init = function() {
@@ -142,61 +133,8 @@ FilePicker.prototype.init = function() {
  * @param  {Event} event Event fired from UploadButton.
  */
 FilePicker.prototype.handleUpload = function(event) {
-  var that = this;
-  // TODO(mkhatib): Create attachment per supported file.
   var files = event.detail.files;
-
-  var fileLoaded = function(dataUrl, file) {
-    var selection = that.editor.article.selection;
-    var component = selection.getComponentAtStart();
-
-    // Create a figure with the file Data URL and insert it.
-    var figure = new Figure({src: dataUrl, isAttachment: true});
-    figure.section = selection.getSectionAtStart();
-    var insertFigureOps = figure.getInsertOps(component.getIndexInSection());
-    that.editor.article.transaction(insertFigureOps);
-    that.editor.dispatchEvent(new Event('change'));
-
-    // Create an attachment to track the figure and insertion operations.
-    var attachment = new Attachment({
-      file: file,
-      figure: selection.getComponentAtStart(),
-      editor: that.editor,
-      insertedOps: insertFigureOps,
-    });
-
-    // Dispatch an attachment added event to allow clients to upload the file.
-    var newEvent = new CustomEvent(
-      FilePicker.ATTACHMENT_ADDED_EVENT_NAME, {
-        detail: {attachment: attachment},
-      });
-    that.editor.dispatchEvent(newEvent);
-
-    if (that.uploadManager_) {
-      that.uploadManager_.upload(attachment);
-    }
-  };
-
-  for (var i = 0; i < files.length; i++) {
-    // Read the file as Data URL.
-    this.readFileAsDataUrl_(files[i], fileLoaded);
-  }
+  var selection = this.editor.article.selection;
+  var component = selection.getComponentAtStart();
+  this.uploadManager_.attachFilesAt(files, component);
 };
-
-
-/**
- * Read file data URL.
- * @param  {!File} file File picked by the user.
- * @param  {function(string, File)} callback Callback function when the reading is complete.
- * @private
- */
-FilePicker.prototype.readFileAsDataUrl_ = function(file, callback) {
-  var reader = new FileReader();
-  reader.onload = (function(f) {
-    return function(e) {
-      callback(e.target.result, f);
-    };
-  }(file));
-  reader.readAsDataURL(file);
-};
-

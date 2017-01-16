@@ -31,6 +31,8 @@ var Component = function(opt_params) {
     parentComponent: null,
     // Whether this component is still an attachment and hasn't been upgraded.
     isAttachment: false,
+    width: null,
+    height: null,
   }, opt_params);
 
   /**
@@ -96,6 +98,17 @@ var Component = function(opt_params) {
    */
   this.selectionDom = null;
 
+  /**
+   * Component width.
+   * @type {?number}
+   */
+  this.width = params.width;
+
+  /**
+   * Component height.
+   * @type {?number}
+   */
+  this.height = params.height;
 };
 module.exports = Component;
 
@@ -368,4 +381,24 @@ Component.prototype.rerender = function() {
  */
 Component.prototype.updateAttributes = function(unusedAttrs) {
   // pass.
+};
+
+
+/**
+ * Returns the height of the component.
+ * @return {?number}
+ * @export
+ */
+Component.prototype.getHeight = function() {
+  return this.height;
+};
+
+
+/**
+ * Returns the width of the component.
+ * @return {?number}
+ * @export
+ */
+Component.prototype.getWidth = function() {
+  return this.width;
 };

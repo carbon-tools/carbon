@@ -63,6 +63,28 @@
   width: 300px;
 }
 
+.carbon .layout-responsive-grid {
+  padding: .5vw;
+  font-size: 0;
+  flex-flow: row wrap;
+  display: flex;
+}
+
+.carbon .layout-responsive-grid figure {
+  flex: auto;
+  width: 30%;
+  margin: .5vw;
+}
+
+.carbon .layout-responsive-grid figure img {
+  width: 100%;
+  height: auto;
+}
+
+.carbon .layout-responsive-grid figure figcaption {
+  display: none;
+}
+
 .carbon figure {
   margin: 2em 0;
   text-align: center;

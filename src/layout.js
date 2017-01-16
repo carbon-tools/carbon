@@ -77,6 +77,7 @@ Layout.Types = {
   Staged: 'layout-staged',
   FloatLeft: 'layout-float-left',
   FloatRight: 'layout-float-right',
+  ResponsiveGrid: 'layout-responsive-grid',
 };
 
 
@@ -264,6 +265,25 @@ Layout.prototype.getUpdateOps = function(
       },
     },
   }];
+};
+
+
+/**
+ * Re-calculate ratios and sizes per child of this layout.
+ * @export
+ */
+Layout.prototype.onChildSizeUpdated = function() {
+  for (var i = 0; i < this.components.length; i++) {
+    var width = parseInt(this.components[i].getWidth(), 10);
+    var viewportWidth = parseInt(window.innerWidth, 10);
+    if (width) {
+      var ratio = (width / viewportWidth) * 100;
+      var sizes = ratio + 'vw';
+      this.components[i].updateAttributes({
+        sizes: sizes,
+      });
+    }
+  }
 };
 
 

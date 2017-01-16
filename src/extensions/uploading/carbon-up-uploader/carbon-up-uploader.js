@@ -28,6 +28,17 @@ var CACHED_UPLOAD_URLS_THRESHOLD = 5;
 
 
 /**
+ * The different widths to generate sources for.
+ * TODO(mkhatib): Make this configurable, and implemente data sources for
+ * better management of this and allowing future dynamic calculation of these.
+ * @type {Array<number>}
+ */
+var GENERATE_SOURCES_FOR_WIDTHS = [
+  120, 240, 360, 480, 600, 720, 1080, 1440, 2400, 3000, 3600, 4200, 4800, 5400,
+];
+
+
+/**
  * @typedef {{
  *   apiKey: (?string|undefined),
  * }}
@@ -146,9 +157,18 @@ CarbonUpUploader.prototype.upload_ = function(attachment, uploadUrl) {
  * @param {UploadResultResponseDef} data
  */
 CarbonUpUploader.prototype.onSuccess_ = function(attachment, data) {
+  var baseSrc = data.result.image_url;
+  var srcset = [];
+  for (var i = 0; i < GENERATE_SOURCES_FOR_WIDTHS.length; i++) {
+    var width = GENERATE_SOURCES_FOR_WIDTHS[i];
+    srcset.push({
+      descriptor: width + 'w',
+      src: baseSrc + '=w' + width,
+    });
+  }
   attachment.uploadComplete({
-    // TODO(mkhatib): Implement sources to support multiple image sizing loading.
-    src: data.result.image_url + '=s0',
+    src: baseSrc + '=s0',
+    srcset: srcset,
     caption: data.result.name,
   });
 };

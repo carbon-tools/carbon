@@ -21,6 +21,15 @@ var FigureComponentParamsDef;
 
 
 /**
+ * @typedef {{
+ *   src: string,
+ *   descriptor: string,
+ * }}
+ */
+var ImgSrcSetDef;
+
+
+/**
  * Figure placeholder when source has not persisted correctly.
  * e.g. Upload interrepted and failed to upload.
  */
@@ -45,6 +54,8 @@ var Figure = function(opt_params) {
   // Override default params with passed ones if any.
   var params = /** @type {FigureComponentParamsDef} */ (Utils.extend({
     src: '',
+    sizes: '100vw',
+    srcset: [],
     caption: null,
     captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
@@ -56,10 +67,21 @@ var Figure = function(opt_params) {
   Component.call(this, params);
 
   /**
-   * Internal model text in this Figure.
    * @type {string}
    */
   this.src = params.src || params.placeholderImage;
+
+  /**
+   * Data to calculate srcset attribute for an image from it.
+   * @type {!Array<ImgSrcSetDef>}
+   */
+  this.srcset = params.srcset;
+
+  /**
+   * Sizes attribute for the image.
+   * @type {string}
+   */
+  this.sizes = params.sizes;
 
   /**
    * Wether this figure is initialized with Data URL.
@@ -245,6 +267,8 @@ Figure.prototype.getJSONModel = function() {
     height: this.height,
     caption: this.captionParagraph.text,
     isAttachment: this.isAttachment,
+    srcset: this.srcset,
+    sizes: this.sizes,
   };
 
   if (!this.isDataUrl) {
@@ -268,19 +292,18 @@ Figure.prototype.render = function(element, opt_options) {
 
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-      this.imgDom.setAttribute('src', this.src);
+      if (this.editMode && this.imgDom && (!this.width || !this.height)) {
+        this.imgDom.addEventListener(
+            'load', this.onImageLoad_.bind(this), false);
+      }
 
       this.imgContainerDom = document.createElement(
           Figure.IMAGE_CONTAINER_TAG_NAME);
-      if (this.width && this.height) {
-        this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
-        this.imgContainerDom.style.paddingBottom = (
-            (parseInt(this.height, 10) / parseInt(this.width, 10) * 100) + '%');
-      }
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
+      this.imgDom.setAttribute('src', this.src);
+      this.createResponsiveDom_();
     }
-
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
     if (this.editMode) {
@@ -297,17 +320,57 @@ Figure.prototype.render = function(element, opt_options) {
       }
 
       this.captionParagraph.dom.setAttribute('contenteditable', true);
-
-      if (this.imgDom && (!this.width || !this.height)) {
-        this.imgDom.addEventListener('load', function() {
-          if (this.editMode) {
-            var styles = window.getComputedStyle(this.imgDom);
-            this.width = Utils.getSizeWithUnit(styles.width);
-            this.height = Utils.getSizeWithUnit(styles.height);
-          }
-        }.bind(this), false);
-      }
     }
+  }
+};
+
+
+/**
+ * Handles image loading event and update size-related attributes for the model.
+ * @param {Event} unusedEvent
+ * @private
+ */
+Figure.prototype.onImageLoad_ = function(unusedEvent) {
+  requestAnimationFrame(function() {
+    this.calculateWidthHeight_();
+    // Recalculate width/height after flex kicks in and update the responsive
+    // sizes of the images.
+    setTimeout(function() {
+      this.calculateWidthHeight_();
+      // Update the layout with the new information.
+      this.section.onChildSizeUpdated(this, {
+        width: this.width,
+        height: this.height,
+      });
+    }.bind(this), 500);
+  }.bind(this));
+};
+
+
+/**
+ * Calculates width and height of the figure and updates them.
+ * @private
+ */
+Figure.prototype.calculateWidthHeight_ = function() {
+  var styles = window.getComputedStyle(this.imgDom);
+  this.width = Utils.getSizeWithUnit(styles.width);
+  this.height = Utils.getSizeWithUnit(styles.height);
+  this.createResponsiveDom_();
+};
+
+
+/**
+ * Creates flex and padding-bottom to allow images to be responsive.
+ * @private
+ */
+Figure.prototype.createResponsiveDom_ = function() {
+  if (this.width && this.height) {
+    var flex = parseInt(this.width, 10) / parseInt(this.height, 10);
+    var paddingBottomPercentage = ((
+        parseInt(this.height, 10) / parseInt(this.width, 10) * 100) + '%');
+    this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
+    this.imgContainerDom.style.paddingBottom = paddingBottomPercentage;
+    this.dom.style.flex = flex;
   }
 };
 
@@ -342,6 +405,8 @@ Figure.prototype.getDeleteOps = function(opt_indexOffset, opt_cursorAfterOp) {
       index: this.getIndexInSection() + (opt_indexOffset || 0),
       attrs: {
         src: this.src,
+        sizes: this.sizes,
+        srcset: this.srcset,
         caption: this.captionParagraph.text,
         width: this.width,
         isAttachment: this.isAttachment,
@@ -376,6 +441,8 @@ Figure.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
       index: index,
       attrs: {
         src: this.src,
+        sizes: this.sizes,
+        srcset: this.srcset,
         width: this.width,
         caption: this.captionParagraph.text,
         isAttachment: this.isAttachment,
@@ -401,11 +468,19 @@ Figure.prototype.getLength = function() {
 
 /**
  * Updates figure attributes.
- * @param  {Object} attrs Attributes to update.
+ * @param {Object} attrs Attributes to update.
  */
 Figure.prototype.updateAttributes = function(attrs) {
   if (attrs.src) {
     this.updateSource(attrs.src);
+  }
+
+  if (attrs.sizes) {
+    this.updateSizes(attrs.sizes);
+  }
+
+  if (attrs.srcset) {
+    this.updateSrcSet(attrs.srcset);
   }
 
   if (attrs.caption) {
@@ -420,7 +495,7 @@ Figure.prototype.updateAttributes = function(attrs) {
 
 /**
  * Updates the source attribute for the figure and its dom.
- * @param  {string} src Image source.
+ * @param {string} src Image source.
  */
 Figure.prototype.updateSource = function(src) {
   this.src = src;
@@ -430,8 +505,28 @@ Figure.prototype.updateSource = function(src) {
 
 
 /**
+ * Update the sizes attribute for the image.
+ * @param {string} sizes
+ */
+Figure.prototype.updateSizes = function(sizes) {
+  this.sizes = sizes;
+  this.imgDom.setAttribute('sizes', sizes);
+};
+
+
+/**
+ * Updates img srcset.
+ * @param {Array<ImgSrcSetDef>} srcset
+ */
+Figure.prototype.updateSrcSet = function(srcset) {
+  this.srcset = srcset;
+  this.imgDom.setAttribute('srcset', this.getSrcSetString_(srcset));
+};
+
+
+/**
  * Updates figure caption and its dom.
- * @param  {string} caption Caption text to update to.
+ * @param {string} caption Caption text to update to.
  */
 Figure.prototype.updateCaption = function(caption) {
   this.caption = caption;
@@ -441,7 +536,7 @@ Figure.prototype.updateCaption = function(caption) {
 
 /**
  * Updates figure isAttachment attribute.
- * @param  {boolean} isAttachment.
+ * @param {boolean} isAttachment.
  */
 Figure.prototype.updateIsAttachment = function(isAttachment) {
   this.isAttachment = isAttachment;
@@ -450,4 +545,19 @@ Figure.prototype.updateIsAttachment = function(isAttachment) {
   } else {
     this.dom.classList.remove('carbon-attachment');
   }
+};
+
+
+/**
+ * Calculates the actual value of the srcset attribute for img element.
+ * @param {Array<ImgSrcSetDef>} srcset
+ * @return {string}
+ * @private
+ */
+Figure.prototype.getSrcSetString_ = function(srcset) {
+  var srcsetArr = [];
+  for (var i = 0; i < srcset.length; i++) {
+    srcsetArr.push(srcset[i].src + ' ' + srcset[i].descriptor);
+  }
+  return srcsetArr.join(',');
 };

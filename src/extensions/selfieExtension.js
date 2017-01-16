@@ -2,8 +2,6 @@
 
 var AbstractExtension = require('../core/abstract-extension');
 var Utils = require('../utils');
-var Attachment = require('./attachment');
-var Figure = require('../figure');
 var Button = require('../toolbars/button');
 var I18n = require('../i18n');
 var dataUriToBlob = require('../utils/xhr').dataUriToBlob;
@@ -92,13 +90,6 @@ SelfieExtension.COMMAND_REGEX = '^\\+selfie$';
 
 
 /**
- * Event to fire when the selfie is taken.
- * @type {string}
- */
-SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
-
-
-/**
  * Toolbar name for the toolbelt toolbar.
  * @type {string}
  */
@@ -144,49 +135,20 @@ SelfieExtension.prototype.init = function() {
  */
 SelfieExtension.prototype.letMeTakeASelfie = function(opsCallback) {
   var that = this;
-  var ops = [];
   Webcam.attach('#' + SelfieExtension.CAM_PREVIEW_ELEMENT_ID);
   Webcam.on('live', function() {
     setTimeout(function() {
       Webcam.snap(function(dataUri) {
         var selection = that.editor.article.selection;
         var component = selection.getComponentAtStart();
-        var atIndex = component.getIndexInSection();
-        // Create a figure with the file Data URL and insert it.
-        var figure = new Figure({src: dataUri, isAttachment: true});
-        figure.section = selection.getSectionAtStart();
-        var insertFigureOps = figure.getInsertOps(atIndex);
-
-        // Add the new component created from the text.
-        Utils.arrays.extend(ops, figure.getInsertOps(atIndex));
-
-        if (opsCallback) {
-          opsCallback(ops);
-        }
 
         var name = 'Selfie-' + new Date();
         var blob = dataUriToBlob(dataUri, name);
         blob.name = name;
-
-        // Create an attachment to track the figure and insertion operations.
-        var attachment = new Attachment({
-          file: blob,
-          figure: selection.getSectionAtStart().getComponentByName(figure.name),
-          editor: that.editor,
-          insertedOps: insertFigureOps,
-        });
-
-        // Dispatch an attachment added event to allow clients to upload the
-        // file.
-        var newEvent = new CustomEvent(
-          SelfieExtension.ATTACHMENT_ADDED_EVENT_NAME, {
-            detail: {attachment: attachment},
-          });
-        that.editor.dispatchEvent(newEvent);
-
-        if (that.uploadManager_) {
-          that.uploadManager_.upload(attachment);
+        if (opsCallback) {
+          opsCallback();
         }
+        that.uploadManager_.attachFilesAt([blob], component);
       });
 
       Webcam.off('live');
@@ -207,8 +169,7 @@ SelfieExtension.prototype.handleMatchedRegex = function(
   var atIndex = matchedComponent.getIndexInSection();
   Utils.arrays.extend(ops, matchedComponent.getDeleteOps(atIndex));
 
-  this.letMeTakeASelfie(function(newOps) {
-    Utils.arrays.extend(ops, newOps);
+  this.letMeTakeASelfie(function() {
     opsCallback(ops);
   });
 };
@@ -218,9 +179,5 @@ SelfieExtension.prototype.handleMatchedRegex = function(
  * Handles clicking take a selfie button.
  */
 SelfieExtension.prototype.handleInsertClicked = function() {
-  var that = this;
-  this.letMeTakeASelfie(function(ops) {
-    that.editor.article.transaction(ops);
-    that.editor.dispatchEvent(new Event('change'));
-  });
+  this.letMeTakeASelfie();
 };

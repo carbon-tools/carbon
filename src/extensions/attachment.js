@@ -72,7 +72,9 @@ module.exports = Attachment;
  */
 Attachment.prototype.setUploadProgress = function(progress) {
   this.progress = progress;
-  this.progressDom_.style.width = progress + '%';
+  requestAnimationFrame(function() {
+    this.progressDom_.style.width = progress + '%';
+  }.bind(this));
 };
 
 
@@ -83,6 +85,7 @@ Attachment.prototype.setUploadProgress = function(progress) {
 Attachment.prototype.uploadComplete = function(data) {
   this.setAttributes({
     src: data.src,
+    srcset: data.srcset,
     caption: data.caption,
     isAttachment: false,
   });

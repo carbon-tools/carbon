@@ -34,6 +34,7 @@ var LayoutingExtension = function(editor, opt_params) {
    */
   this.toolbar = null;
 
+  Loader.register(LayoutingExtension.CLASS_NAME, this);
   this.init();
 };
 LayoutingExtension.prototype = Object.create(AbstractExtension.prototype);
@@ -80,6 +81,10 @@ LayoutingExtension.prototype.init = function() {
     label: I18n.get('button.layout.right'),
     icon: I18n.get('button.layout.icon.right'),
     name: 'layout-float-right',
+  }, {
+    label: I18n.get('button.layout.grid'),
+    icon: I18n.get('button.layout.icon.grid'),
+    name: 'layout-responsive-grid',
   }];
 
   for (var i = 0; i < buttons.length; i++) {
@@ -124,6 +129,18 @@ LayoutingExtension.TOOLBAR_CLASS_NAME = 'layouting-toolbar';
  * Handles clicking the insert button to expand the toolbelt.
  */
 LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
+  var target = e.detail.target;
+  this.toolbar.setActiveButton(target);
+  var clickedLayout = target.name;
+  this.applyLayout(clickedLayout);
+};
+
+
+/**
+ * Applies the passed layout name to the selected component.
+ * @param {string} layoutName
+ */
+LayoutingExtension.prototype.applyLayout = function(layoutName) {
   var ops = [];
   var insertLayoutAtIndex;
   var selectedComponent = this.editor.selection.getComponentAtStart();
@@ -134,19 +151,17 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
 
   if (selectedComponent instanceof Figure ||
       selectedComponent instanceof EmbeddedComponent) {
-    this.toolbar.setActiveButton(e.detail.target);
     var currentLayout = /** @type {../layout} */ (selectedComponent.section);
-    var clickedLayout = e.detail.target.name;
     var componentIndexInLayout = selectedComponent.getIndexInSection();
     var isComponentAtStartOfLayout = componentIndexInLayout === 0;
     var isComponentAtEndOfLayout = (
         componentIndexInLayout === currentLayout.getLength() - 1);
-    if (currentLayout.type !== clickedLayout) {
+    if (currentLayout.type !== layoutName) {
       // If figure is the only element in the layout, just change
       // the layout type.
       if (currentLayout.getLength() === 1) {
         Utils.arrays.extend(ops, currentLayout.getUpdateOps({
-          type: clickedLayout,
+          type: layoutName,
         }));
       }
 
@@ -159,7 +174,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
           insertLayoutAtIndex++;
         }
         newLayout = new Layout({
-          type: clickedLayout,
+          type: layoutName,
           section: currentLayout.section,
           components: [],
         });
@@ -176,7 +191,7 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
       else {
         insertLayoutAtIndex = currentLayout.getIndexInSection() + 1;
         newLayout = new Layout({
-          type: clickedLayout,
+          type: layoutName,
           section: currentLayout.section,
           components: [],
         });
@@ -197,6 +212,56 @@ LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
   }
 
   this.handleSelectionChangedEvent();
+};
+
+
+/**
+ * Creates a new layout just before the passed component. If the component is
+ * at the start of a layout, the new layout is created right above that layout.
+ * Otherwise, the current layout is split in two and a new layout is inserted
+ * between them.
+ * @param {string} layoutName the type of the layout to create.
+ * @param {../component} component anchor component to insert layout at.
+ * @return {../layout} The newly created layout.
+ */
+LayoutingExtension.prototype.newLayoutAt = function(layoutName, component) {
+  var insertLayoutAtIndex;
+  var newLayout;
+  var ops = [];
+
+  var currentLayout = /** @type {../layout} */ (component.section);
+  var componentIndexInLayout = component.getIndexInSection();
+  var isComponentAtStartOfLayout = componentIndexInLayout === 0;
+
+  // If component is the first element in the layout, create a new
+  // layout and prepend it to the section before the current layout.
+  if (isComponentAtStartOfLayout) {
+    insertLayoutAtIndex = currentLayout.getIndexInSection();
+    newLayout = new Layout({
+      type: layoutName,
+      section: currentLayout.section,
+      components: [],
+    });
+    Utils.arrays.extend(ops, newLayout.getInsertOps(insertLayoutAtIndex));
+  }
+
+  // If component is in the middle of a layout. Split layout in that index.
+  // Create a new layout and insert it in the middle.
+  else {
+    insertLayoutAtIndex = currentLayout.getIndexInSection() + 1;
+    newLayout = new Layout({
+      type: layoutName,
+      section: currentLayout.section,
+      components: [],
+    });
+
+    Utils.arrays.extend(
+        ops, currentLayout.getSplitOps(componentIndexInLayout));
+    Utils.arrays.extend(ops, newLayout.getInsertOps(insertLayoutAtIndex));
+  }
+
+  this.editor.article.transaction(ops);
+  return Utils.getReference(newLayout.name);
 };
 
 

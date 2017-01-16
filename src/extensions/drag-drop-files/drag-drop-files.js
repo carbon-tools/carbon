@@ -2,9 +2,8 @@
 
 var AbstractExtension = require('../../core/abstract-extension');
 var Utils = require('../../utils');
-var Figure = require('../../figure');
-var Attachment = require('../attachment');
 var dom = require('../../utils/dom');
+var Loader = require('../../loader');
 
 
 /**
@@ -64,13 +63,6 @@ DragDropFiles.CLASS_NAME = 'DragDropFiles';
 
 
 /**
- * Event name for attachment added.
- * @type {string}
- */
-DragDropFiles.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
-
-
-/**
  * Initialize the drag-drop listeners.
  * TODO(mkhatib): Cleanup on uninstalling the extension.
  */
@@ -106,7 +98,14 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
   event.stopPropagation();
   this.componentAtPoint_ = this.normalizeComponent_(
       dom.componentFromPoint(event.clientX, event.clientY));
-  this.dropAtAnchorDom_.style.top = this.componentAtPoint_.dom.offsetTop + 'px';
+  if (this.componentAtPoint_) {
+    // TODO(mkhatib): Update the indicator to reflect insertion point better
+    // specially when inserting next to another iamge for example.
+    // TODO(mkhatib): When dropping an image on top of another the result should
+    // create a grid layout (if not already in one).
+    this.dropAtAnchorDom_.style.top = (
+        this.componentAtPoint_.dom.offsetTop + 'px');
+  }
 };
 
 
@@ -119,71 +118,8 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
   event.preventDefault();
   event.stopPropagation();
   this.dropAtAnchorDom_.style.top = EDGE;
-  this.attachFiles_(this.componentAtPoint_, event);
-};
-
-
-/**
- * Handles attaching a file.
- * @param {../../component} component to insert at.
- * @param  {Event} event Event fired from drop.
- * @private
- */
-DragDropFiles.prototype.attachFiles_ = function(component, event) {
-  var that = this;
   var files = event.dataTransfer.files;
-
-  var fileLoaded = function(dataUrl, file) {
-    var selection = that.editor.article.selection;
-
-    // Create a figure with the file Data URL and insert it.
-    var figure = new Figure({src: dataUrl, isAttachment: true});
-    figure.section = component.section;
-    var insertFigureOps = figure.getInsertOps(component.getIndexInSection());
-    that.editor.article.transaction(insertFigureOps);
-    that.editor.dispatchEvent(new Event('change'));
-
-    // Create an attachment to track the figure and insertion operations.
-    var attachment = new Attachment({
-      file: file,
-      figure: selection.getComponentAtStart(),
-      editor: that.editor,
-      insertedOps: insertFigureOps,
-    });
-
-    // Dispatch an attachment added event to allow clients to upload the file.
-    var newEvent = new CustomEvent(
-      DragDropFiles.ATTACHMENT_ADDED_EVENT_NAME, {
-        detail: {attachment: attachment},
-      });
-    that.editor.dispatchEvent(newEvent);
-
-    if (that.uploadManager_) {
-      that.uploadManager_.upload(attachment);
-    }
-  };
-
-  for (var i = 0; i < files.length; i++) {
-    // Read the file as Data URL.
-    this.readFileAsDataUrl_(files[i], fileLoaded);
-  }
-};
-
-
-/**
- * Read file data URL.
- * @param  {!File} file File picked by the user.
- * @param  {function(string, File)} callback Callback function when the reading is complete.
- * @private
- */
-DragDropFiles.prototype.readFileAsDataUrl_ = function(file, callback) {
-  var reader = new FileReader();
-  reader.onload = (function(f) {
-    return function(e) {
-      callback(e.target.result, f);
-    };
-  }(file));
-  reader.readAsDataURL(file);
+  this.uploadManager_.attachFilesAt(files, this.componentAtPoint_);
 };
 
 
@@ -193,9 +129,14 @@ DragDropFiles.prototype.readFileAsDataUrl_ = function(file, callback) {
  * @private
  */
 DragDropFiles.prototype.normalizeComponent_ = function(component) {
-  while (component.components) {
+  while (component && component.components) {
     component = /** @type {../../section} */ (component).getFirstComponent();
   }
+
+  if (!component) {
+    return null;
+  }
+
   if (component.inline) {
     component = component.parentComponent;
   }
