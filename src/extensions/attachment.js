@@ -47,6 +47,13 @@ var Attachment = function(opt_params) {
 
 
   /**
+   * Listeners to attachment upload complete.
+   * @type {Array<function>}
+   * @private
+   */
+  this.onDoneListeners_ = [];
+
+  /**
    * Attachment-related DOM.
    * @type {!Element}
    */
@@ -91,6 +98,19 @@ Attachment.prototype.uploadComplete = function(data) {
   });
 
   this.figure.dom.removeChild(this.attachmentDom_);
+
+  for (var i = 0; i < this.onDoneListeners_.length; i++) {
+    this.onDoneListeners_[i]();
+  }
+};
+
+
+/**
+ * Subscribes to be notified when the attachment is done uploading.
+ * @param {function} callback
+ */
+Attachment.prototype.onDone = function(callback) {
+  this.onDoneListeners_.push(callback);
 };
 
 

@@ -134,6 +134,9 @@ var Figure = function(opt_params) {
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
 
+  /** @private */
+  this.bindedImageLoad_ = this.onImageLoad_.bind(this);
+
   this.updateIsAttachment(this.isAttachment);
 };
 Figure.prototype = Object.create(Component.prototype);
@@ -291,23 +294,25 @@ Figure.prototype.render = function(element, opt_options) {
     Component.prototype.render.call(this, element, opt_options);
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
-      if (this.srcset) {
-        this.updateSrcSet(this.srcset);
-      }
-      if (this.sizes) {
-        this.updateSizes(this.sizes);
-      }
-      if (this.editMode && this.imgDom && (!this.width || !this.height)) {
-        this.imgDom.addEventListener(
-            'load', this.onImageLoad_.bind(this), false);
-      }
 
       this.imgContainerDom = document.createElement(
           Figure.IMAGE_CONTAINER_TAG_NAME);
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
+
+      if (this.src != FIGURE_PLACEHOLDER) {
+        if (this.srcset) {
+          this.updateSrcSet(this.srcset);
+        }
+        if (this.sizes) {
+          this.updateSizes(this.sizes);
+        }
+        if (this.editMode && this.imgDom && (!this.width || !this.height)) {
+          this.imgDom.addEventListener('load', this.bindedImageLoad_, false);
+        }
+        this.updateResponsiveDom_();
+      }
       this.imgDom.setAttribute('src', this.src);
-      this.createResponsiveDom_();
     }
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
@@ -336,6 +341,7 @@ Figure.prototype.render = function(element, opt_options) {
  * @private
  */
 Figure.prototype.onImageLoad_ = function(unusedEvent) {
+  this.imgDom.removeEventListener('load', this.bindedImageLoad_);
   requestAnimationFrame(function() {
     this.calculateWidthHeight_();
     // Recalculate width/height after flex kicks in and update the responsive
@@ -360,7 +366,7 @@ Figure.prototype.calculateWidthHeight_ = function() {
   var styles = window.getComputedStyle(this.imgDom);
   this.width = Utils.getSizeWithUnit(styles.width);
   this.height = Utils.getSizeWithUnit(styles.height);
-  this.createResponsiveDom_();
+  this.updateResponsiveDom_();
 };
 
 
@@ -368,9 +374,12 @@ Figure.prototype.calculateWidthHeight_ = function() {
  * Creates flex and padding-bottom to allow images to be responsive.
  * @private
  */
-Figure.prototype.createResponsiveDom_ = function() {
+Figure.prototype.updateResponsiveDom_ = function() {
   if (this.width && this.height) {
     var flex = parseInt(this.width, 10) / parseInt(this.height, 10);
+    if (this.sizes == '100vw') {
+      flex = '1';
+    }
     var paddingBottomPercentage = ((
         parseInt(this.height, 10) / parseInt(this.width, 10) * 100) + '%');
     this.imgContainerDom.className = Figure.IMAGE_CONTAINER_CLASS_NAME;
@@ -505,6 +514,11 @@ Figure.prototype.updateAttributes = function(attrs) {
 Figure.prototype.updateSource = function(src) {
   this.src = src;
   this.isDataUrl = !!this.src && this.src.indexOf('http') !== 0;
+  if (this.src != FIGURE_PLACEHOLDER &&
+      this.editMode && this.imgDom &&
+      (!this.width || !this.height)) {
+    this.imgDom.addEventListener('load', this.bindedImageLoad_, false);
+  }
   this.imgDom.setAttribute('src', src);
 };
 
@@ -516,6 +530,7 @@ Figure.prototype.updateSource = function(src) {
 Figure.prototype.updateSizes = function(sizes) {
   this.sizes = sizes;
   this.imgDom.setAttribute('sizes', sizes);
+  this.updateResponsiveDom_();
 };
 
 

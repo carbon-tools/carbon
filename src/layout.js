@@ -273,6 +273,20 @@ Layout.prototype.getUpdateOps = function(
  * @export
  */
 Layout.prototype.onChildSizeUpdated = function() {
+  this.updateChildrenSizes_();
+};
+
+
+/**
+ * @private
+ */
+Layout.prototype.updateChildrenSizes_ = function() {
+  if (this.components.length == 1) {
+    this.components[0].updateAttributes({
+      sizes: '100vw',
+    });
+    return;
+  }
   for (var i = 0; i < this.components.length; i++) {
     var width = parseInt(this.components[i].getWidth(), 10);
     var viewportWidth = parseInt(window.innerWidth, 10);
@@ -296,6 +310,7 @@ Layout.prototype.updateType = function(type) {
   this.dom.classList.remove(this.type);
   this.type = type;
   this.dom.classList.add(this.type);
+  this.updateChildrenSizes_();
 };
 
 

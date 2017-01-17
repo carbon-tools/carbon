@@ -48,6 +48,20 @@ function dataUriToBlob(dataURI, opt_name) {
 
 
 /**
+ * Read file data URL.
+ * @param {!File} file File picked by the user.
+ * @param {function(string)} callback Callback function when the reading is complete.
+ */
+function readFileAsDataURI(file, callback) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    callback(e.target.result);
+  };
+  reader.readAsDataURL(file);
+};
+
+
+/**
  * Sends an XHR request with the passed config.
  * @param {XHRSendConfigDef} config
  */
@@ -117,3 +131,4 @@ function addParamsToUrl(url, params) {
 module.exports.send = send;
 module.exports.addParamsToUrl = addParamsToUrl;
 module.exports.dataUriToBlob = dataUriToBlob;
+module.exports.readFileAsDataURI = readFileAsDataURI;

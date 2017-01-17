@@ -5,6 +5,123 @@ var Utils = require('../../utils');
 var Figure = require('../../figure');
 var Attachment = require('../attachment');
 var Loader = require('../../loader');
+var readFileAsDataURI = require('../../utils/xhr').readFileAsDataURI;
+
+
+/**
+ * Maximum concurrent uploads and data-uri reads at a time.
+ * @type {number}
+ */
+var MAX_RUNNING_UPLOAD_TASKS = 5;
+
+
+/**
+ * Queues requested attachments to allow a limited number of file reads and
+ * uploads concurrently to avoid killing the browser :-).
+ * @param {Array<./abstract-uploader>} uploaders
+ * @constructor
+ */
+var UploadQueue = function(uploaders) {
+  /**
+   * Deferred uploading tasks.
+   * @type {Array<UploadTaskDef>}
+   * @private
+   */
+  this.queue_ = [];
+
+  /**
+   * Currently running uploading tasks.
+   * @type {Array<UploadTaskDef>}
+   * @private
+   */
+  this.runningQueue_ = [];
+
+  /**
+   * @type {Array<./abstract-uploader>}
+   * @private
+   */
+  this.uploaders_ = uploaders;
+};
+
+
+/**
+ * Adds a new uploading task to the queue and starts the queue.
+ * @param {../attachment} attachment
+ */
+UploadQueue.prototype.add = function(attachment) {
+  this.queue_.push({
+    id: 'task-' + Utils.getUID(),
+    attachment: attachment,
+  });
+  this.start();
+};
+
+
+/**
+ * Kicks off uploads to MAX_RUNNING_UPLOAD_TASKS of concurrent uploads.
+ */
+UploadQueue.prototype.start = function() {
+  while (this.queue_.length > 0 &&
+        this.runningQueue_.length < MAX_RUNNING_UPLOAD_TASKS) {
+    var task = this.queue_.splice(0, 1)[0];
+    this.runningQueue_.push(task);
+    task.attachment.onDone(this.taskComplete_.bind(this, task));
+    this.run(task);
+  }
+};
+
+
+/**
+ * Removes a task from running queue.
+ * @param {UploadTaskDef} task
+ */
+UploadQueue.prototype.taskComplete_ = function(task) {
+  console.log('completed upload task:', task.id);
+  var index = this.runningQueue_.indexOf(task);
+  this.runningQueue_.splice(index, 1);
+  this.start();
+};
+
+
+/**
+ * Reads the task attachment file content as Data URI.
+ * @param {UploadTaskDef} task
+ */
+UploadQueue.prototype.run = function(task) {
+  readFileAsDataURI(
+      task.attachment.file,
+      this.updateImagePreview_.bind(this, task.attachment));
+};
+
+
+/**
+ * Updates the attachment figure source to the dataURI preview.
+ */
+UploadQueue.prototype.updateImagePreview_ = function(attachment, dataUri) {
+  attachment.figure.updateAttributes({
+    src: dataUri,
+  });
+  this.upload(attachment);
+};
+
+
+/**
+ * Notify uploaders with the new attachment added.
+ * @param {../attachment} attachment
+ */
+UploadQueue.prototype.upload = function(attachment) {
+  for (var i = 0; i < this.uploaders_.length; i++) {
+    var uploader = this.uploaders_[i];
+    if (uploader.onUpload) {
+      var handled = uploader.onUpload(attachment);
+      // TODO(mkhatib): Think maybe about allowing multiple uploaders handling
+      // the same upload.
+      if (handled) {
+        return;
+      }
+    }
+  }
+};
 
 
 /**
@@ -28,12 +145,20 @@ var UploadManager = function(editor, opt_params) {
 
   /**
    * @type {Array<./abstract-uploader}
+   * @private
    */
-  this.uploaders = params.uploaders || [];
+  this.uploaders_ = params.uploaders || [];
 
   /** @type {../layoutExtension} */
   this.layoutExtension_ = params.layoutExtension ||
       Loader.load('LayoutingExtension');
+
+  /**
+   * Queues and manage when file reads and uploads happen.
+   * @type {UploadQueue}
+   * @private
+   */
+  this.uploadQueue_ = new UploadQueue(this.uploaders_);
 };
 UploadManager.prototype = Object.create(AbstractExtension.prototype);
 module.exports = UploadManager;
@@ -54,33 +179,17 @@ UploadManager.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
 
 /**
- * Notify uploaders with the new attachment added.
- * @param {../attachment} attachment
- */
-UploadManager.prototype.upload = function(attachment) {
-  for (var i = 0; i < this.uploaders.length; i++) {
-    var uploader = this.uploaders[i];
-    if (uploader.onUpload) {
-      var handled = uploader.onUpload(attachment);
-      // TODO(mkhatib): Think maybe about allowing multiple uploaders handling
-      // the same upload.
-      if (handled) {
-        return;
-      }
-    }
-  }
-};
-
-
-/**
  * Inserts Grid layout, figures and attachments and initiate uploading files.
  * @param {Array<File|Blob>} files
  * @param {../../component} atComponent where to insert uploaded files.
  */
 UploadManager.prototype.attachFilesAt = function(files, atComponent) {
   var componentRef = atComponent;
+  var attachment;
   if (files.length > 1 && this.layoutExtension_) {
-    for (var i = 0; i < files.length; i++) {
+    var numOfPhotos = 0;
+    var remainingFilesCount = files.length;
+    for (var i = 0; i < files.length; i += numOfPhotos) {
       var layout = this.layoutExtension_.newLayoutAt(
           'layout-responsive-grid', componentRef);
       // Update the component reference to the accurate one after a layout might
@@ -88,39 +197,41 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent) {
       componentRef = Utils.getReference(atComponent.name);
 
       // Split Photos into groups.
-      var atIndex = 0;
-      var numOfPhotos = Math.floor(Math.random() * 4) + 1;
-      var loopTimes = Math.min(i + numOfPhotos, files.length - i);
-      for (var j = i; j < i + loopTimes; j++, atIndex++) {
-        this.readFileAsDataUrl_(
-            files[j], this.fileLoaded_.bind(this), layout, atIndex);
+      numOfPhotos = Math.floor(Math.random() * 4) + 1;
+      var loopTimes = Math.min(numOfPhotos, remainingFilesCount);
+      for (var j = 0; j < loopTimes; j++) {
+        attachment = this.createPlaceholderAttachment_(files[i + j], layout, j);
+        // Queue Upload for the attachment.
+        this.uploadQueue_.add(attachment);
+        remainingFilesCount--;
       }
-      i += numOfPhotos - 1;
     }
   } else {
     // TODO(mkhatib): Use this when dropping multiple files onto an already
     // created grid layout so it adds to it instead of creating new one.
     for (var w = 0; w < files.length; w++) {
-      this.readFileAsDataUrl_(
-          files[w], this.fileLoaded_.bind(this),
-          componentRef.section, componentRef.getIndexInSection());
+      attachment = this.createPlaceholderAttachment_(
+          files[w], componentRef.section, componentRef.getIndexInSection());
+      // Queue Upload for the attachment.
+      this.uploadQueue_.add(attachment);
     }
   }
 };
 
 
 /**
- * Inserts figure and initiate attachment and upload.
- * @param {!File} file File picked by the user.
- * @param {function(string, File)} callback Callback function when the reading is complete.
+ * Creates an attachment and figure combo and inserts it into the layout.
+ * The figure at this point is only displayed with a placeholder image.
+ * @param {File|Blob} file
  * @param {../../layout} inLayout Layout to insert the figure in.
  * @param {number} atIndexInLayout where to insert in layout.
+ * @return {../attachment}
  * @private
  */
-UploadManager.prototype.fileLoaded_ = function(
-    dataUrl, file, inLayout, atIndexInLayout) {
-  // Create a figure with the file Data URL and insert it.
-  var figure = new Figure({src: dataUrl, isAttachment: true});
+UploadManager.prototype.createPlaceholderAttachment_ = function(
+    file, inLayout, atIndexInLayout) {
+  // Create a figure with a placeholder image.
+  var figure = new Figure({isAttachment: true});
   figure.section = inLayout;
   var insertFigureOps = figure.getInsertOps(atIndexInLayout);
   this.editor.article.transaction(insertFigureOps);
@@ -140,25 +251,5 @@ UploadManager.prototype.fileLoaded_ = function(
       detail: {attachment: attachment},
     });
   this.editor.dispatchEvent(newEvent);
-  this.upload(attachment);
-};
-
-
-/**
- * Read file data URL.
- * @param {!File} file File picked by the user.
- * @param {function(string, File)} callback Callback function when the reading is complete.
- * @param {../../layout} inLayout Layout to insert the figure in.
- * @param {number} atIndexInLayout where to insert in layout.
- * @private
- */
-UploadManager.prototype.readFileAsDataUrl_ = function(
-    file, callback, inLayout, atIndexInLayout) {
-  var reader = new FileReader();
-  reader.onload = (function(f) {
-    return function(e) {
-      callback(e.target.result, f, inLayout, atIndexInLayout);
-    };
-  }(file));
-  reader.readAsDataURL(file);
+  return attachment;
 };
