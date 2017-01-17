@@ -1,6 +1,6 @@
 {
   "name": "carbon",
-  "version": "0.2.77",
+  "version": "0.2.78",
   "main": "dist/carbon.min.js",
   "description": "An open source rich document editor in the browser.",
   "repository": {

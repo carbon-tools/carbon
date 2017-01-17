@@ -294,6 +294,9 @@ Figure.prototype.render = function(element, opt_options) {
       if (this.srcset) {
         this.updateSrcSet(this.srcset);
       }
+      if (this.sizes) {
+        this.updateSizes(this.sizes);
+      }
       if (this.editMode && this.imgDom && (!this.width || !this.height)) {
         this.imgDom.addEventListener(
             'load', this.onImageLoad_.bind(this), false);
