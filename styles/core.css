@@ -119,8 +119,7 @@
   z-index: -1;
   outline: none;
   line-height: 0;
-  position: absolute;
-  left: -9999px;
+  font-size: 0;
 }
 
 .carbon figure figcaption {
