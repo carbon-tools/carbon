@@ -289,9 +289,11 @@ Figure.prototype.getJSONModel = function() {
 Figure.prototype.render = function(element, opt_options) {
   if (!this.isRendered) {
     Component.prototype.render.call(this, element, opt_options);
-
     if (this.src) {
       this.imgDom = document.createElement(Figure.IMAGE_TAG_NAME);
+      if (this.srcset) {
+        this.updateSrcSet(this.srcset);
+      }
       if (this.editMode && this.imgDom && (!this.width || !this.height)) {
         this.imgDom.addEventListener(
             'load', this.onImageLoad_.bind(this), false);
