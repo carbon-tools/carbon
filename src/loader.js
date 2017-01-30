@@ -39,6 +39,16 @@ var Loader = (function() {
 
 
   /**
+   * Unregisters a module with the loader.
+   * @param  {string} name Name of module to register.
+   */
+  Loader.prototype.unregister = function(name) {
+    this.registery[name] = undefined;
+    delete this.registery[name];
+  };
+
+
+  /**
    * Returns the module registered to the name.
    * @param {string} name Module's name to load.
    * @return {Function} The module requested.
@@ -51,6 +61,10 @@ var Loader = (function() {
   return {
     register: function(name, module, optForce) {
       instance.register(name, module, optForce);
+    },
+
+    unregister: function(name) {
+      instance.unregister(name);
     },
 
     load: function(name) {

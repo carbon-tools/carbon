@@ -34,6 +34,9 @@ var LayoutingExtension = function(editor, opt_params) {
    */
   this.toolbar = null;
 
+  /** @private */
+  this.bindedHandleSelection_ = this.handleSelectionChangedEvent.bind(this);
+
   Loader.register(LayoutingExtension.CLASS_NAME, this);
   this.init();
 };
@@ -107,9 +110,21 @@ LayoutingExtension.prototype.init = function() {
   // Listen to selection changes.
   this.editor.article.selection.addEventListener(
       Selection.Events.SELECTION_CHANGED,
-      this.handleSelectionChangedEvent.bind(this), false);
+      this.bindedHandleSelection_, false);
 };
 
+
+/**
+ * Cleanup layouting dom elements and event listeners.
+ */
+LayoutingExtension.prototype.onDestroy = function() {
+  Loader.unregister(LayoutingExtension.CLASS_NAME);
+  this.editor.unregisterToolbar(LayoutingExtension.TOOLBAR_NAME, this.toolbar);
+  this.editor.article.selection.removeEventListener(
+      Selection.Events.SELECTION_CHANGED,
+      this.bindedHandleSelection_, false);
+  this.toolbar.onDestroy();
+};
 
 /**
  * LayoutingExtension toolbar name.

@@ -252,6 +252,12 @@ Editor.prototype.destroy = function() {
     }
   }
 
+  for (name in this.installedExtensions) {
+    if (this.installedExtensions[name].onDestroy) {
+      this.installedExtensions[name].onDestroy();
+    }
+  }
+
   this.componentFactory.onDestroy();
   this.shortcutsManager.onDestroy();
   this.selection.clearEventListeners();
@@ -408,6 +414,15 @@ Editor.prototype.getSnippet = function(optWordCount) {
  */
 Editor.prototype.registerToolbar = function(name, toolbar) {
   this.toolbars[name] = toolbar;
+};
+
+
+/**
+ * Unregisters a toolbar with the editor.
+ * @param  {string} name Name of the toolbar.
+ */
+Editor.prototype.unregisterToolbar = function(name) {
+  delete this.toolbars[name];
 };
 
 

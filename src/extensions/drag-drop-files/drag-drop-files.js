@@ -40,13 +40,19 @@ var DragDropFiles = function(editor, opt_params) {
    */
   this.dropAtAnchorDom_ = document.createElement('div');
   this.dropAtAnchorDom_.className = 'drag-drop-anchor';
-  document.body.appendChild(this.dropAtAnchorDom_);
 
   /**
    * The component at the time of the drop off.
    * @type {!../component}
    */
   this.componentAtPoint_ = null;
+
+  /** @private */
+  this.bindedHandleDragEnter_ = this.handleDragEnter_.bind(this);
+  /** @private */
+  this.bindedHandleDragOver_ = this.handledragOver_.bind(this);
+  /** @private */
+  this.bindedHandleDrop_ = this.handleDrop_.bind(this);
 
   this.init();
 };
@@ -63,15 +69,29 @@ DragDropFiles.CLASS_NAME = 'DragDropFiles';
 
 /**
  * Initialize the drag-drop listeners.
- * TODO(mkhatib): Cleanup on uninstalling the extension.
  */
 DragDropFiles.prototype.init = function() {
+  document.body.appendChild(this.dropAtAnchorDom_);
   this.editor.element.addEventListener(
-      'dragenter' , this.handleDragEnter_.bind(this));
+      'dragenter' , this.bindedHandleDragEnter_);
   this.editor.element.addEventListener(
-      'dragover' , this.handledragOver_.bind(this));
+      'dragover' , this.bindedHandleDragOver_);
   this.editor.element.addEventListener(
-      'drop' , this.handleDrop_.bind(this));
+      'drop' , this.bindedHandleDrop_);
+};
+
+
+/**
+ * Cleanup event listeners.
+ */
+DragDropFiles.prototype.onDestroy = function() {
+  document.body.removeChild(this.dropAtAnchorDom_);
+  this.editor.element.removeEventListener(
+      'dragenter' , this.bindedHandleDragEnter_);
+  this.editor.element.removeEventListener(
+      'dragover' , this.bindedHandleDragOver_);
+  this.editor.element.removeEventListener(
+      'drop' , this.bindedHandleDrop_);
 };
 
 
