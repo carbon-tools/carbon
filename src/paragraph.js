@@ -180,7 +180,7 @@ Paragraph.prototype.setText = function(text) {
 
     // Remove zero-width whitespace when there are other characters.
     if (this.text.length > 1) {
-      this.text = this.text.replace('\u200B', '')
+      this.text = this.text.replace(/[\u200B]/g, '')
           .replace(/^\s/, '\xa0');
     }
   }
@@ -894,6 +894,6 @@ Paragraph.prototype.getDomLength = function() {
 Paragraph.prototype.isBlank = function() {
   return !this.placeholderText && (
     !this.text ||
-    !this.text.replace(/\s|&nbsp;|&#8203;/g, '').length
+    !this.text.replace(/\s|&nbsp;|&#8203;|[\u200B]/g, '').length
   );
 };

@@ -97,7 +97,10 @@ Attachment.prototype.uploadComplete = function(data) {
     isAttachment: false,
   });
 
-  this.figure.dom.removeChild(this.attachmentDom_);
+  try {
+    this.figure.dom.removeChild(this.attachmentDom_);
+  } catch (unusedE) {
+  }
 
   for (var i = 0; i < this.onDoneListeners_.length; i++) {
     this.onDoneListeners_[i]();

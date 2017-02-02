@@ -85,7 +85,10 @@ DragDropFiles.prototype.init = function() {
  * Cleanup event listeners.
  */
 DragDropFiles.prototype.onDestroy = function() {
-  document.body.removeChild(this.dropAtAnchorDom_);
+  try {
+    document.body.removeChild(this.dropAtAnchorDom_);
+  } catch (unusedE) {
+  }
   this.editor.element.removeEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
   this.editor.element.removeEventListener(

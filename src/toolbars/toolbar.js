@@ -177,7 +177,10 @@ Toolbar.EDGE = -999999;
  * Call to destroy instance and cleanup dom and event listeners.
  */
 Toolbar.prototype.onDestroy = function() {
-  document.body.removeChild(this.dom);
+  try {
+    document.body.removeChild(this.dom);
+  } catch (unusedE) {
+  }
 };
 
 

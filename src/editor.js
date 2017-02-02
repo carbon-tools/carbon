@@ -275,6 +275,14 @@ Editor.prototype.setArticle = function(article) {
 
 
 /**
+ * Trims empty blank lines at the beginning and the end of the editor.
+ */
+Editor.prototype.trim = function() {
+  this.article.trim();
+};
+
+
+/**
  * Renders the editor and article inside the element.
  * @export
  */
@@ -282,7 +290,10 @@ Editor.prototype.render = function() {
   // TODO(mkhatib): Maybe implement a destroy on components to cleanup
   // and remove their DOM, listeners, in progress XHR or others.
   while (this.element.firstChild) {
-    this.element.removeChild(this.element.firstChild);
+    try {
+      this.element.removeChild(this.element.firstChild);
+    } catch (unusedE) {
+    }
   }
   this.article.render(this.element, {editMode: true});
   var firstLayout = /** @type {./layout} */ (this.article.sections[0]);

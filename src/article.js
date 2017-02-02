@@ -199,6 +199,8 @@ Article.prototype.getLastComponent = function() {
 Article.prototype.hasCover = function() {
   var coverLayouts = [Layout.Types.Staged, Layout.Types.Bleed];
   var layout = this.getFirstComponent();
+  // TODO(mkhatib): This shouldn't be here. layout should never be empty.
+  // This is probably an artifact of us failing to cleanup empty layouts.
   while (!layout.getLength() && layout.getNextComponent()) {
     layout = layout.getNextComponent();
   }
