@@ -273,7 +273,9 @@ Layout.prototype.getUpdateOps = function(
  * @export
  */
 Layout.prototype.onChildSizeUpdated = function() {
-  this.updateChildrenSizes_();
+  if (this.type === Layout.Types.ResponsiveGrid) {
+    this.updateChildrenSizes_();
+  }
 };
 
 

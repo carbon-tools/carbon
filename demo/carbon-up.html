@@ -30,7 +30,7 @@
     </script>
     <script>
       var demoArticle;
-      var storedArticle = localStorage.getItem('article');
+      var storedArticle = localStorage.getItem('article-up');
       if (storedArticle) {
         try {
           demoArticle = carbon.Article.fromJSON(JSON.parse(storedArticle));
@@ -92,7 +92,7 @@
 
       var model = document.getElementById('model-viewer');
       editor.addEventListener('change', function(event) {
-        localStorage.setItem('article', JSON.stringify(editor.getJSONModel()));
+        localStorage.setItem('article-up', JSON.stringify(editor.getJSONModel()));
       });
     </script>
   </body>

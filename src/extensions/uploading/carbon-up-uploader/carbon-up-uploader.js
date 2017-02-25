@@ -14,20 +14,6 @@ var CARBON_UP_SERVICE_ENDPOINT = 'https://carbon-tools.appspot.com/api/v1/resour
 
 
 /**
- * How many URLs should be cached.
- * @type {number}
- */
-var CACHED_UPLOAD_URLS_COUNT = 10;
-
-
-/**
- * When to request more upload URLs.
- * @type {number}
- */
-var CACHED_UPLOAD_URLS_THRESHOLD = 5;
-
-
-/**
  * The different widths to generate sources for.
  * TODO(mkhatib): Make this configurable, and implemente data sources for
  * better management of this and allowing future dynamic calculation of these.
@@ -97,8 +83,6 @@ var CarbonUpUploader = function(opt_params) {
    * @private
    */
   this.cachedUploadUrls_ = [];
-
-  this.getUploadUrl_();
 };
 CarbonUpUploader.prototype = Object.create(AbstractUploader.prototype);
 module.exports = CarbonUpUploader;
@@ -113,24 +97,17 @@ CarbonUpUploader.prototype.onUpload = function(attachment) {
 
 /**
  * Requests upload URLs for Carbon Up service and caches them.
- * @param {function(string)=} opt_callback If provided called with upload URL.
+ * @param {function(string)} uploadCallback If provided called with upload URL.
  * @private
  */
-CarbonUpUploader.prototype.getUploadUrl_ = function(opt_callback) {
-  var currentUrlsCount = this.cachedUploadUrls_.length;
-  if (currentUrlsCount > 0 && opt_callback) {
-    opt_callback(this.cachedUploadUrls_.splice(0, 1)[0]);
-  }
-
-  if (currentUrlsCount < CACHED_UPLOAD_URLS_THRESHOLD) {
-    xhr.send({
-      url: CARBON_UP_SERVICE_ENDPOINT,
-      params: {
-        'count': CACHED_UPLOAD_URLS_COUNT,
-      },
-      onSuccess: this.onFetchUrls_.bind(this),
-    });
-  }
+CarbonUpUploader.prototype.getUploadUrl_ = function(uploadCallback) {
+  xhr.send({
+    url: CARBON_UP_SERVICE_ENDPOINT,
+    params: {
+      'count': 1,
+    },
+    onSuccess: this.onFetchUrl_.bind(this, uploadCallback),
+  });
 };
 
 
@@ -176,13 +153,13 @@ CarbonUpUploader.prototype.onSuccess_ = function(attachment, data) {
 
 /**
  * Updates cached upload URLs.
- * @param {GetUploadUrlResponseDef=} data
+ * @param {GetUploadUrlResponseDef} data
+ * @param {function(string)} uploadCallback If provided called with upload URL.
  * @private
  */
-CarbonUpUploader.prototype.onFetchUrls_ = function(data) {
+CarbonUpUploader.prototype.onFetchUrl_ = function(uploadCallback, data) {
   var urlsArray = data.result.map(function(obj) {
     return obj.upload_url;
   });
-  this.cachedUploadUrls_ = Utils.arrays.extend(
-      this.cachedUploadUrls_, urlsArray);
+  uploadCallback(urlsArray[0]);
 };

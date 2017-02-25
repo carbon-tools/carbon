@@ -301,7 +301,8 @@ Figure.prototype.render = function(element, opt_options) {
       this.dom.appendChild(this.imgContainerDom);
 
       if (this.src != FIGURE_PLACEHOLDER) {
-        if (this.srcset) {
+        this.dom.style.flex = 1;
+        if (this.srcset && this.srcset.length) {
           this.updateSrcSet(this.srcset);
         }
         if (this.sizes) {
