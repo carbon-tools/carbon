@@ -22,6 +22,7 @@ var EDGE = '-99999px';
 var DragDropFiles = function(editor, opt_params) {
   var params = Utils.extend({
     uploadManager: null,
+    droppableElement: null,
   }, opt_params);
 
   /**
@@ -29,6 +30,12 @@ var DragDropFiles = function(editor, opt_params) {
    * @type {../../editor}
    */
   this.editor = editor;
+
+  /**
+   * The element where it can receive drops.
+   * @type {!Element}
+   */
+  this.droppableElement_ = params.droppableElement || this.editor.element;
 
   /**
    * @type {Array<../uploading/upload-manager}
@@ -46,6 +53,12 @@ var DragDropFiles = function(editor, opt_params) {
    * @type {!../component}
    */
   this.componentAtPoint_ = null;
+
+  /**
+   * Track whether the drop is going to happen after the component
+   * tracked in this.componentAtPoint_.
+   */
+  this.insertAfter_ = null;
 
   /** @private */
   this.bindedHandleDragEnter_ = this.handleDragEnter_.bind(this);
@@ -72,11 +85,11 @@ DragDropFiles.CLASS_NAME = 'DragDropFiles';
  */
 DragDropFiles.prototype.init = function() {
   document.body.appendChild(this.dropAtAnchorDom_);
-  this.editor.element.addEventListener(
+  this.droppableElement_.addEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
-  this.editor.element.addEventListener(
+  this.droppableElement_.addEventListener(
       'dragover' , this.bindedHandleDragOver_);
-  this.editor.element.addEventListener(
+  this.droppableElement_.addEventListener(
       'drop' , this.bindedHandleDrop_);
 };
 
@@ -89,11 +102,11 @@ DragDropFiles.prototype.onDestroy = function() {
     document.body.removeChild(this.dropAtAnchorDom_);
   } catch (unusedE) {
   }
-  this.editor.element.removeEventListener(
+  this.droppableElement_.removeEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
-  this.editor.element.removeEventListener(
+  this.droppableElement_.removeEventListener(
       'dragover' , this.bindedHandleDragOver_);
-  this.editor.element.removeEventListener(
+  this.droppableElement_.removeEventListener(
       'drop' , this.bindedHandleDrop_);
 };
 
@@ -120,6 +133,7 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
   event.stopPropagation();
   this.componentAtPoint_ = this.normalizeComponent_(
       dom.componentFromPoint(event.clientX, event.clientY));
+  var de = this.droppableElement_;
   if (this.componentAtPoint_) {
     // TODO(mkhatib): Update the indicator to reflect insertion point better
     // specially when inserting next to another iamge for example.
@@ -127,6 +141,20 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
     // create a grid layout (if not already in one).
     this.dropAtAnchorDom_.style.top = (
         this.componentAtPoint_.dom.offsetTop + 'px');
+    this.insertAfter_ = false;
+  } else if (event.clientY <= de.offsetTop) {
+    this.componentAtPoint_ = this.editor.article
+        .getFirstComponent().getFirstComponent();
+    this.dropAtAnchorDom_.style.top = (
+        this.componentAtPoint_.dom.offsetTop + 'px');
+    this.insertAfter_ = false;
+  } else if (event.clientY + event.offsetY >= de.offsetTop + de.offsetHeight) {
+    this.componentAtPoint_ = this.editor.article
+        .getLastComponent().getLastComponent();
+    this.dropAtAnchorDom_.style.top = (
+        this.componentAtPoint_.dom.offsetTop +
+        this.componentAtPoint_.dom.offsetHeight + 'px');
+    this.insertAfter_ = true;
   }
 };
 
@@ -142,7 +170,8 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
   this.dropAtAnchorDom_.style.top = EDGE;
   var files = event.dataTransfer.files;
   if (this.uploadManager_) {
-    this.uploadManager_.attachFilesAt(files, this.componentAtPoint_);
+    this.uploadManager_.attachFilesAt(
+        files, this.componentAtPoint_, this.insertAfter_);
   }
 };
 

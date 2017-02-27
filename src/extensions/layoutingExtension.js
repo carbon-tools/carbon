@@ -237,15 +237,18 @@ LayoutingExtension.prototype.applyLayout = function(layoutName) {
  * between them.
  * @param {string} layoutName the type of the layout to create.
  * @param {../component} component anchor component to insert layout at.
+ * @param {boolean=} opt_insertAfter whether to insert the new layout after the component.
  * @return {../layout} The newly created layout.
  */
-LayoutingExtension.prototype.newLayoutAt = function(layoutName, component) {
+LayoutingExtension.prototype.newLayoutAt = function(layoutName, component,
+    opt_insertAfter) {
   var insertLayoutAtIndex;
   var newLayout;
   var ops = [];
 
+  var offsetIndex = opt_insertAfter ? 1 : 0;
   var currentLayout = /** @type {../layout} */ (component.section);
-  var componentIndexInLayout = component.getIndexInSection();
+  var componentIndexInLayout = component.getIndexInSection() + offsetIndex;
   var isComponentAtStartOfLayout = componentIndexInLayout === 0;
 
   // If component is the first element in the layout, create a new

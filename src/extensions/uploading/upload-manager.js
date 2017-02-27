@@ -182,22 +182,29 @@ UploadManager.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
  * Inserts Grid layout, figures and attachments and initiate uploading files.
  * @param {Array<File|Blob>} files
  * @param {../../component} atComponent where to insert uploaded files.
+ * @param {boolean=} opt_insertAfter whether to insert the attachment after the component.
  */
-UploadManager.prototype.attachFilesAt = function(files, atComponent) {
+UploadManager.prototype.attachFilesAt = function(files, atComponent,
+    opt_insertAfter) {
   var componentRef = atComponent;
+  var currentLayout = componentRef.section;
   var attachment;
-  if (files.length > 1 && this.layoutExtension_) {
+  if (files.length > 1 && this.layoutExtension_ &&
+      !currentLayout.allowMoreItems()) {
     var numOfPhotos = 0;
     var remainingFilesCount = files.length;
     for (var i = 0; i < files.length; i += numOfPhotos) {
       var layout = this.layoutExtension_.newLayoutAt(
-          'layout-responsive-grid', componentRef);
+          'layout-responsive-grid', componentRef, opt_insertAfter);
       // Update the component reference to the accurate one after a layout might
       // have split and the component reference needs to update.
       componentRef = Utils.getReference(atComponent.name);
-
-      // Split Photos into groups.
-      numOfPhotos = Math.floor(Math.random() * 4) + 1;
+      if (files.length <= 5) {
+        numOfPhotos = files.length;
+      } else {
+        // Split Photos into groups.
+        numOfPhotos = Math.floor(Math.random() * 4) + 2;
+      }
       var loopTimes = Math.min(numOfPhotos, remainingFilesCount);
       for (var j = 0; j < loopTimes; j++) {
         attachment = this.createPlaceholderAttachment_(files[i + j], layout, j);
@@ -207,11 +214,11 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent) {
       }
     }
   } else {
-    // TODO(mkhatib): Use this when dropping multiple files onto an already
-    // created grid layout so it adds to it instead of creating new one.
+    var offsetIndex = opt_insertAfter ? 1 : 0;
     for (var w = 0; w < files.length; w++) {
       attachment = this.createPlaceholderAttachment_(
-          files[w], componentRef.section, componentRef.getIndexInSection());
+          files[w], currentLayout,
+          componentRef.getIndexInSection() + offsetIndex);
       // Queue Upload for the attachment.
       this.uploadQueue_.add(attachment);
     }
@@ -251,5 +258,8 @@ UploadManager.prototype.createPlaceholderAttachment_ = function(
       detail: {attachment: attachment},
     });
   this.editor.dispatchEvent(newEvent);
+  attachment.onDone(function() {
+    this.editor.dispatchEvent(new Event('change'));
+  }.bind(this));
   return attachment;
 };

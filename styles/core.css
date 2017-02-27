@@ -64,7 +64,7 @@
 }
 
 .carbon .layout-responsive-grid {
-  padding: .5vw;
+  padding: 0 3px;
   font-size: 0;
   flex-flow: row wrap;
   display: flex;
@@ -73,7 +73,6 @@
 .carbon .layout-responsive-grid figure {
   flex: auto;
   width: 30%;
-  margin: .5vw;
 }
 
 .carbon .layout-responsive-grid figure img {

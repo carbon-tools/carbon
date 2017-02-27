@@ -2,7 +2,7 @@
 
 var Utils = require('../utils');
 var Selection = require('../selection');
-
+var viewport = require('../utils/viewport');
 
 /**
  * Allow for updating attributes in history and in the component for
@@ -140,11 +140,13 @@ Attachment.prototype.setAttributes = function(attrs) {
   // Update the figure object attributes to reflect the changes.
   this.figure.updateAttributes(attrs);
 
-  // If the figure finished uploading and it's still selected,
+  // If the figure finished uploading and it's still selected and in viewport,
   // reselect to show the toolbar.
-  var selection = Selection.getInstance();
-  var selectedComponent = selection.getComponentAtStart();
-  if (selectedComponent === this.figure) {
-    this.figure.select();
-  }
+  viewport.ifElementInViewport(this.figure.dom, function() {
+    var selection = Selection.getInstance();
+    var selectedComponent = selection.getComponentAtStart();
+    if (selectedComponent === this.figure) {
+      this.figure.select();
+    }
+  }.bind(this));
 };

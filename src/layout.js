@@ -269,6 +269,16 @@ Layout.prototype.getUpdateOps = function(
 
 
 /**
+ * Returns true if the layout type allows more item to be inserted
+ * in it.
+ * @return {boolean}
+ */
+Layout.prototype.allowMoreItems = function() {
+  return this.type === Layout.Types.ResponsiveGrid;
+};
+
+
+/**
  * Re-calculate ratios and sizes per child of this layout.
  * @export
  */
