@@ -36,6 +36,11 @@ var ImgSrcSetDef;
 // eslint-disable-next-line max-len
 var FIGURE_PLACEHOLDER = 'data:image/svg+xml,%3Csvg%20width%3D%221440%22%20height%3D%221024%22%20viewBox%3D%220%200%201440%201024%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20style%3D%22background%3A%23fff%22%3E%3Ctitle%3Eimage-placeholder%3C%2Ftitle%3E%3Cdefs%3E%3Cpath%20id%3D%22a%22%20d%3D%22M0%200h1440v1024H0z%22%2F%3E%3Cmask%20id%3D%22b%22%20x%3D%220%22%20y%3D%220%22%20width%3D%221440%22%20height%3D%221024%22%20fill%3D%22%23fff%22%3E%3Cuse%20xlink%3Ahref%3D%22%23a%22%2F%3E%3C%2Fmask%3E%3C%2Fdefs%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cuse%20stroke%3D%22%23F2F2F2%22%20mask%3D%22url(%23b)%22%20stroke-width%3D%2210%22%20fill%3D%22%23FFF%22%20xlink%3Ahref%3D%22%23a%22%2F%3E%3Ccircle%20fill%3D%22%23F2F2F2%22%20cx%3D%221068.5%22%20cy%3D%22241.5%22%20r%3D%22162.5%22%2F%3E%3Cpath%20fill%3D%22%23F2F2F2%22%20d%3D%22M496.5%20303l664.5%20715-1156%201V832.02z%22%2F%3E%3Cpath%20fill%3D%22%23F2F2F2%22%20d%3D%22M998%20473l435.46%20407.243V1018H413z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E';
 
+/**
+ * Placeholder width/height ratio.
+ * @type {number}
+ */
+var PLACEHOLDER_RATIO = 1.40625;
 
 /**
  * Figure main.
@@ -300,7 +305,7 @@ Figure.prototype.render = function(element, opt_options) {
       this.imgContainerDom.appendChild(this.imgDom);
       this.dom.appendChild(this.imgContainerDom);
 
-      this.dom.style.flex = 1;
+      this.dom.style.flex = PLACEHOLDER_RATIO;
       if (this.src != FIGURE_PLACEHOLDER) {
         if (this.srcset && this.srcset.length) {
           this.updateSrcSet(this.srcset);
