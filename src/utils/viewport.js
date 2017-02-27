@@ -2,7 +2,7 @@
 
 /**
  * Calls a callback if the element in viewport.
- * @param  {Node} el
+ * @param  {!Element} el
  * @return {boolean}
  */
 function ifElementInViewport(el, callback) {
@@ -15,4 +15,21 @@ function ifElementInViewport(el, callback) {
   });
 }
 
+
+/**
+ * Returns the absolute offset top going through the offsetParent top offset.
+ * @param {!Element} el
+ * @return {number}
+ */
+function absOffsetTop(el) {
+  var top = el.offsetTop;
+  var parent;
+  while (parent = el.parentOffset) {
+    top += parent.offsetTop;
+  }
+  return top;
+}
+
+
 module.exports.ifElementInViewport = ifElementInViewport;
+module.exports.absOffsetTop = absOffsetTop;

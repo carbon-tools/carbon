@@ -3,6 +3,7 @@
 var AbstractExtension = require('../../core/abstract-extension');
 var Utils = require('../../utils');
 var dom = require('../../utils/dom');
+var absOffsetTop = require('../../utils/viewport').absOffsetTop;
 
 
 /**
@@ -133,7 +134,8 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
   event.stopPropagation();
   this.componentAtPoint_ = this.normalizeComponent_(
       dom.componentFromPoint(event.clientX, event.clientY));
-  var de = this.droppableElement_;
+  var lastComp = this.editor.article.getLastComponent().getLastComponent();
+  var firstComp = this.editor.article.getFirstComponent().getFirstComponent();
   if (this.componentAtPoint_) {
     // TODO(mkhatib): Update the indicator to reflect insertion point better
     // specially when inserting next to another iamge for example.
@@ -142,19 +144,19 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
     this.dropAtAnchorDom_.style.top = (
         this.componentAtPoint_.dom.offsetTop + 'px');
     this.insertAfter_ = false;
-  } else if (event.clientY <= de.offsetTop) {
-    this.componentAtPoint_ = this.editor.article
-        .getFirstComponent().getFirstComponent();
-    this.dropAtAnchorDom_.style.top = (
-        this.componentAtPoint_.dom.offsetTop + 'px');
+  } else if (event.clientY <= firstComp.dom.offsetTop) {
+    this.componentAtPoint_ = firstComp;
+    this.dropAtAnchorDom_.style.top = firstComp.dom.offsetTop + 'px';
     this.insertAfter_ = false;
-  } else if (event.clientY + event.offsetY >= de.offsetTop + de.offsetHeight) {
-    this.componentAtPoint_ = this.editor.article
-        .getLastComponent().getLastComponent();
-    this.dropAtAnchorDom_.style.top = (
-        this.componentAtPoint_.dom.offsetTop +
-        this.componentAtPoint_.dom.offsetHeight + 'px');
-    this.insertAfter_ = true;
+  } else {
+    var lastCompBottom = lastComp.dom.offsetTop + lastComp.dom.offsetHeight;
+    var dropOffset = Math.max(absOffsetTop(event.target),
+        event.clientY + event.screenY);
+    if (dropOffset >= lastCompBottom) {
+      this.componentAtPoint_ = lastComp;
+      this.dropAtAnchorDom_.style.top = lastCompBottom + 'px';
+      this.insertAfter_ = true;
+    }
   }
 };
 
