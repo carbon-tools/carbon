@@ -283,6 +283,14 @@ Editor.prototype.trim = function() {
 
 
 /**
+ * Removes empty layout components.
+ */
+Editor.prototype.clean = function() {
+  this.article.clean();
+};
+
+
+/**
  * Renders the editor and article inside the element.
  * @export
  */

@@ -236,7 +236,9 @@ function opsFromElement_(element, opt_indexOffset) {
       } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
         text = Utils.getTextFromElement(el);
-
+        if (!text || text.trim().length < 1) {
+          continue;
+        }
         newP = new Paragraph({
           section: section,
           text: text,

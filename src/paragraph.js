@@ -347,7 +347,7 @@ Paragraph.prototype.updateInnerDom_ = function() {
  * @return {boolean} True if has placeholder text and no input text.
  */
 Paragraph.prototype.isPlaceholder = function() {
-  return !!this.placeholderText && !this.text.length;
+  return !!this.placeholderText && this.isBlank();
 };
 
 
@@ -632,7 +632,7 @@ Paragraph.prototype.render = function(element, opt_options) {
         // so we use the zero-length character to workaround that.
         this.dom.innerHTML = '&#8203;';
       }
-    } else if (!this.text.length) {
+    } else if (this.isBlank()) {
       this.dom.classList.add(Paragraph.EMPTY_PARAGRAPH_CLASS);
     }
   }
@@ -699,7 +699,7 @@ Paragraph.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
       op: 'insertComponent',
       componentClass: 'Paragraph',
       section: this.section.name,
-      cursorOffset: 0,
+      cursorOffset: this.text.trim().length,
       component: this.name,
       index: index,
       attrs: {
@@ -892,8 +892,7 @@ Paragraph.prototype.getDomLength = function() {
  * @return {boolean} if should/not trim.
  */
 Paragraph.prototype.isBlank = function() {
-  return !this.placeholderText && (
-    !this.text ||
-    !this.text.replace(/\s|&nbsp;|&#8203;|[\u200B]/g, '').length
+  return (!this.text ||
+    !this.text.replace(/\s|&nbsp;|&#8203;|[\u200B]/g, '').trim().length
   );
 };

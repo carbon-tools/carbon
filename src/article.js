@@ -484,6 +484,11 @@ Article.prototype.exec = function(operation, action) {
     component = new ComponentClass(options);
     component.section = section;
     section.insertComponentAt(component, operation[action].index);
+
+    selection.setCursor({
+      component: component,
+      offset: operation[action].cursorOffset,
+    });
   }
 };
 
@@ -511,6 +516,26 @@ Article.prototype.trim = function() {
 
   if (firstComponent !== lastComponent) {
     trimDirection_(lastComponent, true);
+  }
+};
+
+
+/**
+ * Removes blank layouts from the article model.
+ */
+Article.prototype.clean = function() {
+  var section = this.sections[0];
+  var layouts = section.components;
+  var cleaned = false;
+  for (var i = 0; i < layouts.length; i++) {
+    if (layouts[i].getLength() < 1) {
+      section.removeComponent(layouts[i]);
+      cleaned = true;
+    }
+  }
+
+  if (cleaned) {
+    this.editor.dispatchEvent(new Event('change'));
   }
 };
 
