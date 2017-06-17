@@ -21,6 +21,11 @@ module.exports.Layout = require('./layout');
 module.exports.Selection = require('./selection');
 module.exports.Loader = require('./loader');
 
+module.exports.AbstractExtension = require('./core/abstract-extension');
+
+module.exports.ui = {
+  toolbars: require('./toolbars'),
+};
 
 /**
  * Not exporting these as part of carbon.js but available for anybody to use.
