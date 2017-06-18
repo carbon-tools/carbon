@@ -4,6 +4,8 @@ var AbstractExtension = require('../../core/abstract-extension');
 var Utils = require('../../utils');
 var dom = require('../../utils/dom');
 var absOffsetTop = require('../../utils/viewport').absOffsetTop;
+var Loader = require('../../loader');
+var Figure = require('../../figure');
 
 
 /**
@@ -50,6 +52,12 @@ var DragDropFiles = function(editor, opt_params) {
   this.dropAtAnchorDom_.className = 'drag-drop-anchor';
 
   /**
+   * The component that started the drag if any.
+   * @type {!../component}
+   */
+  this.draggedComponent_ = null;
+
+  /**
    * The component at the time of the drop off.
    * @type {!../component}
    */
@@ -62,11 +70,17 @@ var DragDropFiles = function(editor, opt_params) {
   this.insertAfter_ = null;
 
   /** @private */
+  this.bindedHandleDragStart_ = this.handleDragStart_.bind(this);
+  /** @private */
   this.bindedHandleDragEnter_ = this.handleDragEnter_.bind(this);
   /** @private */
   this.bindedHandleDragOver_ = this.handledragOver_.bind(this);
   /** @private */
   this.bindedHandleDrop_ = this.handleDrop_.bind(this);
+
+  /** @type {../layoutExtension} */
+  this.layoutExtension_ = params.layoutExtension ||
+      Loader.load('LayoutingExtension');
 
   this.init();
 };
@@ -87,6 +101,8 @@ DragDropFiles.CLASS_NAME = 'DragDropFiles';
 DragDropFiles.prototype.init = function() {
   document.body.appendChild(this.dropAtAnchorDom_);
   this.droppableElement_.addEventListener(
+      'dragstart' , this.bindedHandleDragStart_);
+  this.droppableElement_.addEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
   this.droppableElement_.addEventListener(
       'dragover' , this.bindedHandleDragOver_);
@@ -104,11 +120,26 @@ DragDropFiles.prototype.onDestroy = function() {
   } catch (unusedE) {
   }
   this.droppableElement_.removeEventListener(
+      'dragstart' , this.bindedHandleDragStart_);
+  this.droppableElement_.removeEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
   this.droppableElement_.removeEventListener(
       'dragover' , this.bindedHandleDragOver_);
   this.droppableElement_.removeEventListener(
       'drop' , this.bindedHandleDrop_);
+};
+
+
+
+/**
+ * Handles dragenter event.
+ * @param {!Event} event
+ * @private
+ */
+DragDropFiles.prototype.handleDragStart_ = function(event) {
+  this.draggedComponent_ = this.normalizeComponent_(
+      dom.componentFromPoint(event.clientX, event.clientY));
+  event.dataTransfer.effectAllowed = 'move';
 };
 
 
@@ -167,13 +198,53 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
  * @private
  */
 DragDropFiles.prototype.handleDrop_ = function(event) {
+  this.dropAtAnchorDom_.style.top = EDGE;
   event.preventDefault();
   event.stopPropagation();
-  this.dropAtAnchorDom_.style.top = EDGE;
   var files = event.dataTransfer.files;
-  if (this.uploadManager_) {
+  if (files.length > 0 && this.uploadManager_) {
     this.uploadManager_.attachFilesAt(
         files, this.componentAtPoint_, this.insertAfter_);
+  } else if (this.draggedComponent_) {
+    var movingComponent = this.draggedComponent_;
+    var componentRef = this.componentAtPoint_;
+
+    var currentLayout = componentRef.section;
+    var insertAfter = false;
+
+    // For now only support Figure as a dropping point where it creates
+    // a grid.
+    if ((componentRef instanceof Figure) &&
+        this.layoutExtension_ && !currentLayout.allowMoreItems()) {
+      currentLayout = this.layoutExtension_.newLayoutAt(
+          'layout-responsive-grid', componentRef, insertAfter);
+
+      // Update the component reference to the accurate one after a layout might
+      // have split and the component reference needs to update.
+      componentRef = Utils.getReference(componentRef.name);
+      this.editor.article.transaction(componentRef.getDeleteOps());
+
+      componentRef.section = currentLayout;
+      this.editor.article.transaction(componentRef.getInsertOps(0));
+
+      componentRef = Utils.getReference(componentRef.name);
+    }
+    // } else {
+    var offsetIndex = 0;
+    if (insertAfter) {
+      offsetIndex = 1;
+    }
+
+    var removeFigureOps = movingComponent.getDeleteOps();
+    this.editor.article.transaction(removeFigureOps);
+
+    movingComponent.section = componentRef.section;
+    var insertFigureOps = movingComponent.getInsertOps(
+          componentRef.getIndexInSection() + offsetIndex);
+
+
+    this.editor.article.transaction(insertFigureOps);
+    this.editor.dispatchEvent(new Event('change'));
   }
 };
 

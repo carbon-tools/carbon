@@ -17,6 +17,7 @@ var SelfieExtension = function(editor, opt_params) {
   // TODO(mkhatib): Add config params for size and shutter sound.
   var params = Utils.extend({
     uploadManager: null,
+    toolbarNames: [],
   }, opt_params);
 
   // Create offscreen canvas to use as video buffer from the webcam.
@@ -50,17 +51,18 @@ var SelfieExtension = function(editor, opt_params) {
   this.editor = editor;
 
   /**
-   * Toolbelt toolbar instance.
-   * @type {../toolbars/toolbar}
-   */
-  this.toolbelt = this.editor.getToolbar(SelfieExtension.TOOLBELT_TOOLBAR_NAME);
-
-  /**
    * Upload manager to uplaod through.
    * @type {./uploading/upload-manager}
    * @private
    */
   this.uploadManager_ = params.uploadManager;
+
+  /**
+   * Toolbar name to insert a button for file picker on.
+   * @type {Array<string>}
+   */
+  this.toolbarNames = (
+      params.toolbarNames || [SelfieExtension.TOOLBELT_TOOLBAR_NAME]);
 
   this.init();
 };
@@ -117,13 +119,21 @@ SelfieExtension.prototype.init = function() {
       I18n.get('regex.selfie') || SelfieExtension.COMMAND_REGEX,
       this.handleMatchedRegex.bind(this));
 
-  var selfieButton = new Button({
-    label: I18n.get('button.selfie'),
-    icon: I18n.get('button.icon.selfie'),
-  });
-  selfieButton.addEventListener(
-      'click', this.handleInsertClicked.bind(this), false);
-  this.toolbelt.addButton(selfieButton);
+  for (var i = 0; i < this.toolbarNames.length; i++) {
+    var toolbar = this.editor.getToolbar(this.toolbarNames[i]);
+    if (!toolbar) {
+      console.warn('Could not find toolbar "' + this.toolbarNames[i] + '".' +
+          'Make sure the extension that provides that toolbar is installed.');
+      continue;
+    }
+    var selfieButton = new Button({
+      label: I18n.get('button.selfie'),
+      icon: I18n.get('button.icon.selfie'),
+    });
+    selfieButton.addEventListener(
+        'click', this.handleInsertClicked.bind(this), false);
+    toolbar.addButton(selfieButton);
+  }
 };
 
 

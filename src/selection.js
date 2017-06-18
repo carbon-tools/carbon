@@ -238,7 +238,11 @@ var SelectionSingletonAccessor = (function() {
 
       // Scroll the selected component into view.
     if (this.start.component.dom.scrollIntoViewIfNeeded) {
+      var scrollBefore = document.body.scrollTop;
       this.start.component.dom.scrollIntoViewIfNeeded(false);
+      if (scrollBefore !== document.body.scrollTop) {
+        window.scroll(0, document.body.scrollTop - 70);
+      }
     }
     var event = new Event(EditorSelection.Events.SELECTION_CHANGED);
     this.dispatchEvent(event);

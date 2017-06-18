@@ -228,33 +228,43 @@
               carbon.EmbeddedComponent,
             ]
           });
-
-      editor.install(carbon.GiphySearch, {
-        apiKey: 'dc6zaTOxFJmzC',
-      });
-
-      editor.install(carbon.EmbeddingExtension, {
-        embedProviders: {
-          embedly: new carbon.EmbedlyProvider({
-            apiKey: '46c6ad376b1343359d774c5d8a940db7'
-          }),
-          carbon: new carbon.CarbonEmbedProvider({
-          })
-        },
-        ComponentClass: carbon.EmbeddedComponent
-      });
+      editor.install(carbon.FormattingExtension);
+      editor.install(carbon.LayoutingExtension);
       var uploadManager = new carbon.UploadManager(editor, {});
-      editor.install(carbon.SelfieExtension, {
-        uploadManager: uploadManager,
-      });
       editor.install(carbon.FilePicker, {
         uploadManager: uploadManager,
+        toolbarNames: [
+          carbon.FormattingExtension.BLOCK_TOOLBAR_NAME,
+          carbon.LayoutingExtension.TOOLBAR_NAME,
+        ],
       });
       editor.install(carbon.DragDropFiles, {
         uploadManager: uploadManager,
       });
-      editor.install(carbon.LayoutingExtension);
 
+      editor.install(carbon.ToolbeltExtension);
+      editor.install(carbon.SelfieExtension, {
+        uploadManager: uploadManager,
+        toolbarNames: [
+          carbon.ToolbeltExtension.TOOLBELT_TOOLBAR_NAME
+        ],
+      });
+      editor.install(carbon.GiphySearch, {
+        apiKey: 'dc6zaTOxFJmzC',
+      });
+      editor.install(carbon.EmbeddingExtension, {
+        embedProviders: {
+          carbon: new carbon.CarbonEmbedProvider({
+          }),
+          embedly: new carbon.EmbedlyProvider({
+            apiKey: '46c6ad376b1343359d774c5d8a940db7'
+          }),
+        },
+        toolbarNames: [
+          carbon.ToolbeltExtension.TOOLBELT_TOOLBAR_NAME
+        ],
+        ComponentClass: carbon.EmbeddedComponent
+      });
       editor.render();
 
       var model = document.getElementById('model-viewer');

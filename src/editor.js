@@ -8,11 +8,9 @@ var List = require('./list');
 var Figure = require('./figure');
 var Section = require('./section');
 var Utils = require('./utils');
-var FormattingExtension = require('./extensions/formattingExtension');
 var ShortcutsManager = require('./extensions/shortcutsManager');
 var ComponentFactory = require('./extensions/componentFactory');
 var Toolbar = require('./toolbars/toolbar');
-var ToolbeltExtension = require('./extensions/toolbeltExtension');
 var I18n = require('./i18n');
 var Layout = require('./layout');
 var CustomEventTarget = require('./customEventTarget');
@@ -146,8 +144,6 @@ var Editor = function(element, opt_params) {
   this.installedExtensions = {};
 
   // Install built-in extensions.
-  this.install(FormattingExtension);
-  this.install(ToolbeltExtension);
   this.install(CopyCutPaste);
 
   // Install user provided components and extensions.

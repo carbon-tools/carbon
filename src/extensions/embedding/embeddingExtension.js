@@ -20,6 +20,7 @@ var EmbeddingExtension = function(editor, opt_params) {
   var params = Utils.extend({
     embedProviders: null,
     ComponentClass: null,
+    toolbarNames: [],
   }, opt_params);
 
   /**
@@ -39,6 +40,13 @@ var EmbeddingExtension = function(editor, opt_params) {
    * @type {function(new:./embeddedComponent, Object=)}
    */
   this.ComponentClass = params.ComponentClass;
+
+  /**
+   * Toolbar name to insert a button for file picker on.
+   * @type {Array<string>}
+   */
+  this.toolbarNames = (
+      params.toolbarNames || [EmbeddingExtension.TOOLBELT_TOOLBAR_NAME]);
 
   this.init();
 };
@@ -101,43 +109,50 @@ EmbeddingExtension.prototype.init = function() {
     this.editor.registerRegex(regexStr, handleRegexMatchProvider(provider));
   }
 
-  this.toolbelt = this.editor.getToolbar(
-      EmbeddingExtension.TOOLBELT_TOOLBAR_NAME);
 
-  // Add embedding buttons to the toolbelt.
-  var toolbeltButtons = [{
-    label: I18n.get('button.video'),
-    icon: I18n.get('button.icon.video'),
-    placeholder: I18n.get('placeholder.video'),
-  }, {
-    label: I18n.get('button.photo'),
-    icon: I18n.get('button.icon.photo'),
-    placeholder: I18n.get('placeholder.photo'),
-  }, {
-    label: I18n.get('button.post'),
-    icon: I18n.get('button.icon.post'),
-    placeholder: I18n.get('placeholder.post'),
-  }, {
-    label: I18n.get('button.gif'),
-    icon: I18n.get('button.icon.gif'),
-    placeholder: I18n.get('placeholder.gif'),
-  }, {
-    label: I18n.get('button.quiz'),
-    icon: I18n.get('button.icon.quiz'),
-    placeholder: I18n.get('placeholder.quiz'),
-  }];
+  for (var j = 0; j < this.toolbarNames.length; j++) {
+    var toolbar = this.editor.getToolbar(this.toolbarNames[j]);
+    if (!toolbar) {
+      console.warn('Could not find toolbar "' + this.toolbarNames[j] + '".' +
+          'Make sure the extension that provides that toolbar is installed.');
+      continue;
+    }
 
-  for (var i = 0; i < toolbeltButtons.length; i++) {
-    var insertVideoButton = new Button({
-      label: toolbeltButtons[i].label,
-      icon: toolbeltButtons[i].icon,
-      data: {
-        placeholder: toolbeltButtons[i].placeholder,
-      },
-    });
-    insertVideoButton.addEventListener(
-        'click', this.handleInsertClicked.bind(this), false);
-    this.toolbelt.addButton(insertVideoButton);
+    // Add embedding buttons to the toolbelt.
+    var toolbeltButtons = [{
+      label: I18n.get('button.video'),
+      icon: I18n.get('button.icon.video'),
+      placeholder: I18n.get('placeholder.video'),
+    }, {
+      label: I18n.get('button.photo'),
+      icon: I18n.get('button.icon.photo'),
+      placeholder: I18n.get('placeholder.photo'),
+    }, {
+      label: I18n.get('button.post'),
+      icon: I18n.get('button.icon.post'),
+      placeholder: I18n.get('placeholder.post'),
+    }, {
+      label: I18n.get('button.gif'),
+      icon: I18n.get('button.icon.gif'),
+      placeholder: I18n.get('placeholder.gif'),
+    }, {
+      label: I18n.get('button.quiz'),
+      icon: I18n.get('button.icon.quiz'),
+      placeholder: I18n.get('placeholder.quiz'),
+    }];
+
+    for (var i = 0; i < toolbeltButtons.length; i++) {
+      var insertVideoButton = new Button({
+        label: toolbeltButtons[i].label,
+        icon: toolbeltButtons[i].icon,
+        data: {
+          placeholder: toolbeltButtons[i].placeholder,
+        },
+      });
+      insertVideoButton.addEventListener(
+          'click', this.handleInsertClicked.bind(this), false);
+      toolbar.addButton(insertVideoButton);
+    }
   }
 };
 

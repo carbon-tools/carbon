@@ -66,6 +66,7 @@
 .carbon .layout-responsive-grid {
   font-size: 0;
   flex-flow: row wrap;
+  align-items: center;
   display: flex;
   padding: 0 3px;
 }

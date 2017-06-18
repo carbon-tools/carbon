@@ -11,6 +11,7 @@ var I18n = require('./i18n');
  * @typedef {{
  *   src: string,
  *   caption: (?string|undefined),
+ *   alt: (?string|undefined),
  *   captionPlaceholder: (?string|undefined),
  *   width: (?string|undefined),
  *   height: (?string|undefined),
@@ -49,6 +50,7 @@ var PLACEHOLDER_RATIO = 1.40625;
  *   {
  *     src: '',
  *     caption: null,
+ *     alt: null,
  *     width: '100%'
  *     name: Utils.getUID()
  *   }
@@ -62,6 +64,7 @@ var Figure = function(opt_params) {
     sizes: '100vw',
     srcset: [],
     caption: null,
+    alt: null,
     captionPlaceholder: I18n.get('placeholder.figure'),
     width: '100%',
     height: null,
@@ -111,6 +114,13 @@ var Figure = function(opt_params) {
    * @type {string}
    */
   this.caption = params.caption || '';
+
+
+  /**
+   * Alt text to show on the image for accessibility.
+   * @type {string}
+   */
+  this.alt = params.alt || '';
 
   /**
    * Text to place as placeholder for caption.
@@ -274,6 +284,7 @@ Figure.prototype.getJSONModel = function() {
     width: this.width,
     height: this.height,
     caption: this.captionParagraph.text,
+    alt: this.alt,
     isAttachment: this.isAttachment,
     srcset: this.srcset,
     sizes: this.sizes,
@@ -319,6 +330,7 @@ Figure.prototype.render = function(element, opt_options) {
         this.updateResponsiveDom_();
       }
       this.imgDom.setAttribute('src', this.src);
+      this.imgDom.setAttribute('alt', this.alt);
     }
     this.captionParagraph.render(this.dom, {editMode: this.editMode});
 
@@ -499,6 +511,10 @@ Figure.prototype.updateAttributes = function(attrs) {
     this.updateSizes(attrs.sizes);
   }
 
+  if (attrs.alt) {
+    this.updateAlt(attrs.alt);
+  }
+
   if (attrs.srcset) {
     this.updateSrcSet(attrs.srcset);
   }
@@ -526,6 +542,17 @@ Figure.prototype.updateSource = function(src) {
     this.imgDom.addEventListener('load', this.bindedImageLoad_, false);
   }
   this.imgDom.setAttribute('src', src);
+};
+
+
+
+/**
+ * Update the alt attribute for the image.
+ * @param {string} alt
+ */
+Figure.prototype.updateAlt = function(alt) {
+  this.alt = alt;
+  this.imgDom.setAttribute('alt', alt);
 };
 
 

@@ -43,6 +43,9 @@ module.exports.ui = {
 // them part of the whole editor Javascript.
 module.exports.GiphySearch = require('./extensions/giphy-search/giphy-search');
 
+module.exports.FormattingExtension = require('./extensions/formattingExtension');
+module.exports.ToolbeltExtension = require('./extensions/toolbeltExtension');
+
 // Embedding extension.
 module.exports.EmbeddedComponent = require('./extensions/embedding/embeddedComponent');
 module.exports.AbstractEmbedProvider = require('./extensions/embedding/abstractEmbedProvider');

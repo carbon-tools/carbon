@@ -75,6 +75,8 @@ function opsFromElement_(element, opt_indexOffset) {
   if (!children || !children.length ||
       (dom.isInlineElements(children) &&
        dom.hasOnlyInlineChildNodes(element))) {
+    textPasted = textPasted.replace(/StartFragment/gi, '')
+        .replace(/EndFragment/gi, '');
     var lines = textPasted.split('\n');
     if (lines.length < 2) {
       // Text before and after pasting.
@@ -102,6 +104,8 @@ function opsFromElement_(element, opt_indexOffset) {
     }
   } else if (dom.hasOnlyInlineChildNodes(element)) {
     text = Utils.getTextFromElement(element);
+    text = text.replace(/StartFragment/gi, '')
+        .replace(/EndFragment/gi, '');
 
     newP = new Paragraph({
       section: section,
@@ -173,9 +177,12 @@ function opsFromElement_(element, opt_indexOffset) {
           Utils.arrays.extend(
               ops, component.getInsertOps(currentIndex++, cursor));
           for (j = 0; j < lis.length; j++) {
+            var liText = Utils.getTextFromElement(lis[j]);
+            liText = liText.replace(/StartFragment/gi, '')
+                .replace(/EndFragment/gi, '');
             newP = new Paragraph({
               paragraphType: Paragraph.Types.ListItem,
-              text: Utils.getTextFromElement(lis[j]),
+              text: liText,
               // TODO(mkhatib): How to do this without coupling on formatting extension.
               // formats: FormattingExtension.generateFormatsForNode(lis[j]),
             });
@@ -236,6 +243,8 @@ function opsFromElement_(element, opt_indexOffset) {
       } else if (paragraphType) {
         // Add an operation to insert new paragraph and update its text.
         text = Utils.getTextFromElement(el);
+        text = text.replace(/StartFragment/gi, '')
+            .replace(/EndFragment/gi, '');
         if (!text || text.trim().length < 1) {
           continue;
         }

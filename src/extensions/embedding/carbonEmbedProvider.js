@@ -18,11 +18,11 @@ var CarbonEmbedProvider = function(opt_params) {
       twitter: true,
       instagram: true,
       github: false,
-      soundcloud: false,
+      soundcloud: true,
       youtube: false,
-      vimeo: false,
+      vimeo: true,
       vine: false,
-      slideshare: false,
+      slideshare: true,
       facebookPosts: true,
       facebookVideos: false,
     },
@@ -49,40 +49,54 @@ CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
   // Ref: https://developers.facebook.com/docs/plugins/oembed-endpoints
   facebookVideos: {
     // Matches Facebook Video URLs.
-    '^(https?://(?:www\.)facebook\.com/(?:video\.php\?v=\\d+|.*?/videos/\\d+))$':
-        // oEmbed endpoint for facebook videos.
-        'https://apps.facebook.com/plugins/video/oembed.json/',
-        // 'https://noembed.com/embed',
+    '^(https?://(?:www\.)facebook\.com/(?:video\.php\?v=\\d+|.*?/videos/\\d+))$': {
+      // oEmbed endpoint for facebook videos.
+      url: 'https://apps.facebook.com/plugins/video/oembed.json/',
+      format: 'jsonp',
+      // 'https://noembed.com/embed',
+    },
   },
   facebookPosts: {
     // Matches Facebook Posts URLs. (incl. posts, photos, story...etc)
-    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?.+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|photos|activity)\/.+|permalink\.php\?story_fbid=\\\d+|media\/set\?set=\\d+|questions\/\\d+))':
-        // oEmbed endpoint for facebook posts.
-        'https://apps.facebook.com/plugins/post/oembed.json/',
-        // 'https://noembed.com/embed'
+    '^(https?:\/\/www\.facebook\.com\/(?:photo\.php\?.+|photos\/\\d+|[a-zA-Z0-9\-.]+\/(posts|photos|activity)\/.+|permalink\.php\?story_fbid=\\\d+|media\/set\?set=\\d+|questions\/\\d+))': {
+      // oEmbed endpoint for facebook posts.
+      url: 'https://apps.facebook.com/plugins/post/oembed.json/',
+      format: 'jsonp',
+      // 'https://noembed.com/embed'
+    },
   },
   facebookNotes: {
     // Matches Facebook Notes URLs.
-    '^(https?:\/\/www\.facebook\.com\/notes\/[a-zA-Z0-9\-.]+\/[a-zA-Z0-9\-.]+\/\\d+)':
-        // oEmbed endpoint for facebook posts.
-        'https://apps.facebook.com/plugins/post/oembed.json/',
-        // 'https://noembed.com/embed'
+    '^(https?:\/\/www\.facebook\.com\/notes\/[a-zA-Z0-9\-.]+\/[a-zA-Z0-9\-.]+\/\\d+)': {
+      // oEmbed endpoint for facebook posts.
+      url: 'https://apps.facebook.com/plugins/post/oembed.json/',
+      format: 'jsonp',
+      // 'https://noembed.com/embed'
+    },
   },
   soundcloud: {
-    '^https?://soundcloud.com/.*/.*$':
-        'https://soundcloud.com/oembed?format=js',
+    '^https?://soundcloud.com/.*/.*$': {
+      url: 'https://soundcloud.com/oembed?format=js',
+      format: 'jsonp',
+    },
   },
   youtube: {
-    '^(?:https?://(?:www\.)?youtube\.com/(?:[^\/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})$':
-        'https://www.youtube.com/oembed?format=json',
+    '^(?:https?://(?:www\.)?youtube\.com/(?:[^\/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})$': {
+      url: 'https://www.youtube.com/oembed?format=json',
+      format: 'json',
+    },
   },
   vimeo: {
-    '^http(?:s?)://(?:www\.)?vimeo\.com/(([0-9]+)|channels/.+/.+|groups/.+/videos/.+)':
-        'https://vimeo.com/api/oembed.json',
+    '^http(?:s?)://(?:www\.)?vimeo\.com/(([0-9]+)|channels/.+/.+|groups/.+/videos/.+)': {
+      url: 'https://vimeo.com/api/oembed.json',
+      format: 'jsonp',
+    },
   },
   vine: {
-    '^http(?:s?)://(?:www\.)?vine\.co/v/([a-zA-Z0-9]{1,13})$':
-        'https://vine.co/oembed.json',
+    '^http(?:s?)://(?:www\.)?vine\.co/v/([a-zA-Z0-9]{1,13})$': {
+      url: 'https://vine.co/oembed.json',
+      format: 'jsonp',
+    },
   },
   twitter: {
     // Moments - doesn't seem to support jsonp!
@@ -90,20 +104,28 @@ CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP = {
         // 'https://publish.twitter.com/oembed.json',
 
     // Statuses.
-    '^https?://(?:www\.)?twitter\.com/[a-zA-Z0-9_]+/status/\\d+$':
-        'https://api.twitter.com/1/statuses/oembed.json',
+    '^https?://(?:www\.)?twitter\.com/[a-zA-Z0-9_]+/status/\\d+$': {
+      url: 'https://api.twitter.com/1/statuses/oembed.json',
+      format: 'jsonp',
+    },
   },
   instagram: {
-    '^https?://(?:www\.)?instagr\.?am(?:\.com)?/p/[a-zA-Z0-9_\-]+/?':
-        'https://www.instagram.com/publicapi/oembed/',
+    '^https?://(?:www\.)?instagr\.?am(?:\.com)?/p/[a-zA-Z0-9_\-]+/?': {
+      url: 'https://www.instagram.com/publicapi/oembed/',
+      format: 'jsonp',
+    },
   },
   slideshare: {
-    '^https?://(?:www\.)?slideshare\.net/[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+':
-        'https://www.slideshare.net/api/oembed/2?format=jsonp',
+    '^https?://(?:www\.)?slideshare\.net/[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+': {
+      url: 'https://www.slideshare.net/api/oembed/2?format=jsonp',
+      format: 'jsonp',
+    },
   },
   github: {
-    '^https?://gist\.github\.com/.*':
-        'https://noembed.com/embed?format=json',
+    '^https?://gist\.github\.com/.*': {
+      url: 'https://noembed.com/embed?format=json',
+      format: 'jsonp',
+    },
   },
 };
 
@@ -125,7 +147,8 @@ CarbonEmbedProvider.prototype.getOEmbedEndpointForUrl = function(
     queryParts.push([name, urlParams[name]].join('='));
   }
 
-  var endpoint = this.getOEmbedBaseForUrl_(url);
+  var serviceData = this.getOEmbedBaseForUrl_(url);
+  var endpoint = serviceData.url;
   if (!endpoint) {
     console.error('Could not find oembed endpoint for url: ', url);
     return null;
@@ -165,6 +188,7 @@ CarbonEmbedProvider.prototype.getUrlsRegex = function() {
  */
 CarbonEmbedProvider.prototype.getEmbedForUrl = function(
     url, callback, opt_args) {
+  var service = this.getOEmbedBaseForUrl_(url);
   var oEmbedEndpoint = this.getOEmbedEndpointForUrl(url, opt_args);
   if (!oEmbedEndpoint) {
     return;
@@ -184,14 +208,32 @@ CarbonEmbedProvider.prototype.getEmbedForUrl = function(
     document.body.appendChild(script);
   }
 
-  jsonp(oEmbedEndpoint, callback);
+  switch (service.format) {
+    case 'jsonp':
+      jsonp(oEmbedEndpoint, callback);
+      break;
+    case 'json':
+      var xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function() {
+        if (xhttp.readyState == 4) {
+          var json = JSON.parse(xhttp.responseText);
+          callback(json);
+        }
+      };
+      xhttp.open('GET', oEmbedEndpoint, true);
+      xhttp.send();
+      break;
+    default:
+      console.error('Unknown service format.');
+      break;
+  }
 };
 
 
 /**
  * Matches URL to the service and its oembed endpoint.
  * @param  {string} url URL.
- * @return {string|null} OEmbed endpoint for the url service.
+ * @return {Object} OEmbed endpoint for the url service.
  * @private
  */
 CarbonEmbedProvider.prototype.getOEmbedBaseForUrl_ = function(url) {

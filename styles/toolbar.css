@@ -104,6 +104,7 @@
   color: #fff;
   padding: 0.5em 0.8em;
   width: 2.5em;
+  height: 2.5em;
   font-size: 0.9em;
 }
 
@@ -115,11 +116,21 @@
   display: none;
 }
 
+.layouting-toolbar .editor-toolbar-buttons .upload-button button span {
+  display: inline-block;
+}
+
 .editor-block-toolbar .editor-toolbar-buttons button {
   background-color: #fafafa;
   color: #ccc;
   padding: 0.3em 0.5em;
   width: 2em;
+  font-size: 0.6em;
+}
+
+.editor-block-toolbar .editor-toolbar-buttons .upload-button button {
+  padding: 0.3em 0.5em;
+  width: 9em;
   font-size: 0.6em;
 }
 
@@ -159,16 +170,27 @@
   box-shadow: 0 1px 5px -3px;
 }
 
-.toolbelt-toolbar .upload-button button {
-  background: transparent;
+.upload-button {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
 }
 
-.toolbelt-toolbar .upload-button:hover button {
+.upload-button i {
+  padding: 0 5px;
+}
+
+.upload-button button {
+  background: transparent;
+  cursor: pointer;
+}
+
+.upload-button:hover button {
   background-color: #BF360C;
   color: #fff;
 }
 
-.toolbelt-toolbar .upload-button input {
+.upload-button input {
   position: absolute;
   left: 0;
   right: 0;

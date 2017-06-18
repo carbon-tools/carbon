@@ -15,7 +15,7 @@ I18n.set('ar', 'placeholder.gif' , 'اكتب +جيفي <نص إنجليزي لل
 I18n.set('ar', 'placeholder.quiz' , 'ألصق رابط من qzzr.com أو slideshare أو غيرها...');
 
 // Toolbelt Buttons.
-I18n.set('ar', 'button.upload' , 'تحميل صورة');
+I18n.set('ar', 'button.upload' , 'أضف صورة');
 I18n.set('ar', 'button.video' , 'أدخل فيديو');
 I18n.set('ar', 'button.photo' , 'أدخل صورة برابط');
 I18n.set('ar', 'button.post' , 'تضمين منشور');

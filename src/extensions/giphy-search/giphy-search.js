@@ -35,8 +35,12 @@ var GiphyJsonResponseDef;
  * @constructor
  */
 var GiphySearch = function(editor, opt_params) {
+  var params = Utils.extend({
+    apiKey: null,
+  }, opt_params);
+
   /** @type {string} */
-  this.apiKey_ = opt_params.apiKey;
+  this.apiKey_ = params.apiKey;
 
   this.registerRegexes_(editor);
 };

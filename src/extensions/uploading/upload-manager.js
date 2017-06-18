@@ -185,10 +185,11 @@ UploadManager.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
  * @param {boolean=} opt_insertAfter whether to insert the attachment after the component.
  */
 UploadManager.prototype.attachFilesAt = function(files, atComponent,
-    opt_insertAfter) {
+    opt_insertAfter, opt_figuresOptions) {
   var componentRef = atComponent;
   var currentLayout = componentRef.section;
   var attachment;
+  var figureOptions;
   if (files.length > 1 && this.layoutExtension_ &&
       !currentLayout.allowMoreItems()) {
     var numOfPhotos = 0;
@@ -207,7 +208,10 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
       }
       var loopTimes = Math.min(numOfPhotos, remainingFilesCount);
       for (var j = 0; j < loopTimes; j++) {
-        attachment = this.createPlaceholderAttachment_(files[i + j], layout, j);
+        figureOptions = (
+            opt_figuresOptions && opt_figuresOptions[i + j]) || {};
+        attachment = this.createPlaceholderAttachment_(
+            files[i + j], layout, j, figureOptions);
         // Queue Upload for the attachment.
         this.uploadQueue_.add(attachment);
         remainingFilesCount--;
@@ -215,10 +219,28 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
     }
   } else {
     var offsetIndex = opt_insertAfter ? 1 : 0;
+    if ((componentRef instanceof Figure) &&
+          this.layoutExtension_ && !currentLayout.allowMoreItems()) {
+      currentLayout = this.layoutExtension_.newLayoutAt(
+          'layout-responsive-grid', componentRef, opt_insertAfter);
+
+      // Update the component reference to the accurate one after a layout might
+      // have split and the component reference needs to update.
+      componentRef = Utils.getReference(componentRef.name);
+      this.editor.article.transaction(componentRef.getDeleteOps());
+
+      componentRef.section = currentLayout;
+      this.editor.article.transaction(componentRef.getInsertOps(0));
+
+      componentRef = Utils.getReference(componentRef.name);
+    }
     for (var w = 0; w < files.length; w++) {
+      figureOptions = (
+          opt_figuresOptions && opt_figuresOptions[w]) || {};
       attachment = this.createPlaceholderAttachment_(
           files[w], currentLayout,
-          componentRef.getIndexInSection() + offsetIndex);
+          componentRef.getIndexInSection() + offsetIndex,
+          figureOptions);
       // Queue Upload for the attachment.
       this.uploadQueue_.add(attachment);
     }
@@ -236,9 +258,14 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
  * @private
  */
 UploadManager.prototype.createPlaceholderAttachment_ = function(
-    file, inLayout, atIndexInLayout) {
+    file, inLayout, atIndexInLayout, opt_figureOptions) {
+  var figureOptions = opt_figureOptions || {};
   // Create a figure with a placeholder image.
-  var figure = new Figure({isAttachment: true});
+  var figure = new Figure({
+    isAttachment: true,
+    caption: figureOptions.caption,
+    alt: figureOptions.alt,
+  });
   figure.section = inLayout;
   var insertFigureOps = figure.getInsertOps(atIndexInLayout);
   this.editor.article.transaction(insertFigureOps);

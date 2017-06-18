@@ -75,6 +75,7 @@ UploadButton.prototype.handleChange = function(event) {
 var FilePicker = function(editor, opt_params) {
   var params = Utils.extend({
     uploadManager: null,
+    toolbarNames: [],
   }, opt_params);
 
   /**
@@ -84,15 +85,15 @@ var FilePicker = function(editor, opt_params) {
   this.editor = editor;
 
   /**
-   * The toolbelt toolbar.
-   * @type {../../toolbars/toolbar}
-   */
-  this.toolbelt = null;
-
-  /**
    * @type {Array<../uploading/upload-manager}
    */
   this.uploadManager_ = params.uploadManager;
+
+  /**
+   * Toolbar name to insert a button for file picker on.
+   * @type {Array<string>}
+   */
+  this.toolbarNames = params.toolbarNames || [FilePicker.TOOLBELT_TOOLBAR_NAME];
 
   this.init();
 };
@@ -118,13 +119,21 @@ FilePicker.TOOLBELT_TOOLBAR_NAME = 'toolbelt-toolbar';
  * Initialize the upload button and listener.
  */
 FilePicker.prototype.init = function() {
-  this.toolbelt = this.editor.getToolbar(FilePicker.TOOLBELT_TOOLBAR_NAME);
-  var uploadButton = new UploadButton({
-    label: I18n.get('button.upload'),
-    icon: I18n.get('button.icon.upload'),
-  });
-  uploadButton.addEventListener('change', this.handleUpload.bind(this), false);
-  this.toolbelt.addButton(uploadButton);
+  for (var i = 0; i < this.toolbarNames.length; i++) {
+    var toolbar = this.editor.getToolbar(this.toolbarNames[i]);
+    if (!toolbar) {
+      console.warn('Could not find toolbar "' + this.toolbarNames[i] + '".' +
+          'Make sure the extension that provides that toolbar is installed.');
+      continue;
+    }
+    var uploadButton = new UploadButton({
+      label: I18n.get('button.upload'),
+      icon: I18n.get('button.icon.upload'),
+    });
+    uploadButton.addEventListener(
+        'change', this.handleUpload.bind(this), false);
+    toolbar.addButton(uploadButton);
+  }
 };
 
 

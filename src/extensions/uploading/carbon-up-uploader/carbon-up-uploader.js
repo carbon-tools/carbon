@@ -146,7 +146,6 @@ CarbonUpUploader.prototype.onSuccess_ = function(attachment, data) {
   attachment.uploadComplete({
     src: baseSrc + '=s0',
     srcset: srcset,
-    caption: data.result.name,
   });
 };
 

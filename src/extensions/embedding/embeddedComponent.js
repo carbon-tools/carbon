@@ -98,6 +98,9 @@ var EmbeddedComponent = function(opt_params) {
   this.dom = document.createElement(EmbeddedComponent.TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+  // TODO(mkhatib): Allow this once embeddable stuff works and
+  // we have a better responsive solutions on mobile.
+  // this.dom.setAttribute('draggable', true);
   this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
 };
