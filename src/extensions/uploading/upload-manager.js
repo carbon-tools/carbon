@@ -188,6 +188,9 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
     opt_insertAfter, opt_figuresOptions) {
   var componentRef = atComponent;
   var currentLayout = componentRef.section;
+  var insertAfter = (opt_insertAfter === undefined
+      ? componentRef instanceof Figure
+      : opt_insertAfter);
   var attachment;
   var figureOptions;
   if (files.length > 1 && this.layoutExtension_ &&
@@ -196,7 +199,7 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
     var remainingFilesCount = files.length;
     for (var i = 0; i < files.length; i += numOfPhotos) {
       var layout = this.layoutExtension_.newLayoutAt(
-          'layout-responsive-grid', componentRef, opt_insertAfter);
+          'layout-responsive-grid', componentRef, insertAfter);
       // Update the component reference to the accurate one after a layout might
       // have split and the component reference needs to update.
       componentRef = Utils.getReference(atComponent.name);
@@ -218,11 +221,11 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
       }
     }
   } else {
-    var offsetIndex = opt_insertAfter ? 1 : 0;
+    var offsetIndex = insertAfter ? 1 : 0;
     if ((componentRef instanceof Figure) &&
           this.layoutExtension_ && !currentLayout.allowMoreItems()) {
       currentLayout = this.layoutExtension_.newLayoutAt(
-          'layout-responsive-grid', componentRef, opt_insertAfter);
+          'layout-responsive-grid', componentRef, insertAfter);
 
       // Update the component reference to the accurate one after a layout might
       // have split and the component reference needs to update.

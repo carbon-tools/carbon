@@ -148,6 +148,7 @@ var Figure = function(opt_params) {
   this.dom = document.createElement(Figure.CONTAINER_TAG_NAME);
   this.dom.setAttribute('contenteditable', false);
   this.dom.setAttribute('name', this.name);
+  this.dom.setAttribute('draggable', true);
 
   /** @private */
   this.bindedImageLoad_ = this.onImageLoad_.bind(this);

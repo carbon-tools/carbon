@@ -74,9 +74,13 @@ var DragDropFiles = function(editor, opt_params) {
   /** @private */
   this.bindedHandleDragEnter_ = this.handleDragEnter_.bind(this);
   /** @private */
+  this.bindedHandleDragLeave_ = this.handleDragLeave_.bind(this);
+  /** @private */
   this.bindedHandleDragOver_ = this.handledragOver_.bind(this);
   /** @private */
   this.bindedHandleDrop_ = this.handleDrop_.bind(this);
+  /** @private */
+  this.bindedHandleDragEnd_ = this.handleDragEnd_.bind(this);
 
   /** @type {../layoutExtension} */
   this.layoutExtension_ = params.layoutExtension ||
@@ -105,9 +109,13 @@ DragDropFiles.prototype.init = function() {
   this.droppableElement_.addEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
   this.droppableElement_.addEventListener(
+      'dragleave' , this.bindedHandleDragLeave_);
+  this.droppableElement_.addEventListener(
       'dragover' , this.bindedHandleDragOver_);
   this.droppableElement_.addEventListener(
       'drop' , this.bindedHandleDrop_);
+  this.droppableElement_.addEventListener(
+      'dragend' , this.bindedHandleDragEnd_);
 };
 
 
@@ -124,9 +132,13 @@ DragDropFiles.prototype.onDestroy = function() {
   this.droppableElement_.removeEventListener(
       'dragenter' , this.bindedHandleDragEnter_);
   this.droppableElement_.removeEventListener(
+      'dragleave' , this.bindedHandleDragLeave_);
+  this.droppableElement_.removeEventListener(
       'dragover' , this.bindedHandleDragOver_);
   this.droppableElement_.removeEventListener(
       'drop' , this.bindedHandleDrop_);
+  this.droppableElement_.removeEventListener(
+      'dragend' , this.bindedHandleDragEnd_);
 };
 
 
@@ -139,6 +151,7 @@ DragDropFiles.prototype.onDestroy = function() {
 DragDropFiles.prototype.handleDragStart_ = function(event) {
   this.draggedComponent_ = this.normalizeComponent_(
       dom.componentFromPoint(event.clientX, event.clientY));
+  this.draggedComponent_.dom.classList.add('dragging');
   event.dataTransfer.effectAllowed = 'move';
 };
 
@@ -151,6 +164,18 @@ DragDropFiles.prototype.handleDragStart_ = function(event) {
 DragDropFiles.prototype.handleDragEnter_ = function(event) {
   event.preventDefault();
   event.stopPropagation();
+
+  event.target.classList.add('over');
+};
+
+
+/**
+ * Handles dragleave event.
+ * @param {!Event} event
+ * @private
+ */
+DragDropFiles.prototype.handleDragLeave_ = function(event) {
+  event.target.classList.remove('over');
 };
 
 
@@ -168,13 +193,26 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
   var lastComp = this.editor.article.getLastComponent().getLastComponent();
   var firstComp = this.editor.article.getFirstComponent().getFirstComponent();
   if (this.componentAtPoint_) {
-    // TODO(mkhatib): Update the indicator to reflect insertion point better
-    // specially when inserting next to another iamge for example.
-    // TODO(mkhatib): When dropping an image on top of another the result should
-    // create a grid layout (if not already in one).
-    this.dropAtAnchorDom_.style.top = (
-        this.componentAtPoint_.dom.offsetTop + 'px');
-    this.insertAfter_ = false;
+    // TODO(mk): Potentially improve performance of this.
+    var isFigure = this.componentAtPoint_ instanceof Figure;
+    if (isFigure) {
+      var mouseX = event.clientX;
+      var offsetStart = this.componentAtPoint_.dom.offsetLeft;
+      var halfPoint = (
+        this.editor.rtl
+          ? offsetStart + parseInt(event.target.width, 10) / 2
+          : offsetStart + parseInt(event.target.width, 10) / 2
+      );
+      if (mouseX > halfPoint) {
+        event.target.classList.add('over-right');
+        event.target.classList.remove('over-left');
+        this.insertAfter_ = !this.editor.rtl;
+      } else {
+        event.target.classList.add('over-left');
+        event.target.classList.remove('over-right');
+        this.insertAfter_ = this.editor.rtl;
+      }
+    }
   } else if (event.clientY <= firstComp.dom.offsetTop) {
     this.componentAtPoint_ = firstComp;
     this.dropAtAnchorDom_.style.top = firstComp.dom.offsetTop + 'px';
@@ -199,25 +237,31 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
  */
 DragDropFiles.prototype.handleDrop_ = function(event) {
   this.dropAtAnchorDom_.style.top = EDGE;
+  event.target.classList.remove('over');
+  event.target.classList.remove('over');
+  event.target.classList.remove('over-left');
+  event.target.classList.remove('over-right');
   event.preventDefault();
   event.stopPropagation();
   var files = event.dataTransfer.files;
+
+  var componentRef = this.componentAtPoint_;
+  var isFigure = componentRef instanceof Figure;
   if (files.length > 0 && this.uploadManager_) {
     this.uploadManager_.attachFilesAt(
         files, this.componentAtPoint_, this.insertAfter_);
   } else if (this.draggedComponent_) {
     var movingComponent = this.draggedComponent_;
-    var componentRef = this.componentAtPoint_;
+    this.draggedComponent_.dom.classList.remove('dragging');
 
     var currentLayout = componentRef.section;
-    var insertAfter = false;
 
     // For now only support Figure as a dropping point where it creates
     // a grid.
-    if ((componentRef instanceof Figure) &&
+    if (isFigure &&
         this.layoutExtension_ && !currentLayout.allowMoreItems()) {
       currentLayout = this.layoutExtension_.newLayoutAt(
-          'layout-responsive-grid', componentRef, insertAfter);
+          'layout-responsive-grid', componentRef, this.insertAfter_);
 
       // Update the component reference to the accurate one after a layout might
       // have split and the component reference needs to update.
@@ -229,9 +273,10 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
 
       componentRef = Utils.getReference(componentRef.name);
     }
+
     // } else {
     var offsetIndex = 0;
-    if (insertAfter) {
+    if (this.insertAfter_) {
       offsetIndex = 1;
     }
 
@@ -245,6 +290,18 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
 
     this.editor.article.transaction(insertFigureOps);
     this.editor.dispatchEvent(new Event('change'));
+  }
+};
+
+
+/**
+ * Handles drop end.
+ * @private
+ */
+DragDropFiles.prototype.handleDragEnd_ = function() {
+  this.dropAtAnchorDom_.style.top = EDGE;
+  if (this.draggedComponent_) {
+    this.draggedComponent_.dom.classList.remove('dragging');
   }
 };
 

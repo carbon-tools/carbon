@@ -222,6 +222,15 @@
   border: none !important;
 }
 
+.carbon-editor .carbon p,
+.carbon-editor .carbon h1,
+.carbon-editor .carbon h2,
+.carbon-editor .carbon h3,
+.carbon-editor .carbon pre {
+  box-sizing: border-box;
+  border-top: 1px solid transparent !important;
+}
+
 .carbon-editor .carbon figure img,
 .carbon-editor .carbon figure .inner-container {
   box-sizing: border-box;
@@ -232,6 +241,37 @@
 .carbon-editor .carbon figure.editor-selected img,
 .carbon-editor .carbon figure.editor-selected .inner-container {
   border: 3px solid #FF5722 !important;
+}
+
+.carbon-editor .carbon .over {
+  border-top: 1px dashed dodgerblue !important;
+}
+
+.carbon-editor .carbon figure img.over,
+.carbon-editor .carbon figure.editor-selected img.over {
+  border: 3px dashed dodgerblue !important;
+  transition: transform .5s;
+  transform: scale(0.9);
+}
+
+.carbon-editor .carbon figure img.over.over-right,
+.carbon-editor .carbon figure.editor-selected img.over.over-right {
+  border-right: 3px dashed #FF5722 !important;
+}
+
+.carbon-editor .carbon figure img.over.over-left,
+.carbon-editor .carbon figure.editor-selected img.over.over-left {
+  border-left: 3px dashed #FF5722 !important;
+}
+
+.carbon-editor .dragging {
+  opacity: 0.4;
+  transition: transform .2s;
+  transform: scale(0.8);
+}
+
+.carbon-editor [draggable] {
+  cursor: move;
 }
 
 #carbon-off-screen {
