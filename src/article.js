@@ -197,7 +197,11 @@ Article.prototype.getLastComponent = function() {
  * @return {boolean}
  */
 Article.prototype.hasCover = function() {
-  var coverLayouts = [Layout.Types.Staged, Layout.Types.Bleed];
+  var coverLayouts = [
+    Layout.Types.Staged,
+    Layout.Types.Bleed,
+    Layout.Types.ResponsiveGrid,
+  ];
   var layout = this.getFirstComponent();
   // TODO(mkhatib): This shouldn't be here. layout should never be empty.
   // This is probably an artifact of us failing to cleanup empty layouts.
