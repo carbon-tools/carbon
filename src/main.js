@@ -47,9 +47,13 @@ module.exports.FormattingExtension = require('./extensions/formattingExtension')
 module.exports.ToolbeltExtension = require('./extensions/toolbeltExtension');
 
 // Embedding extension.
-module.exports.EmbeddedComponent = require('./extensions/embedding/embeddedComponent');
+// The old EmbeddedComponent is messy with calculating the width/height magic.
+// For now switching to noMagicEmbeddedComponent.
+// module.exports.EmbeddedComponent = require('./extensions/embedding/embeddedComponent');
+module.exports.EmbeddedComponent = require('./extensions/embedding/noMagicEmbeddedComponent');
 module.exports.AbstractEmbedProvider = require('./extensions/embedding/abstractEmbedProvider');
 module.exports.EmbedlyProvider = require('./extensions/embedding/embedlyProvider');
+module.exports.NoembedProvider = require('./extensions/embedding/noembedProvider');
 module.exports.CarbonEmbedProvider = require('./extensions/embedding/carbonEmbedProvider');
 module.exports.EmbeddingExtension = require('./extensions/embedding/embeddingExtension');
 

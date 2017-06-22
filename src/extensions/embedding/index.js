@@ -4,4 +4,5 @@ module.exports = {
   EmbeddingExtension: require('./embeddingExtension'),
   EmbeddedComponent: require('./embeddedComponent'),
   EmbedlyProvider: require('./embedlyProvider'),
+  NoembedProvider: require('./noembedProvider'),
 };

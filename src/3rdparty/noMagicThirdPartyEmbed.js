@@ -16,19 +16,7 @@ var OEmbedDataDef;
  * Encapsulates logic for third party oEmbed embedding.
  * @constructor
  */
-var ThirdPartyEmbed = function() {
-
-  /**
-   * Embed Width.
-   * @type {number}
-   */
-  this.embedWidth = 0;
-
-  /**
-   * Embed Height.
-   * @type {number}
-   */
-  this.embedHeight = 0;
+var NoMagicThirdPartyEmbed = function() {
 
   /**
    * Embed type.
@@ -57,16 +45,68 @@ var ThirdPartyEmbed = function() {
   this.container.className = 'container';
   this.dom.appendChild(this.container);
 };
-module.exports = ThirdPartyEmbed;
+module.exports = NoMagicThirdPartyEmbed;
 
 
 /**
  * Parses the fragment and embed the code.
  */
-ThirdPartyEmbed.prototype.init = function() {
+NoMagicThirdPartyEmbed.prototype.init = function() {
   var data = this.parseFragment(location.hash);
   this.origin = data.origin;
-  this.embed(data.oEmbedUrl, data.width);
+  this.embed(data.oEmbedUrl);
+};
+
+
+/**
+ * Embeds the URL by calling its oEmbed endpoint and embedding the content.
+ * @param  {string} oEmbedUrl OEmbed Endpoint to call to get the content.
+ */
+NoMagicThirdPartyEmbed.prototype.embed = function(oEmbedUrl) {
+  Utils.ajax(oEmbedUrl, function(data) {
+    var oembedData = /** @type {OEmbedDataDef} */ (data);
+    this.embedType = oembedData.type;
+
+    this.container.innerHTML = oembedData.html;
+    this.executeScriptsIn_(this.container);
+
+    Utils.addResizeListener(this.dom, function() {
+      // var styles = getComputedStyle(this.dom);
+      this.triggerDimensions(
+        parseFloat(document.body.offsetWidth),
+        parseFloat(document.body.offsetHeight),
+        this.origin);
+      this.dom.style.width = 'auto';
+    }.bind(this));
+
+    // If this is a video or an image embed. Use paddingBottom ratio.
+    var iframe = this.dom.getElementsByTagName('iframe')[0];
+    if (this.embedType === 'video' || this.embedType === 'photo') {
+      if (oembedData.width && oembedData.height) {
+        this.embedWidth = oembedData.width;
+        this.embedHeight = oembedData.height;
+      } else if (iframe) {
+        this.embedWidth = parseFloat(iframe.width);
+        this.embedHeight = parseFloat(iframe.height);
+      }
+      // if (this.embedWidth && this.embedHeight) {
+      //   this.container.style.paddingBottom = ((
+      //       this.embedHeight / this.embedWidth) * 100 + '%');
+      // }
+    } else if (this.embedType === 'rich') {
+      setTimeout(function() {
+        this.triggerDimensions(
+          parseFloat(document.body.offsetWidth),
+          parseFloat(document.body.offsetHeight),
+          this.origin);
+      }.bind(this), 2000);
+    }
+
+
+    this.dom.classList.add(oembedData.type);
+    /* jshint camelcase: false */
+    this.dom.classList.add(oembedData.provider_name);
+  }.bind(this), true);
 };
 
 
@@ -76,7 +116,8 @@ ThirdPartyEmbed.prototype.init = function() {
  * @param  {number} height
  * @param  {string} origin
  */
-ThirdPartyEmbed.prototype.triggerDimensions = function(width, height, origin) {
+NoMagicThirdPartyEmbed.prototype.triggerDimensions = function(
+    width, height, origin) {
   this.embedWidth = width;
   this.embedHeight = height;
   this.sendMessage('embed-size', {
@@ -87,53 +128,19 @@ ThirdPartyEmbed.prototype.triggerDimensions = function(width, height, origin) {
 
 
 /**
- * Embeds the URL by calling its oEmbed endpoint and embedding the content.
- * @param  {string} oEmbedUrl OEmbed Endpoint to call to get the content.
- * @param  {number} width Width of container to load the content in.
+ * Sends a message to the parent window.
+ * @param  {string} type Message type.
+ * @param  {Object=} opt_object Optional object to send.
+ * @param  {string=} opt_origin
  */
-ThirdPartyEmbed.prototype.embed = function(oEmbedUrl, width) {
-  this.dom.style.width = width + 'px';
-  Utils.ajax(oEmbedUrl, function(data) {
-    var oembedData = /** @type {OEmbedDataDef} */ (data);
-    this.embedType = oembedData.type;
-
-    // If this is a rich embed. Watch its size and notify the parent with
-    // changes.
-    if (this.embedType === 'rich') {
-      Utils.addResizeListener(this.dom, function() {
-        var styles = getComputedStyle(this.dom);
-        this.triggerDimensions(
-          parseFloat(styles.width),
-          parseFloat(styles.height),
-          this.origin);
-        this.dom.style.width = 'auto';
-      }.bind(this));
-    }
-
-    this.container.innerHTML = oembedData.html;
-    this.executeScriptsIn_(this.container);
-
-    // If this is a video or an image embed. Use paddingBottom ratio.
-    if (this.embedType === 'video' || this.embedType === 'image') {
-      var iframe = this.dom.getElementsByTagName('iframe')[0];
-      if (iframe) {
-        this.embedWidth = parseFloat(iframe.width);
-        this.embedHeight = parseFloat(iframe.height);
-      } else {
-        this.embedWidth = oembedData.width;
-        this.embedHeight = oembedData.height;
-      }
-      if (this.embedWidth && this.embedHeight) {
-        this.triggerDimensions(this.embedWidth, this.embedHeight, this.origin);
-        this.container.style.paddingBottom = ((
-            this.embedHeight / this.embedWidth) * 100 + '%');
-      }
-    }
-
-    this.dom.classList.add(oembedData.type);
-    /* jshint camelcase: false */
-    this.dom.classList.add(oembedData.provider_name);
-  }.bind(this), true);
+NoMagicThirdPartyEmbed.prototype.sendMessage = function(
+    type, opt_object, opt_origin) {
+  if (window.parent === window) {
+    return;
+  }
+  var object = opt_object || {};
+  object.type = type;
+  window.parent.postMessage(object, opt_origin);
 };
 
 
@@ -142,7 +149,7 @@ ThirdPartyEmbed.prototype.embed = function(oEmbedUrl, width) {
  * @param  {!Element} element
  * @private
  */
-ThirdPartyEmbed.prototype.executeScriptsIn_ = function(element) {
+NoMagicThirdPartyEmbed.prototype.executeScriptsIn_ = function(element) {
   var scripts = element.getElementsByTagName('script');
   for (var i = 0; i < scripts.length; i++) {
     /* eslint no-eval: [2, {"allowIndirect": true}] */
@@ -166,27 +173,11 @@ ThirdPartyEmbed.prototype.executeScriptsIn_ = function(element) {
 
 
 /**
- * Sends a message to the parent window.
- * @param  {string} type Message type.
- * @param  {Object=} opt_object Optional object to send.
- * @param  {string=} opt_origin
- */
-ThirdPartyEmbed.prototype.sendMessage = function(type, opt_object, opt_origin) {
-  if (window.parent === window) {
-    return;
-  }
-  var object = opt_object || {};
-  object.type = type;
-  window.parent.postMessage(object, opt_origin);
-};
-
-
-/**
  * Parses the fragment from the iframe to get passed data from.
  * @param  {string} fragment Fragment to parse.
  * @return {!Object} Parsed JSON object from the fragment.
  */
-ThirdPartyEmbed.prototype.parseFragment = function(fragment) {
+NoMagicThirdPartyEmbed.prototype.parseFragment = function(fragment) {
   var json = fragment.substr(1);
   // Some browser, notably Firefox produce an encoded version of the fragment
   // while most don't. Since we know how the string should start, this is easy

@@ -19,11 +19,11 @@
     <script src="libs/webcamjs/webcam.js"></script>
     <script src="../dist/carbon.js"></script>
     <script>
+      var noembedProvider = new carbon.NoembedProvider();
       carbon.Loader.register('embedProviders', {
-        embedly: new carbon.EmbedlyProvider({
-          apiKey: '46c6ad376b1343359d774c5d8a940db7'
-        }),
-        carbon: new carbon.CarbonEmbedProvider({})
+        noembed: noembedProvider,
+        carbon: new carbon.CarbonEmbedProvider({}),
+        fallback: noembedProvider,
       });
 
       var demoArticle;

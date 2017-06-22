@@ -5,7 +5,7 @@ var Utils = require('../../utils');
 var dom = require('../../utils/dom');
 var absOffsetTop = require('../../utils/viewport').absOffsetTop;
 var Loader = require('../../loader');
-var Figure = require('../../figure');
+// var Figure = require('../../figure');
 
 
 /**
@@ -165,7 +165,13 @@ DragDropFiles.prototype.handleDragEnter_ = function(event) {
   event.preventDefault();
   event.stopPropagation();
 
-  event.target.classList.add('over');
+  this.componentAtPoint_ = this.normalizeComponent_(
+      dom.componentFromPoint(event.clientX, event.clientY));
+  var isDropTarget = this.isDroppableOn_(
+      this.draggedComponent_, this.componentAtPoint_);
+  if (isDropTarget) {
+    event.target.classList.add('over');
+  }
 };
 
 
@@ -194,15 +200,12 @@ DragDropFiles.prototype.handledragOver_ = function(event) {
   var firstComp = this.editor.article.getFirstComponent().getFirstComponent();
   if (this.componentAtPoint_) {
     // TODO(mk): Potentially improve performance of this.
-    var isFigure = this.componentAtPoint_ instanceof Figure;
-    if (isFigure) {
+    var isDropTarget = this.isDroppableOn_(
+        this.draggedComponent_, this.componentAtPoint_);
+    if (isDropTarget) {
       var mouseX = event.clientX;
       var offsetStart = this.componentAtPoint_.dom.offsetLeft;
-      var halfPoint = (
-        this.editor.rtl
-          ? offsetStart + parseInt(event.target.width, 10) / 2
-          : offsetStart + parseInt(event.target.width, 10) / 2
-      );
+      var halfPoint = offsetStart + parseInt(event.target.offsetWidth, 10) / 2;
       if (mouseX > halfPoint) {
         event.target.classList.add('over-right');
         event.target.classList.remove('over-left');
@@ -246,7 +249,10 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
   var files = event.dataTransfer.files;
 
   var componentRef = this.componentAtPoint_;
-  var isFigure = componentRef instanceof Figure;
+  var isDropTarget = this.isDroppableOn_(
+      this.draggedComponent_, this.componentAtPoint_);
+  var canBeInGrid = this.canMergeIntoGrid_(
+      this.draggedComponent_, this.componentAtPoint_);
   if (files.length > 0 && this.uploadManager_) {
     this.uploadManager_.attachFilesAt(
         files, this.componentAtPoint_, this.insertAfter_);
@@ -258,7 +264,7 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
 
     // For now only support Figure as a dropping point where it creates
     // a grid.
-    if (isFigure &&
+    if (isDropTarget && canBeInGrid &&
         this.layoutExtension_ && !currentLayout.allowMoreItems()) {
       currentLayout = this.layoutExtension_.newLayoutAt(
           'layout-responsive-grid', componentRef, this.insertAfter_);
@@ -274,7 +280,9 @@ DragDropFiles.prototype.handleDrop_ = function(event) {
       componentRef = Utils.getReference(componentRef.name);
     }
 
-    // } else {
+
+    // TODO(mk): Items that are already in grid can be merged with items that
+    // canBeInGrid is false. Need to put them outside of that layout.
     var offsetIndex = 0;
     if (this.insertAfter_) {
       offsetIndex = 1;
@@ -305,6 +313,29 @@ DragDropFiles.prototype.handleDragEnd_ = function() {
   }
 };
 
+
+DragDropFiles.prototype.isDroppableOn_ = function(dragged, target) {
+  if (target.getComponentClassName() == 'Paragraph') {
+    return true;
+  }
+
+  return target.isDropTarget && (
+    dragged === undefined ||
+    (dragged.getComponentClassName() === target.getComponentClassName() &&
+     (target.responsive === undefined || (target.responsive &&
+      dragged.responsive))));
+};
+
+
+DragDropFiles.prototype.canMergeIntoGrid_ = function(dragged, target) {
+  if (target.getComponentClassName() == 'Paragraph') {
+    return false;
+  }
+  return target.isDropTarget &&
+    dragged.getComponentClassName() === target.getComponentClassName() &&
+    ((target.responsive === undefined && dragged.responsive === undefined) ||
+      (target.responsive && dragged.responsive));
+};
 
 /**
  * Returns the actual component instead of a container.

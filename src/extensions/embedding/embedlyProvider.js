@@ -85,8 +85,8 @@ EmbedlyProvider.prototype.getOEmbedEndpointForUrl = function(url, opt_args) {
 
 /**
  * Returns the regex string this provider want to provide the embed for.
- * @return {string}
+ * @param {Function} callback A callback function to call with the result.
  */
-EmbedlyProvider.prototype.getUrlsRegex = function() {
-  return EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING;
+EmbedlyProvider.prototype.getUrlsRegex = function(callback) {
+  callback(EmbedlyProvider.SUPPORTED_URLS_REGEX_STRING);
 };

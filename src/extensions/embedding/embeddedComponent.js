@@ -100,7 +100,7 @@ var EmbeddedComponent = function(opt_params) {
   this.dom.setAttribute('name', this.name);
   // TODO(mkhatib): Allow this once embeddable stuff works and
   // we have a better responsive solutions on mobile.
-  // this.dom.setAttribute('draggable', true);
+  this.dom.setAttribute('draggable', true);
   this.dom.className = EmbeddedComponent.COMPONENT_CLASS_NAME;
 
 };
@@ -227,6 +227,12 @@ EmbeddedComponent.EMBED_SIZE_MESSAGE_TYPE = 'embed-size';
 
 
 /**
+ * A fallback provider name when provider is not installed.
+ */
+EmbeddedComponent.FALLBACK_PROVIDER_NAME = 'fallback';
+
+
+/**
  * Returns the class name of the component.
  * @return {string} Class name of the component.
  */
@@ -340,8 +346,10 @@ EmbeddedComponent.prototype.renderForScreen_ = function(screen, embedDom) {
   }
 
   // Get oembed URL for the URL.
+  var providers = Loader.load('embedProviders');
   var embedProvider = /** @type {./abstractEmbedProvider} */ (
-      Loader.load('embedProviders')[this.provider]);
+      providers[this.provider] ||
+      providers[EmbeddedComponent.FALLBACK_PROVIDER_NAME]);
   var oEmbedUrl = embedProvider.getOEmbedEndpointForUrl(this.url, {
     width: screen,
   });
@@ -512,7 +520,7 @@ EmbeddedComponent.prototype.render = function(element, options) {
       /* jshint camelcase: false */
       this.serviceName = oembedData.provider || oembedData.provider_name;
       if (this.serviceName) {
-        this.dom.classList.add(this.serviceName);
+        this.dom.classList.add(this.serviceName.replace(/\s/ig, '-'));
       }
 
       // TODO(mkhatib): Render a nice placeholder until the data has been
@@ -558,8 +566,15 @@ EmbeddedComponent.prototype.render = function(element, options) {
  * @private
  */
 EmbeddedComponent.prototype.loadEmbed_ = function(callback, optArgs) {
-  var embedProvider = Loader.load('embedProviders')[this.provider];
-  embedProvider.getEmbedForUrl(this.url, callback, optArgs);
+  var providers = Loader.load('embedProviders');
+  var embedProvider = (
+      providers[this.provider] ||
+      providers[EmbeddedComponent.FALLBACK_PROVIDER_NAME]);
+  if (embedProvider) {
+    embedProvider.getEmbedForUrl(this.url, callback, optArgs);
+  } else {
+    console.warn('Could not find embed provider ' + this.provider);
+  }
 };
 
 

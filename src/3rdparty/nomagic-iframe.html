@@ -1,0 +1,74 @@
+<!doctype html>
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<script src="./carbon3p.js"></script>
+<style type="text/css">
+  #outer-container iframe {
+    margin: 0 auto !important;
+  }
+  body, #outer-container {
+    overflow: hidden;
+  }
+
+  body {
+    text-align: center;
+  }
+
+  #outer-container.video,
+  #outer-container.image {
+    width: auto !important;
+  }
+
+  #outer-container.video .container,
+  #outer-container.image .container {
+    position: relative;
+  }
+
+  #outer-container.video.YouTube,
+  #outer-container.video.Vimeo,
+  #outer-container.video.Hulu {
+    height: 100vh;
+  }
+
+  #outer-container.video.YouTube .container > iframe,
+  #outer-container.video.Vimeo .container > iframe,
+  #outer-container.video.Hulu .container > iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  #outer-container.photo img {
+    width: 100%;
+  }
+
+
+  #outer-container.Twitter .container {
+    display: flex;
+    justify-content: center;
+  }
+
+  html,
+  body,
+  #outer-container,
+  .inner-container,
+  .container,
+  iframe {
+    min-height: 100%;
+    min-width: 100%;
+  }
+</style>
+</head>
+
+<body style="margin:0">
+<div id="outer-container">
+  <script type="text/javascript">
+    var embed = new carbon3p.NoMagicThirdPartyEmbed();
+    embed.init();
+  </script>
+</div>
+</body>
+</html>

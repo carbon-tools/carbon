@@ -109,6 +109,12 @@ var Component = function(opt_params) {
    * @type {?number}
    */
   this.height = params.height;
+
+  /**
+   * Whether the item is responsive;
+   * @type {boolean}
+   */
+  this.responsive = false;
 };
 module.exports = Component;
 

@@ -18,7 +18,7 @@ var CarbonEmbedProvider = function(opt_params) {
       twitter: true,
       instagram: true,
       github: false,
-      soundcloud: true,
+      soundcloud: false,
       youtube: false,
       vimeo: true,
       vine: false,
@@ -160,9 +160,9 @@ CarbonEmbedProvider.prototype.getOEmbedEndpointForUrl = function(
 
 /**
  * Returns the regex string this provider want to provide the embed for.
- * @return {string}
+ * @param {Function} callback A callback function to call with the result.
  */
-CarbonEmbedProvider.prototype.getUrlsRegex = function() {
+CarbonEmbedProvider.prototype.getUrlsRegex = function(callback) {
   var Services = CarbonEmbedProvider.PROVIDERS_OEMBED_REGEX_MAP;
   var regexStringParts = [];
   for (var service in Services) {
@@ -174,7 +174,7 @@ CarbonEmbedProvider.prototype.getUrlsRegex = function() {
       }
     }
   }
-  return regexStringParts.join('|');
+  callback(regexStringParts.join('|'));
 };
 
 

@@ -23,9 +23,9 @@ AbstractEmbedProvider.prototype.getEmbedForUrl = function(
 
 /**
  * Returns the regex string this provider want to provide the embed for.
- * @return {string}
+ * @param {Function} unusedCallback A callback function to call with the result.
  */
-AbstractEmbedProvider.prototype.getUrlsRegex = function() {
+AbstractEmbedProvider.prototype.getUrlsRegex = function(unusedCallback) {
 };
 
 

@@ -153,6 +153,7 @@ var Figure = function(opt_params) {
   /** @private */
   this.bindedImageLoad_ = this.onImageLoad_.bind(this);
 
+  this.isDropTarget = true;
   this.updateIsAttachment(this.isAttachment);
 };
 Figure.prototype = Object.create(Component.prototype);

@@ -252,13 +252,15 @@
       editor.install(carbon.GiphySearch, {
         apiKey: 'dc6zaTOxFJmzC',
       });
+      var noEmbedProivder = new carbon.NoembedProvider();
       editor.install(carbon.EmbeddingExtension, {
         embedProviders: {
-          carbon: new carbon.CarbonEmbedProvider({
-          }),
-          embedly: new carbon.EmbedlyProvider({
-            apiKey: '46c6ad376b1343359d774c5d8a940db7'
-          }),
+          noembed: noEmbedProivder,
+          carbon: new carbon.CarbonEmbedProvider(),
+          fallback: noEmbedProivder,
+          // embedly: new carbon.EmbedlyProvider({
+          //   apiKey: '46c6ad376b1343359d774c5d8a940db7'
+          // }),
         },
         toolbarNames: [
           carbon.ToolbeltExtension.TOOLBELT_TOOLBAR_NAME

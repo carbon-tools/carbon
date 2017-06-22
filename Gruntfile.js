@@ -76,6 +76,9 @@ module.exports = function(grunt) {
           src: '<%= srcDir %>/3rdparty/iframe.html',
           dest: '<%= distDir %>/iframe.html',
         }, {
+          src: '<%= srcDir %>/3rdparty/nomagic-iframe.html',
+          dest: '<%= distDir %>/nomagic-iframe.html',
+        }, {
           src: '<%= buildDir %>/<%= pkg.name %>3p.js',
           dest: '<%= distDir %>/<%= pkg.name %>3p.js',
         }],

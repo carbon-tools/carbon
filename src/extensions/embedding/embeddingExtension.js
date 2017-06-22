@@ -87,9 +87,11 @@ EmbeddingExtension.onInstall = function(unusedEditor, config) {
 
 
 /**
- * Registers the different regexes for each provider.
+ * Installs provider and register its regular expression and callback.
+ * @param {string} name Provider's name.
+ * @param {Object} provider Instace of the initiated provider.
  */
-EmbeddingExtension.prototype.init = function() {
+EmbeddingExtension.prototype.installProvider = function(name, provider) {
   var self = this;
 
   /**
@@ -97,18 +99,26 @@ EmbeddingExtension.prototype.init = function() {
    * @param  {string} provider Provider name.
    * @return {../../defs.ComponentFactoryMethodDef} Regex match handler.
    */
-  var handleRegexMatchProvider = function(provider) {
+  var handleRegexMatchProvider = function(name) {
     return function(matchedComponent, opsCallback) {
-      self.handleRegexMatch(matchedComponent, opsCallback, provider);
+      self.handleRegexMatch(matchedComponent, opsCallback, name);
     };
   };
 
-  // Register regexes in each provider.
-  for (var provider in this.embedProviders) {
-    var regexStr = this.embedProviders[provider].getUrlsRegex();
-    this.editor.registerRegex(regexStr, handleRegexMatchProvider(provider));
-  }
+  provider.getUrlsRegex(function(regexStr) {
+    self.editor.registerRegex(
+        regexStr, handleRegexMatchProvider(name), true);
+  });
+};
 
+
+/**
+ * Registers the different regexes for each provider.
+ */
+EmbeddingExtension.prototype.init = function() {
+  for (var provider in this.embedProviders) {
+    this.installProvider(provider, this.embedProviders[provider]);
+  }
 
   for (var j = 0; j < this.toolbarNames.length; j++) {
     var toolbar = this.editor.getToolbar(this.toolbarNames[j]);

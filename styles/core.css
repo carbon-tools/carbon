@@ -147,6 +147,15 @@
   overflow: hidden;
 }
 
+.carbon figure .embed-container.responsive-video iframe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 100%;
+}
+
 .carbon figure .embed-overlay {
   position: absolute;
   top: 0;
@@ -248,19 +257,22 @@
 }
 
 .carbon-editor .carbon figure img.over,
-.carbon-editor .carbon figure.editor-selected img.over {
+.carbon-editor .carbon figure.editor-selected img.over,
+.carbon-editor .carbon figure .embed-overlay.over {
   border: 3px dashed dodgerblue !important;
   transition: transform .5s;
   transform: scale(0.9);
 }
 
 .carbon-editor .carbon figure img.over.over-right,
-.carbon-editor .carbon figure.editor-selected img.over.over-right {
+.carbon-editor .carbon figure.editor-selected img.over.over-right,
+.carbon-editor .carbon figure .embed-overlay.over.over-right {
   border-right: 3px dashed #FF5722 !important;
 }
 
 .carbon-editor .carbon figure img.over.over-left,
-.carbon-editor .carbon figure.editor-selected img.over.over-left {
+.carbon-editor .carbon figure.editor-selected img.over.over-left,
+.carbon-editor .carbon figure .embed-overlay.over.over-left {
   border-left: 3px dashed #FF5722 !important;
 }
 
