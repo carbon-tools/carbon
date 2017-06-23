@@ -431,10 +431,10 @@ MonacoEditor.prototype.embedEditor_ = function() {
 
   this.initConfigUI_();
   var that = this;
-  // this.codeEditor_.onDidChangeModelContent(function() {
-    // that.value = that.codeEditor_.getModel().getValue();
-    // that.article.editor.dispatchEvent(new Event('change'));
-  // });
+  this.codeEditor_.onDidChangeModelContent(function() {
+    that.value = that.codeEditor_.getModel().getValue();
+    that.article.editor.dispatchEvent(new Event('change'));
+  });
 
   var lastLine = this.codeEditor_.createContextKey('lastLine', false);
   var firstLine = this.codeEditor_.createContextKey('firstLine', false);
