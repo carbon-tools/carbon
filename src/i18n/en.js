@@ -48,7 +48,7 @@ I18n.set('en', 'button.layout.icon.staged' , 'fa fa-desktop');
 I18n.set('en', 'button.layout.icon.left' , 'fa fa-align-left');
 I18n.set('en', 'button.layout.icon.right' , 'fa fa-align-right');
 I18n.set('en', 'button.layout.icon.grid' , 'fa fa-th');
-I18n.set('en', 'button.layout.icon.delete' , 'fa fa-trash');
+I18n.set('en', 'button.layout.icon.delete' , 'fa fa-trash-o');
 
 I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
 I18n.set('en', 'regex.selfie', '^\\+selfie$');

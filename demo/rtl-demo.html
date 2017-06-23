@@ -41,6 +41,7 @@
       });
     </script>
     <script>
+      carbon.MonacoEditor.setScriptPath('node_modules/monaco-editor/min/vs', true);
       var demoArticle;
       var storedArticle = localStorage.getItem('article-ar');
       if (storedArticle) {
@@ -143,6 +144,18 @@
           });
       editor.install(carbon.FormattingExtension);
       editor.install(carbon.LayoutingExtension);
+
+      editor.install(carbon.CodeEditingExtension, {
+        toolbarNames: [
+          carbon.FormattingExtension.BLOCK_TOOLBAR_NAME,
+        ],
+        editorConfig: {
+          ComponentClass: carbon.MonacoEditor,
+          params: {
+            scriptPath: 'node_modules/monaco-editor/min/vs',
+          },
+        }
+      });
       var uploadManager = new carbon.UploadManager(editor, {});
       editor.install(carbon.FilePicker, {
         uploadManager: uploadManager,

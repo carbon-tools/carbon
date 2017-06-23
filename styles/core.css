@@ -356,6 +356,11 @@
   z-index: 10;
 }
 
+.carbon .carbon-code {
+  direction: ltr;
+  margin: 1em 0;
+}
+
 .carbon-editor .carbon-code {
   position: relative;
 }
