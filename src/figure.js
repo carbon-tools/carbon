@@ -618,3 +618,10 @@ Figure.prototype.getSrcSetString_ = function(srcset) {
   }
   return srcsetArr.join(',');
 };
+
+/**
+ * @override
+ */
+Figure.prototype.canBeLaidOut = function() {
+  return !this.isDataUrl;
+};

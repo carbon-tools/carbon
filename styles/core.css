@@ -49,14 +49,16 @@
   width: 100%;
 }
 
-.carbon .layout-float-left figure {
+.carbon .layout-float-left figure,
+.carbon .layout-float-left .carbon-code {
   float: left;
   margin: 0;
   margin-right: 2em;
   width: 300px;
 }
 
-.carbon .layout-float-right figure {
+.carbon .layout-float-right figure,
+.carbon .layout-float-right .carbon-code {
   float: right;
   margin: 0;
   margin-left: 2em;
@@ -71,9 +73,14 @@
   padding: 0 3px;
 }
 
-.carbon .layout-responsive-grid figure {
+.carbon .layout-responsive-grid figure,
+.carbon .layout-responsive-grid .carbon-code {
   flex: auto;
   width: 30%;
+}
+
+.carbon .layout-responsive-grid .carbon-code {
+  align-self: flex-start;
 }
 
 .carbon .layout-responsive-grid figure img {
@@ -84,6 +91,32 @@
 
 .carbon .layout-responsive-grid figure figcaption {
   display: none;
+}
+
+.inner-container {
+  position: relative;
+}
+
+.carbon .carbon-code .inner-container,
+.carbon .carbon-code .embed-container {
+  height: 100%;
+}
+
+.carbon .carbon-code-read {
+  background-color: #1e1e1e;
+  font-size: 14px;
+  color: #D4D4D4;
+  position: relative;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding-left: 44px;
+  font-family: Menlo, Monaco, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
 }
 
 .carbon figure {
@@ -156,7 +189,7 @@
   height: 100%;
 }
 
-.carbon figure .embed-overlay {
+.carbon .embed-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -174,11 +207,12 @@
   height: 100%;
 }
 
-.carbon figure .embed-overlay {
+.carbon .embed-overlay,
+.carbon .embed-overlay {
   z-index: 9;
 }
 
-.carbon figure.editor-selected .embed-overlay {
+.carbon .editor-selected .embed-overlay {
   display: none;
 }
 
@@ -248,7 +282,7 @@
 }
 
 .carbon-editor .carbon figure.editor-selected img,
-.carbon-editor .carbon figure.editor-selected .inner-container {
+.carbon-editor .carbon .editor-selected .inner-container {
   border: 3px solid #FF5722 !important;
 }
 
@@ -258,7 +292,7 @@
 
 .carbon-editor .carbon figure img.over,
 .carbon-editor .carbon figure.editor-selected img.over,
-.carbon-editor .carbon figure .embed-overlay.over {
+.carbon-editor .carbon .embed-overlay.over {
   border: 3px dashed dodgerblue !important;
   transition: transform .5s;
   transform: scale(0.9);
@@ -266,13 +300,13 @@
 
 .carbon-editor .carbon figure img.over.over-right,
 .carbon-editor .carbon figure.editor-selected img.over.over-right,
-.carbon-editor .carbon figure .embed-overlay.over.over-right {
+.carbon-editor .carbon .embed-overlay.over.over-right {
   border-right: 3px dashed #FF5722 !important;
 }
 
 .carbon-editor .carbon figure img.over.over-left,
 .carbon-editor .carbon figure.editor-selected img.over.over-left,
-.carbon-editor .carbon figure .embed-overlay.over.over-left {
+.carbon-editor .carbon .embed-overlay.over.over-left {
   border-left: 3px dashed #FF5722 !important;
 }
 
@@ -322,16 +356,41 @@
   z-index: 10;
 }
 
+.carbon-editor .carbon-code {
+  position: relative;
+}
+
+.carbon-editor .carbon-code .component-config-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 0.6em;
+  margin: 0.5em;
+}
+
 @media (max-width: 500px) {
-  .carbon .layout-float-left figure {
+  .carbon .layout-float-left figure,
+  .carbon .layout-float-right .carbon-code {
     float: none;
     margin-right: auto;
     width: auto;
   }
 
-  .carbon .layout-float-right figure {
+  .carbon .layout-float-right figure,
+  .carbon .layout-float-right .carbon-code {
     float: none;
     margin-left: 2em;
     width: auto;
   }
+}
+
+
+/**
+ * Monaco Editor relies on a small textarea that keeps
+ * Jumping the browser when user types. This is to soften
+ * the effect.
+ */
+.monaco-editor textarea {
+  height: 100% !important;
+  line-height: 1000% !important;
 }

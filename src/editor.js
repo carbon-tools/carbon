@@ -620,6 +620,23 @@ Editor.prototype.handleKeyDownEvent = function(event) {
   var nextArrow = this.rtl ? leftKey : rightKey;
   var previousArrow = this.rtl ? rightKey : leftKey;
 
+  var offsetAfterOperation;
+  var currentComponent = selection.getComponentAtEnd();
+  var currentIndex = currentComponent.getIndexInSection();
+  var nextComponent = currentComponent.getNextComponent();
+  var prevComponent = currentComponent.getPreviousComponent();
+  var currentIsParagraph = currentComponent instanceof Paragraph;
+  var nextIsParagraph = nextComponent instanceof Paragraph;
+  var prevIsParagraph = prevComponent instanceof Paragraph;
+
+  for (var key in this.installedExtensions) {
+    var extension = this.installedExtensions[key];
+    var result = extension.onKeydown(event);
+    if (result) {
+      return;
+    }
+  }
+
   // Execute any debounced input handler right away to apply any
   // unupdated content before moving to other operations.
   if (event.keyCode === 13) {
@@ -686,15 +703,6 @@ Editor.prototype.handleKeyDownEvent = function(event) {
     var stopPropagationCodes = [13, 8, 46];
     preventDefault = stopPropagationCodes.indexOf(event.keyCode) !== -1;
   }
-
-  var offsetAfterOperation;
-  var currentComponent = selection.getComponentAtEnd();
-  var currentIndex = currentComponent.getIndexInSection();
-  var nextComponent = currentComponent.getNextComponent();
-  var prevComponent = currentComponent.getPreviousComponent();
-  var currentIsParagraph = currentComponent instanceof Paragraph;
-  var nextIsParagraph = nextComponent instanceof Paragraph;
-  var prevIsParagraph = prevComponent instanceof Paragraph;
 
   // Hide placeholders in paragraphs while. This is due to the way we debounce
   // updating the paragraph model until later.

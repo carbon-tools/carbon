@@ -104,13 +104,18 @@ Article.ELEMENT_CLASS_NAME = 'carbon';
  */
 Article.fromJSON = function(json) {
   var sections = [];
-  for (var i = 0; i < json.sections.length; i++) {
-    sections.push(Section.fromJSON(json.sections[i]));
-  }
-
-  return new Article({
+  var article = new Article({
     sections: sections,
   });
+  for (var i = 0; i < json.sections.length; i++) {
+    var section = Section.fromJSON(Utils.extend({
+      article: article,
+    }, json.sections[i]));
+    sections.push(section);
+  }
+
+  article.sections = sections;
+  return article;
 };
 
 

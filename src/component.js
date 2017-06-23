@@ -21,6 +21,8 @@ var Component = function(opt_params) {
   var params = Utils.extend({
     // The editor this component belongs to.
     editor: null,
+    // The article this component belongs to.
+    article: null,
     // The section this component is added to.
     section: null,
     // Generate a UID as a reference for this Component.
@@ -40,6 +42,12 @@ var Component = function(opt_params) {
    * @type {./editor}
    */
   this.editor = params.editor;
+
+  /**
+   * Editor this component is added it.
+   * @type {./article}
+   */
+  this.article = params.article;
 
   /**
    * This indicates if this component is part of an attachment that is being
@@ -115,6 +123,12 @@ var Component = function(opt_params) {
    * @type {boolean}
    */
   this.responsive = false;
+
+  /**
+   * Selection instance.
+   * @type {./selection}
+   */
+  this.selection = Selection.getInstance();
 };
 module.exports = Component;
 
@@ -407,4 +421,23 @@ Component.prototype.getHeight = function() {
  */
 Component.prototype.getWidth = function() {
   return this.width;
+};
+
+
+/**
+ * Whether the component can be laid out in different
+ * layouts.
+ * @return {boolean}
+ */
+Component.prototype.canBeLaidOut = function() {
+  return false;
+};
+
+
+/**
+ * Whether the component has its own state of selection.
+ * @return {boolean}
+ */
+Component.prototype.hasOwnSelection = function() {
+  return false;
 };

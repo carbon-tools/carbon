@@ -67,3 +67,7 @@ module.exports.UploadManager = require('./extensions/uploading/upload-manager');
 module.exports.CarbonUpUploader = require('./extensions/uploading/carbon-up-uploader/carbon-up-uploader');
 module.exports.FilePicker = require('./extensions/file-picker/file-picker');
 module.exports.DragDropFiles = require('./extensions/drag-drop-files/drag-drop-files');
+
+
+module.exports.CodeEditingExtension = require('./extensions/code-editing/code-editing');
+module.exports.MonacoEditor = require('./extensions/code-editing/editors/monaco-editor/monaco-editor');

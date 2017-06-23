@@ -5,11 +5,9 @@ var Selection = require('../selection');
 var Toolbar = require('../toolbars/toolbar');
 var Button = require('../toolbars/button');
 var I18n = require('../i18n');
-var Figure = require('../figure');
 var Layout = require('../layout');
 var Utils = require('../utils');
 var Loader = require('../loader');
-var EmbeddedComponent = require('./embedding/embeddedComponent');
 
 
 /**
@@ -76,19 +74,25 @@ LayoutingExtension.prototype.init = function() {
     label: I18n.get('button.layout.staged'),
     icon: I18n.get('button.layout.icon.staged'),
     name: 'layout-staged',
-  }, {
-    label: I18n.get('button.layout.left'),
-    icon: I18n.get('button.layout.icon.left'),
-    name: 'layout-float-left',
-  }, {
-    label: I18n.get('button.layout.right'),
-    icon: I18n.get('button.layout.icon.right'),
-    name: 'layout-float-right',
-  }, {
-    label: I18n.get('button.layout.grid'),
-    icon: I18n.get('button.layout.icon.grid'),
-    name: 'layout-responsive-grid',
   }];
+
+  // I don't like current float layouts. Need to figure something better.
+  // Maybe two column things.
+  // , {
+  //     label: I18n.get('button.layout.left'),
+  //     icon: I18n.get('button.layout.icon.left'),
+  //     name: 'layout-float-left',
+  //   }, {
+  //     label: I18n.get('button.layout.right'),
+  //     icon: I18n.get('button.layout.icon.right'),
+  //     name: 'layout-float-right',
+  //   }
+  // Grid layout doesn't make sense here.
+  // {
+  //   label: I18n.get('button.layout.grid'),
+  //   icon: I18n.get('button.layout.icon.grid'),
+  //   name: 'layout-responsive-grid',
+  // }
 
   for (var i = 0; i < buttons.length; i++) {
     var button = new Button({
@@ -103,6 +107,15 @@ LayoutingExtension.prototype.init = function() {
         'click', this.handleLayoutButtonClick.bind(this), false);
     this.toolbar.addButton(button);
   }
+
+  var deleteButton = new Button({
+    label: I18n.get('button.layout.delete'),
+    icon: I18n.get('button.layout.icon.delete'),
+    name: 'layout-delete',
+  });
+  deleteButton.addEventListener(
+      'click', this.handleDeleteButtonClicked.bind(this), false);
+  this.toolbar.addButton(deleteButton);
 
   // Register the toolbelt toolbar with the editor.
   this.editor.registerToolbar(LayoutingExtension.TOOLBAR_NAME, this.toolbar);
@@ -143,6 +156,25 @@ LayoutingExtension.TOOLBAR_CLASS_NAME = 'layouting-toolbar';
 /**
  * Handles clicking the insert button to expand the toolbelt.
  */
+LayoutingExtension.prototype.handleDeleteButtonClicked = function() {
+  var selectedComponent = this.editor.selection.getComponentAtStart();
+  var nextComponent = selectedComponent.getNextComponent();
+  var prevComponent = selectedComponent.getPreviousComponent();
+  var ops = selectedComponent.getDeleteOps();
+  this.editor.article.transaction(ops);
+  this.editor.dispatchEvent(new Event('change'));
+  if (nextComponent) {
+    nextComponent.select();
+  } else if (prevComponent) {
+    prevComponent.select();
+  } else {
+    this.toolbar.setVisible(false);
+  }
+};
+
+/**
+ * Handles clicking the insert button to expand the toolbelt.
+ */
 LayoutingExtension.prototype.handleLayoutButtonClick = function(e) {
   var target = e.detail.target;
   this.toolbar.setActiveButton(target);
@@ -164,8 +196,7 @@ LayoutingExtension.prototype.applyLayout = function(layoutName) {
   var component;
   var newLayout;
 
-  if (selectedComponent instanceof Figure ||
-      selectedComponent instanceof EmbeddedComponent) {
+  if (selectedComponent.canBeLaidOut()) {
     var currentLayout = /** @type {../layout} */ (selectedComponent.section);
     var componentIndexInLayout = selectedComponent.getIndexInSection();
     var isComponentAtStartOfLayout = componentIndexInLayout === 0;
@@ -290,8 +321,7 @@ LayoutingExtension.prototype.handleSelectionChangedEvent = function() {
   var selectedComponent = this.editor.selection.getComponentAtStart();
   // Refocus the component.
   selectedComponent.focus();
-  if ((selectedComponent instanceof Figure && !selectedComponent.isDataUrl) ||
-      selectedComponent instanceof EmbeddedComponent) {
+  if (selectedComponent.canBeLaidOut()) {
     var activeLayout = /** @type {../layout} */ (
         selectedComponent.section).type;
     var activeLayoutButton = this.toolbar.getButtonByName(activeLayout);

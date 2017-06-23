@@ -134,6 +134,12 @@
   font-size: 0.6em;
 }
 
+.editor-block-toolbar .editor-toolbar-buttons .code-button button {
+  padding: 0.3em 0.5em;
+  width: 7em;
+  font-size: 0.6em;
+}
+
 .editor-toolbar-buttons button:hover {
   background-color: #BF360C;
   color: #fff;
@@ -176,7 +182,8 @@
   display: inline-block;
 }
 
-.upload-button i {
+.upload-button i,
+.code-button i {
   padding: 0 5px;
 }
 

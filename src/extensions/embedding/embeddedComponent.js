@@ -693,3 +693,10 @@ EmbeddedComponent.prototype.getInsertOps = function(index, opt_cursorBeforeOp) {
 EmbeddedComponent.prototype.getLength = function() {
   return 1;
 };
+
+/**
+ * @override
+ */
+EmbeddedComponent.prototype.canBeLaidOut = function() {
+  return true;
+};

@@ -423,14 +423,22 @@ var SelectionSingletonAccessor = (function() {
   EditorSelection.prototype.updateSelectionFromWindow = function() {
     var selection = window.getSelection();
     var shouldReupdateWindowSelection = false;
+    // Update the selection start point.
+    var startNode = this.getStartComponentFromWindowSelection_(selection);
+    var startComponent = Utils.getReference(startNode.getAttribute('name'));
+    // For components that can handle their own selection don't update selection
+    // from window when it has focus.
+    if (this.getComponentAtStart().hasOwnSelection() &&
+        startComponent == this.getComponentAtStart()) {
+      console.log(startNode, this.getComponentAtStart());
+      return;
+    }
 
-      // Remove selected class from the already selected component.
+    // Remove selected class from the already selected component.
     if (this.start.component) {
       this.start.component.dom.classList.remove(SELECTED_CLASS);
     }
 
-      // Update the selection start point.
-    var startNode = this.getStartComponentFromWindowSelection_(selection);
     if (!startNode) {
       // This happen for example when clicking on elements margins and a node
       // is not discovered and instead the click target is the editor itself.
@@ -441,7 +449,6 @@ var SelectionSingletonAccessor = (function() {
       console.info('[Selection] Did not update selection from window.');
       return;
     }
-    var startComponent = Utils.getReference(startNode.getAttribute('name'));
     var startOffset = this.calculateStartOffsetFromWindowSelection_(
           selection);
     if (startComponent.components) {

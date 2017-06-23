@@ -89,11 +89,15 @@ Section.fromJSON = function(json) {
   for (var i = 0; i < json.components.length; i++) {
     var className = json.components[i].component;
     var ComponentClass = Loader.load(className);
-    components.push(ComponentClass.fromJSON(json.components[i]));
+    var component = ComponentClass.fromJSON(Utils.extend({
+      article: json.article,
+    }, json.components[i]));
+    components.push(component);
   }
 
   return new Section({
     name: json.name,
+    article: json.article,
     components: components,
   });
 };
