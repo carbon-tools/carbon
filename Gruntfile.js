@@ -32,6 +32,9 @@ module.exports = function(grunt) {
       // For use in browser. 'carbon' is going to be the name space.
       standalone: {
         options: {
+          transform: [
+            'browserify-versionify',
+          ],
           browserifyOptions: {
             standalone: 'carbon',
             debug: grunt.option('debug'),
@@ -44,6 +47,9 @@ module.exports = function(grunt) {
 
       thirdparty: {
         options: {
+          transform: [
+            'browserify-versionify',
+          ],
           browserifyOptions: {
             standalone: 'carbon3p',
             debug: grunt.option('debug'),

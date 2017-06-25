@@ -194,7 +194,7 @@ EmbeddedComponent.Types = {
  * Iframe URL to load third party embeds in (production).
  * @type {string}
  */
-EmbeddedComponent.IFRAME_URL = 'https://cdn.carbon.tools/iframe.html';
+EmbeddedComponent.IFRAME_URL = 'https://cdn.carbon.tools/__VERSION__/iframe.html';
 
 
 /**

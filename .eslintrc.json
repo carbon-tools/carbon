@@ -15,7 +15,7 @@
     "afterEach": false,
     "before": false,
     "after": false,
-    "AMP": false,
+    "__VERSION__": false,
     "assert": false,
     "sinon": true,
     "sandbox": true,

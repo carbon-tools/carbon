@@ -119,7 +119,7 @@ NoMagicEmbeddedComponent.Types = {
  * Iframe URL to load third party embeds in (production).
  * @type {string}
  */
-NoMagicEmbeddedComponent.IFRAME_URL = 'https://cdn.carbon.tools/nomagic-iframe.html';
+NoMagicEmbeddedComponent.IFRAME_URL = 'https://cdn.carbon.tools/__VERSION__/nomagic-iframe.html';
 
 
 /**
