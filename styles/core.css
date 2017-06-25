@@ -77,6 +77,7 @@
 .carbon .layout-responsive-grid .carbon-code {
   flex: auto;
   width: 30%;
+  align-self: flex-start;
 }
 
 .carbon .layout-responsive-grid .carbon-code {
@@ -87,6 +88,10 @@
   width: 100%;
   height: auto;
   padding: 4px;
+}
+
+.carbon .layout-responsive-grid figure iframe {
+  margin: 4px;
 }
 
 .carbon .layout-responsive-grid figure figcaption {

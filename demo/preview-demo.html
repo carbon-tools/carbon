@@ -19,6 +19,7 @@
     <script src="libs/webcamjs/webcam.js"></script>
     <script src="../dist/carbon.js"></script>
     <script>
+      carbon.MonacoEditor.setScriptPath('node_modules/monaco-editor/min/vs', true);
       var noembedProvider = new carbon.NoembedProvider();
       carbon.Loader.register('embedProviders', {
         noembed: noembedProvider,
