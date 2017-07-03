@@ -394,7 +394,7 @@ MonacoEditor.prototype.render = function(element, options) {
       this.containerDom.appendChild(this.selectionDom);
     }
     this.dom.appendChild(this.containerDom);
-    this.dom.style.height = this.preDom.offsetHeight + 'px';
+    this.dom.style.height = (this.preDom.offsetHeight + 30) + 'px';
     this.preDom.style.position = 'absolute';
 
     this.maybeLoadLoader_(function() {
@@ -443,10 +443,10 @@ MonacoEditor.prototype.embedEditor_ = function() {
     var totalLines = that.codeEditor_.getModel().getLineCount();
     lastLine.set(pos.lineNumber >= totalLines);
     firstLine.set(pos.lineNumber <= 1);
-    e.event.preventDefault();
+    that.dom.style.height = that.codeEditor_.getScrollHeight() + 'px';
   });
 
-  this.dom.style.height = this.codeEditor_.getScrollHeight() + 'px';
+  this.dom.style.height = (this.codeEditor_.getScrollHeight() + 30) + 'px';
 
   this.codeEditor_.addCommand(monaco.KeyCode.DownArrow, function() {
     var nextComponent = that.selection.getComponentAtStart()

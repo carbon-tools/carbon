@@ -430,7 +430,6 @@ var SelectionSingletonAccessor = (function() {
     // from window when it has focus.
     if (this.getComponentAtStart().hasOwnSelection() &&
         startComponent == this.getComponentAtStart()) {
-      console.log(startNode, this.getComponentAtStart());
       return;
     }
 

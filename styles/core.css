@@ -394,13 +394,3 @@
   }
 }
 
-
-/**
- * Monaco Editor relies on a small textarea that keeps
- * Jumping the browser when user types. This is to soften
- * the effect.
- */
-.monaco-editor textarea {
-  height: 100% !important;
-  line-height: 1000% !important;
-}
