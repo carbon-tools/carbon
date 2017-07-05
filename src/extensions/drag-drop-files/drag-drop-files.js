@@ -319,11 +319,27 @@ DragDropFiles.prototype.isDroppableOn_ = function(dragged, target) {
     return true;
   }
 
-  return target.isDropTarget && (
-    dragged === undefined ||
-    (dragged.getComponentClassName() === target.getComponentClassName() &&
-     (target.responsive === undefined || (target.responsive &&
-      dragged.responsive))));
+  if (!target.isDropTarget) {
+    return false;
+  }
+
+  if (!dragged) {
+    return true;
+  }
+
+  if (dragged.getComponentClassName() !== target.getComponentClassName()) {
+    return false;
+  }
+
+  if (target.responsive === undefined) {
+    return true;
+  }
+
+  if (target.responsive && dragged.responsive) {
+    return true;
+  }
+
+  return false;
 };
 
 

@@ -155,6 +155,9 @@ var Figure = function(opt_params) {
 
   this.isDropTarget = true;
   this.updateIsAttachment(this.isAttachment);
+
+  /** @export */
+  this.responsive = true;
 };
 Figure.prototype = Object.create(Component.prototype);
 module.exports = Figure;

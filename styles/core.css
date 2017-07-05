@@ -108,6 +108,7 @@
 }
 
 .carbon .carbon-code-read {
+  overflow-x: hidden;
   background-color: #1e1e1e;
   font-size: 14px;
   color: #D4D4D4;

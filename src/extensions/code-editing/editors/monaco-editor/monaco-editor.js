@@ -425,6 +425,8 @@ MonacoEditor.prototype.embedEditor_ = function() {
     autoSize: true,
   });
 
+  this.dom.style.height = (this.codeEditor_.getScrollHeight() + 30) + 'px';
+
   if (!this.editMode) {
     return;
   }
@@ -445,8 +447,6 @@ MonacoEditor.prototype.embedEditor_ = function() {
     firstLine.set(pos.lineNumber <= 1);
     that.dom.style.height = that.codeEditor_.getScrollHeight() + 'px';
   });
-
-  this.dom.style.height = (this.codeEditor_.getScrollHeight() + 30) + 'px';
 
   this.codeEditor_.addCommand(monaco.KeyCode.DownArrow, function() {
     var nextComponent = that.selection.getComponentAtStart()
