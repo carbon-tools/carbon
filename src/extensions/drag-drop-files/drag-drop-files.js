@@ -315,6 +315,10 @@ DragDropFiles.prototype.handleDragEnd_ = function() {
 
 
 DragDropFiles.prototype.isDroppableOn_ = function(dragged, target) {
+  if (!target) {
+    return true;
+  }
+
   if (target.getComponentClassName() == 'Paragraph') {
     return true;
   }
@@ -344,6 +348,10 @@ DragDropFiles.prototype.isDroppableOn_ = function(dragged, target) {
 
 
 DragDropFiles.prototype.canMergeIntoGrid_ = function(dragged, target) {
+  if (!target) {
+    return true;
+  }
+
   if (target.getComponentClassName() == 'Paragraph') {
     return false;
   }

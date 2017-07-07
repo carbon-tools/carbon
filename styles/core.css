@@ -405,6 +405,7 @@
   border-radius: 50%;
   padding-bottom: 25%;
   width: 25%;
+  box-sizing: content-box;
 }
 
 .carbon-attachment-inner .loader .checkmark {
