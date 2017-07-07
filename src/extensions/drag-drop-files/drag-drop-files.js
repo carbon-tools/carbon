@@ -347,10 +347,28 @@ DragDropFiles.prototype.canMergeIntoGrid_ = function(dragged, target) {
   if (target.getComponentClassName() == 'Paragraph') {
     return false;
   }
-  return target.isDropTarget &&
-    dragged.getComponentClassName() === target.getComponentClassName() &&
-    ((target.responsive === undefined && dragged.responsive === undefined) ||
-      (target.responsive && dragged.responsive));
+
+  if (!target.isDropTarget) {
+    return false;
+  }
+
+  if (!dragged && target.getComponentClassName() == 'Figure') {
+    return true;
+  }
+
+  if (dragged.getComponentClassName() !== target.getComponentClassName()) {
+    return false;
+  }
+
+  if (target.responsive === undefined && dragged.responsive === undefined) {
+    return true;
+  }
+
+  if (target.responsive && dragged.responsive) {
+    return true;
+  }
+
+  return false;
 };
 
 /**

@@ -90,7 +90,7 @@ module.exports = CarbonUpUploader;
 
 /** @override */
 CarbonUpUploader.prototype.onUpload = function(attachment) {
-  this.getUploadUrl_(this.upload_.bind(this, attachment));
+  this.getUploadUrl_(this.upload_.bind(this, attachment), attachment);
   return true;
 };
 
@@ -98,15 +98,18 @@ CarbonUpUploader.prototype.onUpload = function(attachment) {
 /**
  * Requests upload URLs for Carbon Up service and caches them.
  * @param {function(string)} uploadCallback If provided called with upload URL.
+ * @param {../../attachment} attachment
  * @private
  */
-CarbonUpUploader.prototype.getUploadUrl_ = function(uploadCallback) {
+CarbonUpUploader.prototype.getUploadUrl_ = function(
+    uploadCallback, attachment) {
   xhr.send({
     url: CARBON_UP_SERVICE_ENDPOINT,
     params: {
       'count': 1,
     },
     onSuccess: this.onFetchUrl_.bind(this, uploadCallback),
+    onError: attachment.uploadFailed.bind(attachment),
   });
 };
 
@@ -122,7 +125,7 @@ CarbonUpUploader.prototype.upload_ = function(attachment, uploadUrl) {
     url: uploadUrl,
     method: 'POST',
     files: [attachment.file],
-    onFail: attachment.uploadFailed.bind(attachment),
+    onError: attachment.uploadFailed.bind(attachment),
     onSuccess: this.onSuccess_.bind(this, attachment),
     onProgress: attachment.setUploadProgress.bind(attachment),
   });

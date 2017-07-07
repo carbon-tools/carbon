@@ -94,8 +94,17 @@
   margin: 4px;
 }
 
+.carbon-editor .carbon .layout-responsive-grid figure figcaption {
+  margin-bottom: 3px; /* account for transparent border */
+}
 .carbon .layout-responsive-grid figure figcaption {
-  display: none;
+  font-size: 12px;
+  position: absolute;
+  bottom: 0;
+  color: #fff;
+  background: linear-gradient(0, rgba(0,0,0,0.5), rgba(0,0,0,0));
+  text-align: center;
+  width: 100%;
 }
 
 .inner-container {
@@ -126,6 +135,7 @@
 }
 
 .carbon figure {
+  position: relative;
   margin: 2em 0;
   text-align: center;
   /* To fix the position of toolbar when div is floated */
@@ -343,15 +353,167 @@
   right: 0;
   bottom: 0;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
 }
 
-.carbon-attachment-progress-bar {
-  position: absolute;
-  top: 0;
-  height: 5px;
-  background: dodgerblue;
-  transition: width .5s ease-out;
+.carbon-attachment-status-container {
+  position: relative;
+  width: 100%;
+  font-size: 12px;
 }
+
+.carbon-attachment-status-message {
+  color: #fff;
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  text-align: center;
+  font-size: 1.5em;
+  line-height: 0;
+}
+
+.done .carbon-attachment-status-message {
+  display: none;
+}
+
+.carbon-attachment-inner.done .loader {
+  background: none;
+}
+
+.carbon-attachment-inner .loader {
+  border: 3px solid rgba(0, 0, 0, 0.2);
+  border-left-color: #FF5722;
+  background: rgba(0,0,0,0.2);
+  animation-name: loader-spin;
+  animation-duration: 1s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.carbon-attachment-inner .loader {
+}
+
+.carbon-attachment-inner .loader,
+.carbon-attachment-inner .loader:after {
+  border-radius: 50%;
+  padding-bottom: 25%;
+  width: 25%;
+}
+
+.carbon-attachment-inner .loader .checkmark {
+  display: none;
+}
+
+.carbon-attachment-inner.done .loader {
+  -webkit-animation: none;
+  animation: none;
+  border-color: #FF5722;
+  transition: border 500ms ease-out;
+}
+
+.carbon-attachment-inner.error {
+  pointer-events: initial;
+}
+
+.carbon-attachment-inner .retry-button {
+  display: none;
+  font-size: 1em;
+  background: #ff5722;
+  border: none;
+  color: #fff;
+  padding: 0.5em 2em;
+  margin-top: 1em;
+}
+
+.carbon-attachment-inner.error .retry-button {
+  display: block;
+}
+
+.carbon-attachment-inner.error .loader {
+  -webkit-animation: none;
+  animation: none;
+  border-color: #d81a1a;
+  background-color: #d81a1a;
+  transition: border 500ms ease-out;
+}
+
+.carbon-attachment-inner.done .loader .checkmark {
+  display: block;
+}
+
+.carbon-attachment-inner.done .loader .checkmark.draw:after {
+  animation-duration: 800ms;
+  animation-timing-function: ease;
+  animation-name: checkmark;
+  transform: scaleX(-1) rotate(135deg);
+}
+
+.carbon-attachment-inner.done .loader .checkmark:after {
+  /*opacity: 1;
+  height: 4em;
+  width: 2em;
+  transform-origin: left top;
+  border-right: 5px solid #FF5722;
+  border-top: 5px solid #FF5722;*/
+  /*border-right: 2px solid #5cb85c;*/
+  /*border-top: 2px solid #5cb85c;*/
+  /*content: '';
+  left: 2em;
+  top: 4em;
+  position: absolute;*/
+
+  opacity: 1;
+  height: 60%;
+  width: 25%;
+  transform-origin: left top;
+  border-right: 3px solid #FF5722;
+  border-top: 3px solid #FF5722;
+  /* border-right: 2px solid #5cb85c; */
+  /* border-top: 2px solid #5cb85c; */
+  content: '';
+  left: calc(50% - 35%);
+  top: 55%;
+  position: absolute;
+}
+
+@keyframes loader-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes checkmark {
+  0% {
+    height: 0;
+    width: 0;
+    opacity: 1;
+  }
+  20% {
+    height: 0;
+    width: 25%;
+    opacity: 1;
+  }
+  40% {
+    height: 60%;
+    width: 25%;
+    opacity: 1;
+  }
+  100% {
+    height: 60%;
+    width: 25%;
+    opacity: 1;
+  }
+}
+
 
 .drag-drop-anchor {
   top: -99999px;

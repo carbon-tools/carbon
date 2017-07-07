@@ -23,6 +23,7 @@ I18n.set('ar', 'button.gif' , 'أدخل GIF');
 I18n.set('ar', 'button.quiz' , 'أدخل عرض');
 I18n.set('ar', 'button.selfie' , 'نفصورة!');
 I18n.set('ar', 'button.code' , 'مصدر برمجي');
+I18n.set('en', 'button.attachment.retry' , 'إعادة محاولة رفع الصورة');
 
 // Layouting Toolbar Buttons.
 I18n.set('ar', 'button.layout.single' , 'خانة');
@@ -34,3 +35,6 @@ I18n.set('ar', 'button.layout.delete' , 'حذف');
 
 I18n.set('ar', 'regex.giphy', '^\\+جيفي\\s(.+[a-zA-Z])$');
 I18n.set('ar', 'regex.selfie', '^\\+(?:نفصور[ة|ه]|سي?لفي)$');
+
+I18n.set('ar', 'label.attachment.pending', 'قيد الانتظار...');
+I18n.set('ar', 'label.attachment.error', 'فشل رفع الصورة!');

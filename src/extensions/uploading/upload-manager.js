@@ -37,10 +37,28 @@ var UploadQueue = function(uploaders) {
   this.runningQueue_ = [];
 
   /**
+   * Queue of attachments that failed to upload.
+   */
+  this.failedQueue_ = [];
+
+  /**
    * @type {Array<./abstract-uploader>}
    * @private
    */
   this.uploaders_ = uploaders;
+};
+
+
+/**
+ * Return the status of each queue.
+ * @return {Object}
+ */
+UploadQueue.prototype.getStatus = function() {
+  return {
+    pending: this.queue_.length,
+    uploading: this.runningQueue_.length,
+    failed: this.failedQueue_.length,
+  };
 };
 
 
@@ -52,6 +70,7 @@ UploadQueue.prototype.add = function(attachment) {
   this.queue_.push({
     id: 'task-' + Utils.getUID(),
     attachment: attachment,
+    retryCount: -1,
   });
   this.start();
 };
@@ -65,7 +84,12 @@ UploadQueue.prototype.start = function() {
         this.runningQueue_.length < MAX_RUNNING_UPLOAD_TASKS) {
     var task = this.queue_.splice(0, 1)[0];
     this.runningQueue_.push(task);
-    task.attachment.onDone(this.taskComplete_.bind(this, task));
+    if (task.retryCount < 0) {
+      task.attachment.onDone(this.taskComplete_.bind(this, task));
+      task.attachment.onError(this.taskFailed_.bind(this, task));
+      task.attachment.onRetry(this.retryTask_.bind(this, task));
+      task.retryCount++;
+    }
     this.run(task);
   }
 };
@@ -82,6 +106,35 @@ UploadQueue.prototype.taskComplete_ = function(task) {
   this.start();
 };
 
+
+/**
+ * Removes a task from running queue and puts it in failed queue.
+ * @param {UploadTaskDef} task
+ */
+UploadQueue.prototype.taskFailed_ = function(task) {
+  console.log('upload task failed:', task.id);
+  var index = this.runningQueue_.indexOf(task);
+  this.runningQueue_.splice(index, 1);
+  this.failedQueue_.push(task);
+  this.start();
+};
+
+
+/**
+ * Removes a task from running queue and puts it in failed queue.
+ * @param {UploadTaskDef} task
+ */
+UploadQueue.prototype.retryTask_ = function(task) {
+  console.log('retrying failed upload task:', task.id);
+  var index = this.failedQueue_.indexOf(task);
+  if (index === -1) {
+    console.warn('Task was not found in failed queue...');
+    return;
+  }
+  this.failedQueue_.splice(index, 1);
+  this.queue_.push(task);
+  this.start();
+};
 
 /**
  * Reads the task attachment file content as Data URI.
@@ -177,6 +230,14 @@ UploadManager.CLASS_NAME = 'UploadManager';
  */
 UploadManager.ATTACHMENT_ADDED_EVENT_NAME = 'attachment-added';
 
+/**
+ * Returns the status of each queue in uploading.
+ * @return {Object}
+ */
+UploadManager.prototype.getStatus = function() {
+  return this.uploadQueue_.getStatus();
+};
+
 
 /**
  * Inserts Grid layout, figures and attachments and initiate uploading files.
@@ -197,12 +258,11 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
       !currentLayout.allowMoreItems()) {
     var numOfPhotos = 0;
     var remainingFilesCount = files.length;
+    var shouldInsertLayoutAfter = insertAfter;
     for (var i = 0; i < files.length; i += numOfPhotos) {
       var layout = this.layoutExtension_.newLayoutAt(
-          'layout-responsive-grid', componentRef, insertAfter);
-      // Update the component reference to the accurate one after a layout might
-      // have split and the component reference needs to update.
-      componentRef = Utils.getReference(atComponent.name);
+          'layout-responsive-grid', componentRef, shouldInsertLayoutAfter);
+      shouldInsertLayoutAfter = true;
       if (files.length <= 5) {
         numOfPhotos = files.length;
       } else {
@@ -219,6 +279,9 @@ UploadManager.prototype.attachFilesAt = function(files, atComponent,
         this.uploadQueue_.add(attachment);
         remainingFilesCount--;
       }
+      // Update the component reference to the accurate one after a layout might
+      // have split and the component reference needs to update.
+      componentRef = layout.getLastComponent(); //Utils.getReference(atComponent.name);
     }
   } else {
     var offsetIndex = insertAfter ? 1 : 0;

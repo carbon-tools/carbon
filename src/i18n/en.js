@@ -23,6 +23,7 @@ I18n.set('en', 'button.gif' , 'Insert GIF');
 I18n.set('en', 'button.quiz' , 'Insert Quiz or Slides');
 I18n.set('en', 'button.selfie' , 'Selfie!');
 I18n.set('en', 'button.code' , 'Code');
+I18n.set('en', 'button.attachment.retry' , 'Retry Upload');
 
 I18n.set('en', 'button.icon.upload' , 'fa fa-upload');
 I18n.set('en', 'button.icon.video' , 'fa fa-youtube-play');
@@ -53,3 +54,5 @@ I18n.set('en', 'button.layout.icon.delete' , 'fa fa-trash-o');
 I18n.set('en', 'regex.giphy', '^\\+giphy\\s(.+[a-zA-Z])$');
 I18n.set('en', 'regex.selfie', '^\\+selfie$');
 
+I18n.set('en', 'label.attachment.pending', 'Pending...');
+I18n.set('en', 'label.attachment.error', 'Upload Failed!');

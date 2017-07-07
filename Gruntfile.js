@@ -11,6 +11,7 @@ module.exports = function(grunt) {
 
     pkg: grunt.file.readJSON('package.json'),
     srcDir: 'src',
+    stylesDir: 'styles',
     buildDir: 'build',
     testDir: 'test',
     distDir: 'dist',
@@ -20,10 +21,10 @@ module.exports = function(grunt) {
 
     shell: {
       deployCDN: {
-        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools/<%= pkg.version %> && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/<%= pkg.version %>/*',
+        command: 'gsutil -m rsync -R <%= distDir %> gs://cdn.carbon.tools/<%= pkg.version %> && gsutil -m acl ch -u AllUsers:R gs://cdn.carbon.tools/<%= pkg.version %>/*',
       },
       deployLatest: {
-        command: 'gsutil rsync -R <%= distDir %> gs://cdn.carbon.tools/latest && gsutil acl ch -u AllUsers:R gs://cdn.carbon.tools/latest/*',
+        command: 'gsutil -m rsync -R <%= distDir %> gs://cdn.carbon.tools/latest && gsutil -m acl ch -u AllUsers:R gs://cdn.carbon.tools/latest/*',
       },
     },
 
@@ -145,7 +146,7 @@ module.exports = function(grunt) {
         singleRun: true,
         reporters: ['progress', 'coverage'],
         preprocessors: {
-          'src/{,*/}*.js': ['coverage'],
+          'src/**/*.js': ['coverage'],
         },
         coverageReporter: {
           reporters: [
@@ -159,9 +160,10 @@ module.exports = function(grunt) {
     watch: {
       dist: {
         files: [
-          '<%= srcDir %>/{,*/}*.js',
-          '<%= demoDir %>/{,*/}*.js',
-          '<%= demoDir %>/{,*/}*.css',
+          '<%= srcDir %>/**/*.js',
+          '<%= stylesDir %>/**/*.css',
+          '<%= demoDir %>/**/*.js',
+          '<%= demoDir %>/**/*.css',
         ],
         tasks: ['build'],
       },
@@ -173,9 +175,9 @@ module.exports = function(grunt) {
           livereload: '<%= connect.options.livereload %>',
         },
         files: [
-          '<%= srcDir %>/{,*/}*.html',
-          'styles/{,*/}*.css',
-          'images/{,*/}*.{png,jpg,jpeg,gif,webp,svg}',
+          '<%= srcDir %>/**/*.html',
+          'styles/**/*.css',
+          'images/**/*.{png,jpg,jpeg,gif,webp,svg}',
         ],
         tasks: [
           'clean',

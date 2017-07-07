@@ -1,6 +1,7 @@
 'use strict';
 
 var Utils = require('../utils');
+var I18n = require('../i18n');
 var Selection = require('../selection');
 var viewport = require('../utils/viewport');
 
@@ -54,6 +55,20 @@ var Attachment = function(opt_params) {
   this.onDoneListeners_ = [];
 
   /**
+   * Listeners to attachment upload failed.
+   * @type {Array<function>}
+   * @private
+   */
+  this.onErrorListeners_ = [];
+
+  /**
+   * Listeners to attachment upload retry.
+   * @type {Array<function>}
+   * @private
+   */
+  this.onRetryListeners_ = [];
+
+  /**
    * Attachment-related DOM.
    * @type {!Element}
    */
@@ -64,10 +79,44 @@ var Attachment = function(opt_params) {
    * Uploading progress bar UI.
    * @type {!Element}
    */
-  this.progressDom_ = document.createElement('div');
-  this.progressDom_.className = 'carbon-attachment-progress-bar';
+  // this.progressDom_ = document.createElement('div');
+  // this.progressDom_.className = 'carbon-attachment-progress-bar';
+  this.attachmentDom_.classList.add('pending');
 
-  this.attachmentDom_.appendChild(this.progressDom_);
+  /**
+   * Uploading status UI.
+   * @type {!Element}
+   */
+  this.statusDom_ = document.createElement('div');
+  this.statusDom_.className = 'carbon-attachment-status-container';
+
+  /**
+   * Uploading status loader.
+   * @type {!Element}
+   */
+  this.statusLoaderDom_ = document.createElement('div');
+  this.statusLoaderDom_.className = 'carbon-attachment-status-loader loader';
+  this.checkMarkDom_ = document.createElement('div');
+  this.checkMarkDom_.className = 'checkmark draw';
+  this.statusLoaderDom_.appendChild(this.checkMarkDom_);
+
+  /**
+   * Uploading status message.
+   * @type {!Element}
+   */
+  this.statusMessageDom_ = document.createElement('div');
+  this.statusMessageDom_.className = 'carbon-attachment-status-message';
+  this.statusMessageDom_.innerText = I18n.get('label.attachment.pending');
+
+  this.statusDom_.appendChild(this.statusLoaderDom_);
+  this.statusDom_.appendChild(this.statusMessageDom_);
+  // this.attachmentDom_.appendChild(this.progressDom_);
+  this.attachmentDom_.appendChild(this.statusDom_);
+  var retryButton = document.createElement('button');
+  retryButton.className = 'retry-button';
+  retryButton.innerText = I18n.get('button.attachment.retry');
+  retryButton.addEventListener('click', this.handleRetry_.bind(this));
+  this.attachmentDom_.appendChild(retryButton);
   this.figure.dom.appendChild(this.attachmentDom_);
 };
 module.exports = Attachment;
@@ -79,8 +128,12 @@ module.exports = Attachment;
  */
 Attachment.prototype.setUploadProgress = function(progress) {
   this.progress = progress;
+  this.statusMessageDom_.innerText = parseInt(progress, 10) + '%';
   requestAnimationFrame(function() {
-    this.progressDom_.style.width = progress + '%';
+    if (progress > 0) {
+      this.attachmentDom_.classList.remove('pending');
+      this.attachmentDom_.classList.add('uploading');
+    }
   }.bind(this));
 };
 
@@ -90,17 +143,25 @@ Attachment.prototype.setUploadProgress = function(progress) {
  * @param {Object=} data
  */
 Attachment.prototype.uploadComplete = function(data) {
-  this.setAttributes({
-    src: data.src,
-    srcset: data.srcset,
-    caption: data.caption,
-    isAttachment: false,
-  });
 
-  try {
-    this.figure.dom.removeChild(this.attachmentDom_);
-  } catch (unusedE) {
-  }
+  requestAnimationFrame(function() {
+    this.attachmentDom_.classList.remove('uploading');
+    this.attachmentDom_.classList.add('done');
+
+    this.setAttributes({
+      src: data.src,
+      srcset: data.srcset,
+      caption: data.caption,
+      isAttachment: false,
+    });
+
+    setTimeout(function() {
+      try {
+        this.figure.dom.removeChild(this.attachmentDom_);
+      } catch (unusedE) {
+      }
+    }.bind(this), 2000);
+  }.bind(this));
 
   for (var i = 0; i < this.onDoneListeners_.length; i++) {
     this.onDoneListeners_[i]();
@@ -113,7 +174,9 @@ Attachment.prototype.uploadComplete = function(data) {
  * @param {function} callback
  */
 Attachment.prototype.onDone = function(callback) {
-  this.onDoneListeners_.push(callback);
+  if (this.onDoneListeners_.indexOf(callback) === -1) {
+    this.onDoneListeners_.push(callback);
+  }
 };
 
 
@@ -122,6 +185,57 @@ Attachment.prototype.onDone = function(callback) {
  * TODO(mkhatib): Implement upload failed handler. Possibly allowing retries.
  */
 Attachment.prototype.uploadFailed = function() {
+  requestAnimationFrame(function() {
+    this.attachmentDom_.classList.remove('done');
+    this.attachmentDom_.classList.remove('pending');
+    this.attachmentDom_.classList.remove('uploading');
+    this.attachmentDom_.classList.add('error');
+    this.statusMessageDom_.innerText = I18n.get('label.attachment.error');
+  }.bind(this));
+
+  for (var i = 0; i < this.onErrorListeners_.length; i++) {
+    this.onErrorListeners_[i]();
+  }
+};
+
+
+/**
+ * Subscribes to be notified when the attachment upload is errored.
+ * @param {function} callback
+ */
+Attachment.prototype.onError = function(callback) {
+  if (this.onErrorListeners_.indexOf(callback) === -1) {
+    this.onErrorListeners_.push(callback);
+  }
+};
+
+
+/**
+ * Notify listenres to retry the upload.
+ */
+Attachment.prototype.handleRetry_ = function() {
+  requestAnimationFrame(function() {
+    this.attachmentDom_.classList.remove('done');
+    this.attachmentDom_.classList.remove('uploading');
+    this.attachmentDom_.classList.remove('error');
+    this.attachmentDom_.classList.add('pending');
+    this.statusMessageDom_.innerText = I18n.get('label.attachment.pending');
+  }.bind(this));
+
+  for (var i = 0; i < this.onRetryListeners_.length; i++) {
+    this.onRetryListeners_[i]();
+  }
+};
+
+
+/**
+ * Subscribes to be notified when the attachment upload is retried.
+ * @param {function} callback
+ */
+Attachment.prototype.onRetry = function(callback) {
+  if (this.onRetryListeners_.indexOf(callback) === -1) {
+    this.onRetryListeners_.push(callback);
+  }
 };
 
 
