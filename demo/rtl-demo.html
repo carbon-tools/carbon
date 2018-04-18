@@ -191,6 +191,12 @@
         ],
         ComponentClass: carbon.EmbeddedComponent
       });
+
+      editor.install(carbon.LinkEmbeddingExtension, {
+        parsingService: new carbon.CarbonParser({}),
+      });
+
+
       editor.render();
 
       var model = document.getElementById('model-viewer');

@@ -57,6 +57,10 @@ module.exports.NoembedProvider = require('./extensions/embedding/noembedProvider
 module.exports.CarbonEmbedProvider = require('./extensions/embedding/carbonEmbedProvider');
 module.exports.EmbeddingExtension = require('./extensions/embedding/embeddingExtension');
 
+module.exports.CarbonParser = require('./extensions/link-embedding/carbon-parser/carbon-parser');
+module.exports.EmbeddedLinkComponent = require('./extensions/link-embedding/embedded-link-component');
+module.exports.LinkEmbeddingExtension = require('./extensions/link-embedding/link-embedding');
+
 module.exports.SelfieExtension = require('./extensions/selfieExtension');
 
 module.exports.LayoutingExtension = require('./extensions/layoutingExtension');

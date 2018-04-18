@@ -56,3 +56,6 @@ I18n.set('en', 'regex.selfie', '^\\+selfie$');
 
 I18n.set('en', 'label.attachment.pending', 'Pending...');
 I18n.set('en', 'label.attachment.error', 'Upload Failed!');
+
+I18n.set('en', 'label.embeddedLink.titlePending', 'Loading title...');
+I18n.set('en', 'label.embeddedLink.descriptionPending', 'Loading description...');

@@ -145,6 +145,7 @@ Attachment.prototype.setUploadProgress = function(progress) {
 Attachment.prototype.uploadComplete = function(data) {
 
   requestAnimationFrame(function() {
+    this.attachmentDom_.classList.remove('pending');
     this.attachmentDom_.classList.remove('uploading');
     this.attachmentDom_.classList.add('done');
 

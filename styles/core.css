@@ -542,6 +542,67 @@
   margin: 0.5em;
 }
 
+
+.carbon.rtl .embedded-link a {
+  text-align: right;
+}
+
+.carbon .embedded-link a {
+  display: flex;
+  align-items: center;
+  background: #fafafa;
+  color: #1b1b1b;
+  box-shadow: 0 1px 5px -2px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.carbon .embedded-link a .thumb-container {
+  min-width: 150px;
+  max-width: 150px;
+  height: 150px;
+}
+
+.carbon .embedded-link a .url-meta {
+  color: #ccc;
+  font-size: 0.5em;
+}
+
+.carbon .embedded-link a .thumb-container,
+.carbon .embedded-link a .details-container {
+  padding: 1em;
+}
+
+.carbon .embedded-link a .details-container {
+  padding-left: 0;
+  padding-right: 1em;
+}
+
+.carbon.rtl .embedded-link a .details-container {
+  padding-right: 0;
+  padding-left: 1em;
+}
+
+.carbon .embedded-link a .thumb-container img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.carbon .embedded-link a h3,
+.carbon .embedded-link a p {
+  margin: 0;
+}
+
+.carbon .embedded-link a p {
+  color: #6b6b6b;
+  font-size: 0.8em;
+}
+
+.invisible {
+  visibility: hidden;
+}
+
 @media (max-width: 500px) {
   .carbon .layout-float-left figure,
   .carbon .layout-float-right .carbon-code {

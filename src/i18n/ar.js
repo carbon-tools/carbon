@@ -38,3 +38,7 @@ I18n.set('ar', 'regex.selfie', '^\\+(?:نفصور[ة|ه]|سي?لفي)$');
 
 I18n.set('ar', 'label.attachment.pending', 'قيد الانتظار...');
 I18n.set('ar', 'label.attachment.error', 'فشل رفع الصورة!');
+
+
+I18n.set('ar', 'label.embeddedLink.titlePending', 'العنوان قيد الإنتظار...');
+I18n.set('ar', 'label.embeddedLink.descriptionPending', 'الوصف قيد الإنتظار...');

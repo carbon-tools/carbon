@@ -300,6 +300,11 @@ Editor.prototype.render = function() {
     }
   }
   this.article.render(this.element, {editMode: true});
+
+  if (this.rtl) {
+    this.article.dom.classList.add('rtl');
+  }
+
   var firstLayout = /** @type {./layout} */ (this.article.sections[0]);
   var firstSection = /** @type {./section} */ (firstLayout.getFirstComponent());
   this.selection.setCursor({
