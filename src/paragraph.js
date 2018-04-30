@@ -328,6 +328,9 @@ Paragraph.prototype.updateInnerDom_ = function() {
     var formatEl = document.createElement(type);
     for (var attr in this.formats[i].attrs) {
       formatEl.setAttribute(attr, this.formats[i].attrs[attr]);
+      if (type === 'a') {
+        formatEl.target = '_blank';
+      }
     }
     Utils.setTextForElement(
         formatEl, this.text.substring(formatOpen, formatClose));
